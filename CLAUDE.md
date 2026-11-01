@@ -179,7 +179,7 @@ scratch directory for downloaded artifacts — it deliberately does not collide 
 ./test/cve-scan.sh [dir]          # known CVEs in the SBOMs, by grype (report only; the cve-scan job)
 ./test/cve-workbook.sh [dir]      # cve-scan.sh's reports as <dir>/cve.ods, by grind ($GRIND or PATH; CI builds it from main)
 ./test/cve-history.sh [amd64|arm64]  # the CVE count over the last builds on main, rescanned with one database, steps by update/other
-./test/cve-context.sh [dir]       # cve-scan.sh's findings with EPSS, CISA KEV, Debian/Ubuntu/Red Hat verdicts, grouped by triage hint (report)
+./test/cve-context.sh [dir]       # cve-scan.sh's findings (output/, else CI's newest; RUN=, ARCH=) with EPSS, CISA KEV, Debian/Ubuntu/Red Hat verdicts, grouped by triage hint (report)
 ./test/check-doc-links.sh         # relative links in the tracked markdown resolve
 ./test/check-image-files.sh       # each assembled image against test/image-files/: what must and must not ship
 ./test/check-tree-hygiene.sh <tree>  # nothing world-writable, no dangling symlink (build-rootfs.sh runs it on each flavour)
