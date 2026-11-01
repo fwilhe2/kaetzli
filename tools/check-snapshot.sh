@@ -10,14 +10,11 @@
 # concatenate them and open one pull request per entry with no idea which script produced
 # which.
 #
-# Two knobs, both about cadence rather than correctness:
-#
-#   MIN_AGE_DAYS  how old the pin has to be before a bump is proposed (default 30).
-#                 Debian publishes a dated sid image every two to three weeks, and every
-#                 bump invalidates the builder tag and with it all 36 packages' build
-#                 caches on both architectures — a full rebuild. That is a fine thing to
-#                 spend monthly and a waste to spend fortnightly, so this is what turns a
-#                 weekly cron into a monthly bump without a second schedule.
+# Any newer dated image is reported. How often that turns into a bump is the caller's
+# cadence, not this script's: update-packages.yml asks on Sundays only, because every
+# bump invalidates the builder tag and with it every package's build cache on both
+# architectures — a full rebuild, worth spending weekly for a current toolchain (sid's
+# Go, above all, which compiles every Go binary the extensions ship) and not nightly.
 #
 #   STALE_DAYS    how old the pin has to be before this says so loudly (default 90).
 #                 The failure mode of automation is silence: a checker that stops finding
@@ -27,7 +24,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-MIN_AGE_DAYS="${MIN_AGE_DAYS:-30}"
 STALE_DAYS="${STALE_DAYS:-90}"
 
 HUB_TAGS="https://hub.docker.com/v2/repositories/library/debian/tags?page_size=100&name=sid-"
@@ -76,8 +72,8 @@ if [ -z "$latest" ]; then
     exit 1
 fi
 
-# Said before the cadence gate, not after: a pin nobody has moved in three months is worth
-# hearing about whether or not a newer image happens to exist this week.
+# Said before the up-to-date answer, not after: a pin nobody has moved in three months is
+# worth hearing about whether or not a newer image happens to exist this week.
 if [ "$age_days" -ge "$STALE_DAYS" ]; then
     echo "warning: the Debian snapshot pin is $age_days days old ($current)" >&2
     echo "         bumps are proposed automatically, so this means they are not landing" >&2
@@ -89,12 +85,6 @@ if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort | tail -n1)" = "$current" 
     exit 0
 fi
 
-if [ "$age_days" -lt "$MIN_AGE_DAYS" ]; then
-    $JSON || printf '%-16s %-10s -> %-10s held: pin is %d days old, minimum is %d\n' \
-        debian-snapshot "$current" "$latest" "$age_days" "$MIN_AGE_DAYS"
-    emit_empty
-    exit 0
-fi
 
 url="https://hub.docker.com/_/debian/tags?name=sid-$latest"
 

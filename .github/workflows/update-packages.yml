@@ -48,6 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }} # lifts the GitHub API rate limit
           PACKAGES: ${{ inputs.packages }}
+          EVENT: ${{ github.event_name }}
         run: |
           # An upstream that can't be reached shouldn't stop the packages that can, so
           # the failures are reported at the end rather than aborting the run.
@@ -58,13 +59,21 @@ jobs:
           # iterates packages/*/env.sh and the Debian base is not one of those. Both emit
           # the same JSON shape, so the matrix below never learns which produced what.
           #
-          # It answers with an empty list far more often than it finds something — a bump
-          # is proposed only once the pin is older than MIN_AGE_DAYS, because every one of
-          # them invalidates the builder tag and with it all 36 packages' caches on both
-          # architectures. That is a monthly expense, not a weekly one, and this cron is
-          # weekly.
+          # Weekly, on Sundays: every snapshot bump invalidates the builder tag and with it
+          # every package's cache on both architectures, a full rebuild that is worth a
+          # current toolchain once a week and not every night. So the nightly schedule
+          # asks only on Sunday (UTC); auto-merge.yml takes the pull request as it takes
+          # any other, a day later if it is green and not labelled `hold`. A run started by
+          # hand asks whenever it is told to.
           echo '[]' > snapshot.json
-          if [ -z "$PACKAGES" ] || [[ " $PACKAGES " == *" debian-snapshot "* ]]; then
+          if [ "$EVENT" = schedule ]; then
+            [ "$(date -u +%u)" = 7 ] && snapshot=true || snapshot=false
+          elif [ -z "$PACKAGES" ] || [[ " $PACKAGES " == *" debian-snapshot "* ]]; then
+            snapshot=true
+          else
+            snapshot=false
+          fi
+          if $snapshot; then
             ./tools/check-snapshot.sh --json > snapshot.json 2> snapshot.err || failed=1
             [ -s snapshot.json ] || echo '[]' > snapshot.json
             # Its staleness warning is the one thing here worth an annotation rather than
