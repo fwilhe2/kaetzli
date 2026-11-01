@@ -177,10 +177,14 @@ make rootfs.config
 #     into a new one (init_on_alloc=1).
 #   SLAB_MERGE_DEFAULT off: a cache of its own per object type, so an overflow in one
 #     cannot reach another type's objects (slab_nomerge).
+#   LEGACY_TIOCSTI off: only CAP_SYS_ADMIN may push input into a terminal, so a process
+#     left on a terminal it shares (su, runuser, chroot --userspec) cannot type commands
+#     into the shell that started it (CVE-2016-2781 and its kind; dev.tty.legacy_tiocsti).
 cat > kernel/configs/kspp.config <<'EOF'
 CONFIG_SECURITY_YAMA=y
 CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
 # CONFIG_SLAB_MERGE_DEFAULT is not set
+# CONFIG_LEGACY_TIOCSTI is not set
 EOF
 make kspp.config
 
