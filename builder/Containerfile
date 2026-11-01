@@ -32,8 +32,8 @@
 # live. Pinning the inputs means they can be regenerated without either — and it makes the
 # content hash honest, since two builds of the same deps.txt now produce the same image
 # instead of merely claiming to.
-ARG SNAPSHOT=20261005
-FROM debian:sid-${SNAPSHOT}@sha256:c53e050391cca6c8517c4a075230b798a0f980faa5d3ed0a912249ea882e40b5
+ARG SNAPSHOT=20261027
+FROM debian:sid-${SNAPSHOT}@sha256:46e441d513e81eb6c04119061b4abe68a5bae6fa55fd42bf39147e7d2a548bf5
 
 # FROM consumed the outer ARG; redeclare it to use it in the build stage.
 ARG SNAPSHOT

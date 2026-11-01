@@ -8,8 +8,8 @@
 # the filesystem and strip decides what comes out of every ELF object. An unpinned
 # erofs-utils or binutils means the same tree produces a different image, which is the one
 # thing test/size-budget.txt has to be able to compare across runs.
-ARG SNAPSHOT=20261005
-FROM debian:sid-${SNAPSHOT}@sha256:c53e050391cca6c8517c4a075230b798a0f980faa5d3ed0a912249ea882e40b5
+ARG SNAPSHOT=20261027
+FROM debian:sid-${SNAPSHOT}@sha256:46e441d513e81eb6c04119061b4abe68a5bae6fa55fd42bf39147e7d2a548bf5
 
 ARG SNAPSHOT
 
