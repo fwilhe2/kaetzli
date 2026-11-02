@@ -64,7 +64,7 @@ extension all leave the guest running, and no test fails unless a unit ends up f
 4. `test/verity.sh` corrupts the image on purpose; set
    `CONSOLE_BAD_EXEMPT='device-mapper: verity'` there (and, if the kernel logs a stack
    for the I/O error, the matching part of that too).
-5. `test/boot.sh` runs `/bin/bash` as PID 1 and exits through a poweroff; check that it
+5. `test/boot.py` runs `/bin/bash` as PID 1 and exits through a poweroff; check that it
    still reaches the cleanup path that runs the check.
 
 **Verification:** run `test/systemd.sh` and `test/podman.sh` on a good build: they must

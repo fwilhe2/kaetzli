@@ -2,7 +2,8 @@
 
 **Status: proposal, partly implemented.** Implemented: items 1 to 5, the CVE reports,
 the SBOM, the size reports, the library checks and the policy checks, and item 6, whose
-`auto-merge.py` is in the shadow of `auto-merge.sh` (`python/`, see its README). CLAUDE.md (*Host-side code*)
+`auto-merge.py` is in the shadow of `auto-merge.sh` (`python/`, see its README). Item 7
+has begun: the harness, `kaetzli.qemu`, and its first client, `test/boot.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -195,7 +196,31 @@ expose its argv-building for interactive boots. Port it after 1–6 have settled
 module layout, and keep the bash and Python harnesses side by side until every boot test
 has moved.
 
-Dependencies: `pexpect`, `pytest`.
+Begun. `kaetzli.qemu` is the harness: `machine` builds the command line (qemu_setup,
+qemu_preflight, qemu_ssh_setup, qemu_var_disk, qemu_sysexts, qemu_argv) and `console`
+drives the guest (qemu_boot, await, console_login, fail, console_check) through
+pexpect's `PopenSpawn`, on pipes as the fifo was, so qemu sees no tty. Every wait sees
+only what came after the last match or `mark()`, so console_mark has nothing to forget.
+`test/boot.sh` is `test/boot.py` (`kaetzli.boot.smoke`), and on CI's image its output,
+statuses and exit codes were the bash version's in every case (a shell, no prompt, a
+deaf console, a dead init), in two seconds where bash, polling every two, took four (with KVM).
+
+The bash harness stays until the last test has moved, and the two are held together
+live: `test_qemu_machine.py` runs `qemu-lib.sh` on 14 shapes of machine (each profile,
+both arches, extensions, a `/var` disk, fw_cfg, ssh with a forward and a proxy) and on
+each refusal, and requires the same binary, argv, ssh_config and error lines, and the
+same QEMU_DIED, CONSOLE_BAD and login strings. Writing it found one difference to keep:
+an empty `QEMU_DISPLAY_ARGS=()` is unset to bash's `${x+set}`, so it keeps
+`-nographic`. The console is tested against a fake qemu (`tests/fixtures/qemu/`): a
+shell, a deaf console, a panic, a getty that drops what is typed at first.
+
+Next: the systemd-booting tests, one per pull request, starting with `systemd.sh`, the
+first user of `login`; then `tools/boot-qemu.sh` takes its command line from
+`kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`
+and `k8s-demo.sh`. Whether the tests become pytest functions sharing a booted machine
+is decided when there are enough of them to share one.
+
+Dependencies: `pexpect` (and `ptyprocess` through it), `pytest`.
 
 ### Later, or when touched
 

@@ -29,6 +29,9 @@ src/kaetzli/updates/ the update check: upstream (what upstream released), releas
 src/kaetzli/automerge.py
                      tools/auto-merge.py: merging the update pull requests; in the shadow
                      of tools/auto-merge.sh until they have agreed for a while
+src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the command
+                     line) and console (the running guest, on pexpect)
+src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py)
 src/kaetzli/licenses.py
                      test/check-licenses.py: every package's LICENSE, against
                      test/dfsg-licenses.txt

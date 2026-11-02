@@ -225,7 +225,7 @@ the library checks and the policy checks are done.
 ./tools/check-updates.py [pkg...] # what upstream has released since the pinned VERSION, VENDOR_VERSION and patch series
 ./tools/check-patches.sh [--version V] [pkg...]  # packages/<pkg>/patches apply to the tarball (seconds; no build)
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's patch series (bash53-NNN) or release branch (glibc)
-./test/boot.sh output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
+./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
 ./test/systemd.sh output/rootfs.erofs rootfs/boot/bzImage  # no failed units
 ./test/network.sh output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
 ./test/listeners.sh output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
@@ -508,16 +508,21 @@ machine's disk. Its sockets are in `$XDG_RUNTIME_DIR`, because a socket path is 
 to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `qemu_argv` hooks it uses; every test still exits on a guest reboot.
 
-`test/boot.sh` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.sh` asserts
+`test/boot.py` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.sh` asserts
 `running` (no failed unit), no taint and nothing at `err` or above in the journal.
-**All boots go through `test/qemu-lib.sh`**, which `tools/boot-qemu.sh` sources too, so
-debugging a CI failure boots the same machine. **Every boot's console is held to
+**All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
+sources too, so debugging a CI failure boots the same machine. Its Python twin,
+`kaetzli.qemu` (pexpect), is what `test/boot.py` uses, and the rest move to it one by one
+(`docs/proposals/host-scripting.md`, item 7); until then a change to one is a change to
+both, and `python/tests/test_qemu_machine.py` runs the bash harness to hold the command
+lines, patterns and login strings equal. **Every boot's console is held to
 `CONSOLE_BAD`** (kernel warnings, oopses, segfaults, emergency mode) when the test ends
 without having failed; a test that provokes one on purpose names it in
 `CONSOLE_BAD_EXEMPT`. `QEMU_PROFILE=microvm|vz` gives Firecracker's or
 Virtualization.framework's devices (`test/vmm.sh`). `tools/boot-vz.sh` runs on macOS:
 what it uses from `qemu-lib.sh` and `lib.sh` stays within bash 3.2 and BSD tools.
-**`await` only matches output after the mark it is given** — matching the whole
+**`await` only matches output after the mark it is given** (in `kaetzli.qemu` every wait
+sees only what follows the last match or `mark()`) — matching the whole
 transcript once typed the password into the username prompt, so suspect the handshake
 before `shadow` when a login fails.
 

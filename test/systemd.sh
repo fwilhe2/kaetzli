@@ -21,8 +21,8 @@
 # and kaetzlifetch, which is the only binary in usr/bin that anything in test/ ever runs
 # for its own sake.
 #
-# This is deliberately separate from test/boot.sh and test/network.sh rather than folded
-# into either: test/boot.sh proves the kernel and the loader work with a raw shell as
+# This is deliberately separate from test/boot.py and test/network.sh rather than folded
+# into either: test/boot.py proves the kernel and the loader work with a raw shell as
 # PID 1, test/network.sh proves addressing and DNS, and this proves systemd itself is
 # happy. Three failures that mean three different things stay three different tests —
 # what they share is the plumbing, which is test/qemu-lib.sh.

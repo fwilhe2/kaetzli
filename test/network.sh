@@ -13,7 +13,7 @@
 #   LOG        console transcript              (default network-test.log)
 #   LOGIN_USER                 serial console account (default root; no password, see console_login)
 #
-# Unlike test/boot.sh this has to run systemd: the addressing is systemd-networkd's job
+# Unlike test/boot.py this has to run systemd: the addressing is systemd-networkd's job
 # and the resolver is systemd-resolved's, so a raw shell as PID 1 would prove nothing.
 # That means logging in at the serial getty first, which takes no password when the
 # login.noauth credential is passed — test/qemu-lib.sh's console_login does that part.

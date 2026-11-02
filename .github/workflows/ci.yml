@@ -604,8 +604,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
 
+      # test/boot.py and what follows it into kaetzli.qemu (python/).
+      - *setup-python
+
       - name: Boot the image
-        run: ./test/boot.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/boot.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check that dm-verity refuses a tampered image
         run: ./test/verity.sh artifacts/rootfs.erofs rootfs/boot/bzImage

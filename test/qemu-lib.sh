@@ -14,6 +14,11 @@
 # ...and then drives the console with console_send / console_mark / await /
 # console_login. tools/boot-qemu.sh stops after qemu_argv and execs it instead, handing
 # the console to the terminal.
+#
+# kaetzli.qemu (python/) is the same harness in Python, which test/boot.py uses; the two
+# are side by side until every boot test has moved (docs/proposals/host-scripting.md,
+# item 7). A change here is a change there: python/tests/test_qemu_machine.py runs both
+# and requires the same command line, and the same QEMU_DIED, CONSOLE_BAD and login.
 
 source tools/lib.sh   # normalize_arch
 
@@ -23,7 +28,7 @@ MEM="${MEM:-1024}"
 CPUS="${CPUS:-2}"
 LOGIN_USER="${LOGIN_USER:-root}"
 
-# What a guest looks like on its way out. Matched by await and by test/boot.sh's own loop.
+# What a guest looks like on its way out. Matched by await; kaetzli.qemu.console has the same list.
 QEMU_DIED='Kernel panic|Attempted to kill init|Requesting system (poweroff|reboot)'
 
 # What must never appear on a console, whatever the test is about: a guest that logs one

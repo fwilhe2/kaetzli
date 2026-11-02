@@ -17,6 +17,11 @@ license-expression>=30.4.4
 #                2.3 model; brings rdflib, beartype, license-expression, click, pyyaml,
 #                xmltodict, ply, uritools, semantic-version (its other formats)
 spdx-tools>=0.8.5
+# pexpect       the qemu harness's console: a child's output waited on by pattern, each
+#               wait seeing only what came after the last match (kaetzli.qemu); its
+#               popen_spawn drives qemu over pipes, as the bash harness's fifo did; brings
+#               ptyprocess. Debian, Fedora and Alpine ship it
+pexpect>=4.9
 
 # Development: the tests, the lint, and the compiler of this lock (pinned like the rest,
 # so the workflow's recompile is the one a contributor runs).

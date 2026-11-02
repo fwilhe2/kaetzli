@@ -10,7 +10,7 @@
 # The other half is running it, which is cheap in a way the disk image never is: no qemu,
 # no boot, a second or two. It is also a weaker check by construction — the container runs
 # on the *host's* kernel, so this says nothing about packages/kernel and cannot replace
-# test/boot.sh. What it does prove is that the userspace we ship starts: the loader
+# test/boot.py. What it does prove is that the userspace we ship starts: the loader
 # resolves, our glibc runs binaries compiled against it, and the entrypoint is a shell.
 set -euo pipefail
 

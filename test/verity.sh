@@ -12,7 +12,7 @@
 # open whether the filesystem or verity caught it.
 #
 # Two things have to be true: the console carries device-mapper's corruption report, and
-# the guest never gets as far as a shell. test/boot.sh boots the same image untampered
+# the guest never gets as far as a shell. test/boot.py boots the same image untampered
 # with the same INIT, which is the control: if that passes and this fails the other way,
 # the difference is the byte.
 set -euo pipefail
