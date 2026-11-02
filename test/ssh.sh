@@ -15,7 +15,7 @@
 #   SSH_PORT   host port forwarded to the guest's 22 (default the first free from 2222)
 #   PREBUILT   directory from `test/prebuilt.sh build`; run its binaries in the guest
 #
-# Three rounds, layered so a failure says where it broke, the same way test/network.sh is.
+# Three rounds, layered so a failure says where it broke, the same way test/network.py is.
 #
 # The first asks whether the *daemon* is there — the unit is active, sshd-keygen.service
 # left a host key behind, and something is accepting connections on port 22. It uses
@@ -56,7 +56,7 @@ INIT="${INIT:-/usr/lib/systemd/systemd}"
 LOG="${LOG:-output/ssh-test.log}"
 TEST_NAME=ssh
 
-# Same marker trick as test/qemu-lib.sh and test/network.sh: the guest echoes back what is
+# Same marker trick as test/qemu-lib.sh and test/network.py: the guest echoes back what is
 # typed at the console until `stty -echo` has taken effect, so a marker must not appear
 # verbatim in the command that produces it. The guest's shell strips the quotes.
 DAEMON_MARKER="SSHD-IS-UP"
@@ -116,7 +116,7 @@ console_login
 
 echo ">> logged in, checking that sshd is up"
 
-# Retried, for the same reason test/network.sh retries its first round: sshd-keygen has an
+# Retried, for the same reason test/network.py retries its first round: sshd-keygen has an
 # RSA key to generate at every boot and multi-user.target is reached without waiting
 # for it. Re-asking costs nothing.
 until grep -qaF "$DAEMON_MARKER" "$LOG"; do

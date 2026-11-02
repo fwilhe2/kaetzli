@@ -1,0 +1,6 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, checking the network
+>> network OK: link routable, example.com resolved, TCP connection to example.com:80 accepted
+>> checking the tools a person logged in here would reach for
+>> tools OK: ip shows the lease and a default route, ping runs, curl https://example.com verified

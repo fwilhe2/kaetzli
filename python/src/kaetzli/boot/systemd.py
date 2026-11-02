@@ -18,8 +18,8 @@ on it is free: systemd's Tainted property, writes to the read-only root, the jou
 errors, the image's sysctls, a credential through fw_cfg, and kaetzlifetch, the only
 binary in usr/bin that anything in test/ runs for its own sake.
 
-This is deliberately separate from test/boot.py and test/network.sh: test/boot.py proves
-the kernel and the loader work with a raw shell as PID 1, test/network.sh proves
+This is deliberately separate from test/boot.py and test/network.py: test/boot.py proves
+the kernel and the loader work with a raw shell as PID 1, test/network.py proves
 addressing and DNS, and this proves systemd itself is happy. Three failures that mean
 three different things stay three tests; what they share is the harness, kaetzli.qemu.
 

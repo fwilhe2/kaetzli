@@ -227,7 +227,7 @@ the library checks and the policy checks are done.
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's patch series (bash53-NNN) or release branch (glibc)
 ./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
 ./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg
-./test/network.sh output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
+./test/network.py output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
 ./test/listeners.sh output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
 ./test/ssh.sh output/rootfs.erofs rootfs/boot/bzImage        # sshd, in-guest and from the host (PREBUILT=dir: and those binaries)
 ./test/container.sh output/rootfs.erofs rootfs/boot/bzImage  # crun starts a container
@@ -512,7 +512,7 @@ to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `running` (no failed unit), no taint and nothing at `err` or above in the journal.
 **All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
 sources too, so debugging a CI failure boots the same machine. Its Python twin,
-`kaetzli.qemu` (pexpect), is what `test/boot.py` and `test/systemd.py` use, and the rest move to it one by one
+`kaetzli.qemu` (pexpect), is what `test/boot.py`, `systemd.py` and `network.py` use, and the rest move to it one by one
 (`docs/proposals/host-scripting.md`, item 7); until then a change to one is a change to
 both, and `python/tests/test_qemu_machine.py` runs the bash harness to hold the command
 lines, patterns and login strings equal. **Every boot's console is held to
@@ -538,7 +538,7 @@ before `shadow` when a login fails.
   [!UNAVAIL=return] files myhostname dns`: resolved's NOTFOUND is final, resolved *not
   running* falls through.
 - **Networking** is networkd (`20-wired.network`, `en*`/`eth*`) and resolved.
-  `test/network.sh` runs **two rounds**: builtins only (does it have a network?), then
+  `test/network.py` runs **two rounds**: builtins only (does it have a network?), then
   `ip`, `ping`, `curl` over TLS (can someone use it?). Keep them apart. `ping` targets
   `127.0.0.1` because qemu user networking forwards ICMP only if the host allows it; a
   sysctl (`50-ping-group-range.conf`), not a capability, lets non-root ping.

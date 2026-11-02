@@ -1,0 +1,10 @@
+[
+ [
+  "networkctl --no-pager status",
+  "Link 2 (ens3) routable\n"
+ ],
+ [
+  "ip -4 address show",
+  "inet 10.0.2.15/24\n"
+ ]
+]

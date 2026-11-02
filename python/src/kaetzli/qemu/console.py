@@ -203,6 +203,22 @@ class Guest:
             if status == "exited":
                 self.fail("qemu exited")
 
+    def retry(self, command: str, pattern: str, every: float, failure: str) -> None:
+        """Type `command` every `every` seconds until `pattern` answers; at the deadline,
+        fail with `failure`. For checks that pass once something in the guest has
+        settled (a lease, a unit): re-running them costs nothing."""
+        while not self.seen(pattern):
+            if self.clock() >= self.deadline:
+                self.fail(failure)
+            self.send(command)
+            status = self.watch(pattern, min(every, self.deadline - self.clock()))
+            if status == "match":
+                return
+            if status == "died":
+                self.fail("the guest died")
+            if status == "exited":
+                self.fail("qemu exited")
+
     # console_login
 
     def login(self, user: str = "root") -> None:

@@ -12,7 +12,7 @@
 #   LOG        console transcript (default container-test.log)
 #   LOGIN_USER                   serial console account (default root; no password, see console_login)
 #
-# Like test/network.sh this boots systemd rather than a raw shell: crun asks systemd
+# Like test/network.py this boots systemd rather than a raw shell: crun asks systemd
 # over sd-bus to create the cgroup v2 scope, so PID 1 is part of what is under test.
 #
 # The checks are layered so a failure says where it broke:

@@ -1,0 +1,11 @@
+>> network test FAILED: the guest died
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+[   9.0] Kernel panic - not syncing: oops
+Link 2 (ens3) routable
+inet 10.0.2.15/24

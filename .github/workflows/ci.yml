@@ -617,7 +617,7 @@ jobs:
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check networking
-        run: ./test/network.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/network.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check what listens on the network
         run: ./test/listeners.sh artifacts/rootfs.erofs rootfs/boot/bzImage

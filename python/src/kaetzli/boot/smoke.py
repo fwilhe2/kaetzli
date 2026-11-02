@@ -16,7 +16,7 @@ for the output to come back. That is a deliberately low bar — it proves the ke
 mounted the root filesystem, exec'd userspace and that the dynamic loader resolved a
 real binary's libraries, which is exactly what a bad package update breaks — and keeping
 systemd out of it keeps that failure distinguishable from a unit that didn't start.
-test/network.sh is the one that boots systemd for real.
+test/network.py is the one that boots systemd for real.
 
 This is the one test that does not log in: PID 1 *is* the shell, so there is no getty
 for Guest.login to talk to, and the loop below types at the prompt directly.
