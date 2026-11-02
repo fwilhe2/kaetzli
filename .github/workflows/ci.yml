@@ -604,7 +604,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
 
-      # test/boot.py and what follows it into kaetzli.qemu (python/).
+      # The Python boot tests run in python/'s venv (kaetzli.qemu).
       - *setup-python
 
       - name: Boot the image
@@ -614,7 +614,7 @@ jobs:
         run: ./test/verity.sh artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check for failed units, and say hello
-        run: ./test/systemd.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check networking
         run: ./test/network.sh artifacts/rootfs.erofs rootfs/boot/bzImage

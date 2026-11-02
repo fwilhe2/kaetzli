@@ -152,4 +152,4 @@ done
 echo
 echo "done:"
 ls -lh output/rootfs.erofs output/kaetzli-oci.tar output/extensions/*.raw output/confexts/*.raw 2>/dev/null || true
-echo "boot it:  ./tools/boot-qemu.sh   (or ./test/systemd.sh output/rootfs.erofs rootfs/boot/bzImage)"
+echo "boot it:  ./tools/boot-qemu.sh   (or ./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage)"

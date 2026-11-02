@@ -1,4 +1,4 @@
-# Journal messages at priority err or above that test/systemd.sh accepts on a booted
+# Journal messages at priority err or above that test/systemd.py accepts on a booted
 # image: one extended regular expression per line, matched anywhere in a line of
 # `journalctl -b -p err -o short`, with a comment above each saying why it is accepted.
 #

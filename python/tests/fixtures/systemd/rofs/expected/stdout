@@ -1,0 +1,7 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, waiting for systemd to finish starting
+>> systemd OK: system is running, no failed units
+>> systemd OK: taint string is empty
+   Jan 01 systemd[1]: Failed to create /etc/x: Read-only file system
+   Jan 01 foo[9]: open /etc/y: Read-only file system

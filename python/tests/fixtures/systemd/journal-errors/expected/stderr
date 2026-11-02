@@ -1,0 +1,16 @@
+>> systemd test FAILED: the journal has error messages (above) that test/known-journal-messages.txt does not accept
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+SYSTEMD-STATE:running
+SYSTEMD-TAINT:[Tainted=]
+SYSTEMD-ROFS:[0]
+ERRS> Jan 01 kaetzli foo[12]: something broke
+ERRS> Jan 01 kaetzli bar[13]: so did this
+SYSTEMD-ERRS:[2]
+UNIT LOAD ACTIVE SUB DESCRIPTION
+foo.service loaded failed failed Foo

@@ -31,7 +31,8 @@ src/kaetzli/automerge.py
                      of tools/auto-merge.sh until they have agreed for a while
 src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the command
                      line) and console (the running guest, on pexpect)
-src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py)
+src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py), systemd
+                     (test/systemd.py)
 src/kaetzli/licenses.py
                      test/check-licenses.py: every package's LICENSE, against
                      test/dfsg-licenses.txt

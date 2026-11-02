@@ -67,7 +67,7 @@ extension all leave the guest running, and no test fails unless a unit ends up f
 5. `test/boot.py` runs `/bin/bash` as PID 1 and exits through a poweroff; check that it
    still reaches the cleanup path that runs the check.
 
-**Verification:** run `test/systemd.sh` and `test/podman.sh` on a good build: they must
+**Verification:** run `test/systemd.py` and `test/podman.sh` on a good build: they must
 still pass. Then prove the check works with a throwaway line in one test's guest
 commands, `echo 'WARNING: CPU: 0 PID: 1 at fake' > /dev/kmsg`, which must fail the test
 with the pattern's description. Do not commit that line. Since the check lives in the
@@ -80,7 +80,7 @@ a few runs are clean.
 
 ## 2. Fail on critical journal messages
 
-*Implemented:* `CRIT_CHECK` in `test/systemd.sh`, against
+*Implemented:* `CRIT_CHECK` in `test/systemd.py`, against
 `test/known-journal-messages.txt`, which starts empty. It checks `-p err` (step 4) since
 the commit after it: a KVM boot logged nothing at either priority.
 
@@ -88,14 +88,14 @@ the commit after it: a KVM boot logged nothing at either priority.
 critical error messages journalctl"* (around line 150), which runs
 `journalctl -p crit -b` in the booted machine and requires empty output.
 
-**Gap:** `test/systemd.sh` asserts `is-system-running`, the taint string and the absence
+**Gap:** `test/systemd.py` asserts `is-system-running`, the taint string and the absence
 of *Read-only file system*. It runs `journalctl -p err -b` only as part of `DIAGNOSE`,
 after something already failed. A daemon that logs a critical error and keeps running
 passes.
 
 **Implementation:**
 
-1. In `test/systemd.sh`, add a check in the same style as `ROFS_CHECK`: run
+1. In `test/systemd.py`, add a check in the same style as `ROFS_CHECK`: run
    `journalctl -b -p crit --no-pager -o short`, count the lines, and print them prefixed
    with a marker (`CRIT> `) followed by `SYSTEMD-CRIT:[<n>]`, so the host side can match
    the count without matching its own typed command (see the `await` note in `CLAUDE.md`).
@@ -202,7 +202,7 @@ fixtures.
 ## 5. Hardening sysctls and kernel arguments
 
 *Implemented:* `image/files/etc/sysctl.d/50-hardening.conf`, read back by
-`test/systemd.sh`. `kernel.kptr_restrict = 2` broke `perf probe` in `test/debug.sh` as
+`test/systemd.py`. `kernel.kptr_restrict = 2` broke `perf probe` in `test/debug.sh` as
 predicted, so it is 1. There is no `vm.unprivileged_userfaultfd` to set (`USERFAULTFD`
 is off). Step 3 is in the kernel config, as preferred: `kspp.config` in
 `packages/kernel/build.sh` turns on `SECURITY_YAMA` (for `kernel.yama.ptrace_scope`) and
@@ -262,17 +262,17 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    command line is supplied by the host and can be changed there.
 4. Add `present` lines to a new `test/image-files/hardening.txt` for
    `etc/sysctl.d/50-hardening.conf`, so the file cannot be dropped silently.
-5. Add a check to `test/systemd.sh` (or the new listeners test) that reads a few of the
+5. Add a check to `test/systemd.py` (or the new listeners test) that reads a few of the
    values back with `sysctl -n` in the guest, because a shipped file that systemd-sysctl
    failed to apply looks the same as one that worked.
 
-**Verification:** `test/systemd.sh`, `test/rootless.sh`, `test/podman.sh`, `test/debug.sh`
+**Verification:** `test/systemd.py`, `test/rootless.sh`, `test/podman.sh`, `test/debug.sh`
 and `test/k8s.sh` all pass. `test/debug.sh` is the one most likely to notice.
 
 ## 6. Limits that containers and Kubernetes need
 
 *Implemented:* `image/files/etc/sysctl.d/50-containers.conf`, read back by
-`test/systemd.sh`. A sysrq crash with `kernel.panic = 10` still ends the test as "the
+`test/systemd.py`. A sysrq crash with `kernel.panic = 10` still ends the test as "the
 guest died". `kernel.pid_max` was already raised by systemd's own `50-pid-max.conf`.
 
 **Inspiration:** Talos,
@@ -313,7 +313,7 @@ to start. With no `kernel.panic`, a panicked node hangs forever instead of reboo
 3. Mention the file in the `ip_forward` neighbourhood of `CLAUDE.md` only if it turns out
    to have a pitfall; otherwise the comments in the file are enough.
 
-**Verification:** `test/systemd.sh`, `test/k8s.sh`, `test/node-conformance.sh`. Confirm
+**Verification:** `test/systemd.py`, `test/k8s.sh`, `test/node-conformance.sh`. Confirm
 `kernel.panic` does not change how the `QEMU_DIED` tests report a panic.
 
 ## 7. An SBOM that vulnerability scanners can match

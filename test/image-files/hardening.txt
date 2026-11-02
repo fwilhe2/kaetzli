@@ -1,8 +1,8 @@
-# The KSPP sysctls (image/files/etc/sysctl.d/50-hardening.conf). test/systemd.sh reads a
+# The KSPP sysctls (image/files/etc/sysctl.d/50-hardening.conf). test/systemd.py reads a
 # few back in the guest; this keeps the file from being dropped. erofs only: a container
 # gets the host's kernel and its sysctls.
 present:erofs etc/sysctl.d/50-hardening.conf
 
 # The limits a container host outgrows (image/files/etc/sysctl.d/50-containers.conf),
-# read back by test/systemd.sh too.
+# read back by test/systemd.py too.
 present:erofs etc/sysctl.d/50-containers.conf

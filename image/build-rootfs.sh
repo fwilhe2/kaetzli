@@ -520,7 +520,7 @@ ldconfig -r "$IMAGE" || true
 # ---------------------------------------------------------------------------------
 # First boot, done here: /etc is read-only on EROFS, and the units that would write it
 # are ConditionNeedsUpdate=/etc and skip. A missed step shows as "Read-only file system"
-# in the journal, which test/systemd.sh fails on.
+# in the journal, which test/systemd.py fails on.
 #
 # With our systemd, through our loader: --library-path outranks its absolute RUNPATH,
 # which would resolve inside this container. A binary it cannot open is reported as

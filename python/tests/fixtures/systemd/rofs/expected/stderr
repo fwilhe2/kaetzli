@@ -1,0 +1,15 @@
+>> systemd test FAILED: 2 journal line(s) report a write to the read-only root (above) — see 'First boot happens in build-rootfs.sh' in CLAUDE.md
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+SYSTEMD-STATE:running
+SYSTEMD-TAINT:[Tainted=]
+ROFS> Jan 01 systemd[1]: Failed to create /etc/x: Read-only file system
+ROFS> Jan 01 foo[9]: open /etc/y: Read-only file system
+SYSTEMD-ROFS:[2]
+UNIT LOAD ACTIVE SUB DESCRIPTION
+foo.service loaded failed failed Foo

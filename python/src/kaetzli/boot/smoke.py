@@ -27,8 +27,8 @@ from __future__ import annotations
 import os
 import sys
 
-from kaetzli import repo
-from kaetzli.qemu import Failed, Guest, Machine, Refused, refuse
+from kaetzli.boot import boot, run
+from kaetzli.qemu import Guest
 
 # The marker must not appear in the command that produces it: the guest echoes back
 # everything typed at the console, and matching our own input would pass every time.
@@ -91,26 +91,13 @@ def _after_marker(log: bytes) -> bytes:
 
 
 def main(argv: list[str]) -> int:
-    repo.enter_root()
-    env = os.environ
-    rootfs = argv[0] if argv else env.get("ROOTFS") or "output/rootfs.erofs"
-    kernel = argv[1] if len(argv) > 1 else env.get("KERNEL") or "rootfs/boot/bzImage"
-    init = env.get("INIT") or "/bin/bash"
-    log = env.get("LOG") or "output/boot-test.log"
-    prompt = env.get("PROMPT") or "bash-[0-9]"
-    timeout = env.get("TIMEOUT") or "300"
+    b = boot(argv, init="/bin/bash", log="output/boot-test.log")
+    prompt = os.environ.get("PROMPT") or "bash-[0-9]"
 
-    machine = Machine.from_env(rootfs=rootfs, kernel=kernel, init=init)
-    try:
-        machine.setup()
-        machine.preflight()
-        argv_ = machine.argv()
-    except Refused as e:
-        return refuse(e)
-
-    print(f">> booting {rootfs} with {kernel} (init={init}), waiting up to {timeout}s", flush=True)
-    try:
-        with Guest(machine.qemu, argv_, log, float(timeout), name="boot") as guest:
+    def test() -> None:
+        b.machine.setup()
+        b.machine.preflight()
+        with b.guest("boot") as guest:
             status = smoke(guest, prompt)
             if status != "ok":
                 guest.fail(status)
@@ -118,9 +105,8 @@ def main(argv: list[str]) -> int:
             print(">> boot OK", flush=True)
             sys.stdout.buffer.write(_after_marker(guest.log.read_bytes()))
             sys.stdout.flush()
-    except Failed:
-        return 1
-    return 0
+
+    return run(test)
 
 
 if __name__ == "__main__":

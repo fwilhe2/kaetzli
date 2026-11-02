@@ -1,0 +1,17 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, waiting for systemd to finish starting
+>> systemd OK: system is running, no failed units
+>> systemd OK: taint string is empty
+>> systemd OK: nothing tried to write to the read-only root
+>> systemd OK: no errors in the journal
+>> systemd OK: the image's sysctls are applied
+>> systemd OK: a credential arrived through fw_cfg
+>> kaetzlifetch says:
+   
+         /\_/\      root@kaetzli
+        ( o.o )     Host: q
+                    Image: c4927070eaaa (verity root hash)
+                    Root: erofs, read-only, dm-verity
+                    State: in memory (/var is tmpfs, lost at shutdown)
+   

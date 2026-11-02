@@ -226,7 +226,7 @@ the library checks and the policy checks are done.
 ./tools/check-patches.sh [--version V] [pkg...]  # packages/<pkg>/patches apply to the tarball (seconds; no build)
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's patch series (bash53-NNN) or release branch (glibc)
 ./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
-./test/systemd.sh output/rootfs.erofs rootfs/boot/bzImage  # no failed units
+./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg
 ./test/network.sh output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
 ./test/listeners.sh output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
 ./test/ssh.sh output/rootfs.erofs rootfs/boot/bzImage        # sshd, in-guest and from the host (PREBUILT=dir: and those binaries)
@@ -494,7 +494,7 @@ the machine boots `running` with no network. `99-default.preset` is `disable *`;
 that wants its unit running ships the `.wants` link itself (openssh, dbus). These tools are
 ours, run through our loader with `--library-path` (their RUNPATH would resolve inside the
 container). **A package that writes `/etc` at boot breaks the image**, seen only as
-*Read-only file system* in the journal, which `test/systemd.sh` fails on. The build also
+*Read-only file system* in the journal, which `test/systemd.py` fails on. The build also
 ships an empty `/etc/machine-id` for PID 1 to bind-mount a per-boot id over, and `/` at
 0555 so tmpfiles does not try to `fchmod` it. The journal catalogue is compiled at boot by
 `systemd-journal-catalog-update` (`/var` starts empty), not here.
@@ -508,11 +508,11 @@ machine's disk. Its sockets are in `$XDG_RUNTIME_DIR`, because a socket path is 
 to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `qemu_argv` hooks it uses; every test still exits on a guest reboot.
 
-`test/boot.py` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.sh` asserts
+`test/boot.py` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.py` asserts
 `running` (no failed unit), no taint and nothing at `err` or above in the journal.
 **All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
 sources too, so debugging a CI failure boots the same machine. Its Python twin,
-`kaetzli.qemu` (pexpect), is what `test/boot.py` uses, and the rest move to it one by one
+`kaetzli.qemu` (pexpect), is what `test/boot.py` and `test/systemd.py` use, and the rest move to it one by one
 (`docs/proposals/host-scripting.md`, item 7); until then a change to one is a change to
 both, and `python/tests/test_qemu_machine.py` runs the bash harness to hold the command
 lines, patterns and login strings equal. **Every boot's console is held to

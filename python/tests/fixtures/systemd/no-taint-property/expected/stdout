@@ -1,0 +1,4 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, waiting for systemd to finish starting
+>> systemd OK: system is running, no failed units

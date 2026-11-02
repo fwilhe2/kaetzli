@@ -1,0 +1,34 @@
+[
+ [
+  "is-system-running",
+  "SYSTEMD-STATE:running\n"
+ ],
+ [
+  "Tainted",
+  "SYSTEMD-TAINT:[Tainted=]\n"
+ ],
+ [
+  "Read-only file system",
+  "ROFS> Jan 01 systemd[1]: Failed to create /etc/x: Read-only file system\nROFS> Jan 01 foo[9]: open /etc/y: Read-only file system\nSYSTEMD-ROFS:[2]\n"
+ ],
+ [
+  "journalctl -b -q -p err",
+  "SYSTEMD-ERRS:[0]\n"
+ ],
+ [
+  "/proc/sys",
+  "SYSCTL> kernel/kptr_restrict=1\nSYSCTL> kernel/dmesg_restrict=1\nSYSCTL> kernel/unprivileged_bpf_disabled=1\nSYSCTL> kernel/yama/ptrace_scope=1\nSYSCTL> dev/tty/legacy_tiocsti=0\nSYSCTL> fs/protected_regular=2\nSYSCTL> fs/protected_fifos=2\nSYSCTL> fs/inotify/max_user_instances=8192\nSYSCTL> vm/max_map_count=262144\nSYSCTL> fs/aio-max-nr=1048576\nSYSCTL> kernel/panic=10\nSYSTEMD-SYSCTL-DONE\n"
+ ],
+ [
+  "fwcfg-probe",
+  "SYSTEMD-FWCFG:[delivered]\n"
+ ],
+ [
+  "kaetzlifetch",
+  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     OS: Kaetzli\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nKAETZLIFETCH-DONE\n"
+ ],
+ [
+  "systemctl --failed",
+  "UNIT LOAD ACTIVE SUB DESCRIPTION\nfoo.service loaded failed failed Foo\n"
+ ]
+]

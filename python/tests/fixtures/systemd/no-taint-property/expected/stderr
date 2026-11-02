@@ -1,0 +1,12 @@
+>> systemd test FAILED: could not read systemd's Tainted property (got: <nothing>)
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+SYSTEMD-STATE:running
+SYSTEMD-TAINT:[]
+UNIT LOAD ACTIVE SUB DESCRIPTION
+foo.service loaded failed failed Foo

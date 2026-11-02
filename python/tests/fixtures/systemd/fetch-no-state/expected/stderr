@@ -1,0 +1,35 @@
+>> systemd test FAILED: kaetzlifetch did not print 'State: in memory'
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+SYSTEMD-STATE:running
+SYSTEMD-TAINT:[Tainted=]
+SYSTEMD-ROFS:[0]
+SYSTEMD-ERRS:[0]
+SYSCTL> kernel/kptr_restrict=1
+SYSCTL> kernel/dmesg_restrict=1
+SYSCTL> kernel/unprivileged_bpf_disabled=1
+SYSCTL> kernel/yama/ptrace_scope=1
+SYSCTL> dev/tty/legacy_tiocsti=0
+SYSCTL> fs/protected_regular=2
+SYSCTL> fs/protected_fifos=2
+SYSCTL> fs/inotify/max_user_instances=8192
+SYSCTL> vm/max_map_count=262144
+SYSCTL> fs/aio-max-nr=1048576
+SYSCTL> kernel/panic=10
+SYSTEMD-SYSCTL-DONE
+SYSTEMD-FWCFG:[delivered]
+
+      /\_/\      root@kaetzli
+     ( o.o )     OS: Kaetzli
+                 Image: c4927070eaaa (verity root hash)
+                 Root: erofs, read-only, dm-verity
+                 Status: in memory (/var is tmpfs, lost at shutdown)
+
+KAETZLIFETCH-DONE
+UNIT LOAD ACTIVE SUB DESCRIPTION
+foo.service loaded failed failed Foo

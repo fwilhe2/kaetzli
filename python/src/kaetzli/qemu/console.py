@@ -52,6 +52,11 @@ QUIET = "stty -echo; PS1=; export SYSTEMD_COLORS=0"
 
 _END = re.compile(rb"\Z")
 
+# How long fail() gives the guest to answer `diagnose`, and how long login() lets agetty
+# take the username before typing at the shell.
+DIAGNOSE_WAIT = 5
+SETTLE = 3
+
 
 class Failed(Exception):
     """The test failed; what it says has been printed already. Exit 1."""
@@ -74,7 +79,7 @@ class Guest:
         diagnose: str = "",
         exempt: str = "",
         cleanup: list[str | Path] | None = None,
-        settle: float = 3,
+        settle: float | None = None,
         probe_wait: float = 10,
         clock=time.monotonic,
         sleep=time.sleep,
@@ -86,13 +91,17 @@ class Guest:
         self.diagnose = diagnose
         self.exempt = exempt
         self.cleanup = cleanup or []
-        self.settle = settle
+        self.settle = SETTLE if settle is None else settle
         self.probe_wait = probe_wait
         self.clock = clock
         self.sleep = sleep
         self.child: PopenSpawn | None = None
         self.deadline = 0.0
         self._died = _re(QEMU_DIED)
+        # The last successful wait's match, and what the console said between the match
+        # or mark before it and this one, carriage returns removed.
+        self.match: re.Match[bytes] | None = None
+        self.before = ""
 
     # qemu_boot
 
@@ -132,9 +141,11 @@ class Guest:
     def send(self, line: str) -> None:
         self.child.sendline(line)
 
-    def mark(self) -> None:
-        """Forget what is on the console so far: the next wait sees only what follows."""
-        self.drain(0)
+    def mark(self, settle: float = 0.25) -> None:
+        """Forget what is on the console so far: the next wait sees only what follows.
+        It settles first, so the tail of the last command's output (a prompt, a terminal
+        mode switch) is forgotten too, rather than read as the next one's."""
+        self.drain(settle)
         # A match at the very end consumes it all. Not `buffer = b""`: pexpect keeps a
         # second copy of what is unmatched and would make the buffer again from it.
         self.child.expect(_END, timeout=0)
@@ -159,6 +170,8 @@ class Guest:
             [_re(pattern), self._died, pexpect.EOF, pexpect.TIMEOUT], timeout=max(seconds, 0)
         )
         if i == 0:
+            self.match = self.child.match
+            self.before = self.child.before.decode(errors="replace").replace("\r", "")
             return "match"
         if i == 1:
             return "died"
@@ -166,6 +179,10 @@ class Guest:
             # The panic may have been consumed by an earlier match; the log has it all.
             return "died" if self._died.search(self.log.read_bytes()) else "exited"
         return "timeout"
+
+    def group(self, n: int = 1) -> str:
+        """A group of the last successful wait's match, as text."""
+        return self.match.group(n).decode(errors="replace").replace("\r", "")
 
     def wait(self, pattern: str, seconds: float) -> bool:
         """True when `pattern` shows up within `seconds`, False when it does not (so the
@@ -216,7 +233,7 @@ class Guest:
         if self.diagnose and self.child is not None:
             with contextlib.suppress(OSError):
                 self.send(self.diagnose)
-            self.drain(5)
+            self.drain(DIAGNOSE_WAIT)
         elif self.child is not None:
             self.drain(0)
         print(">> last 80 lines of the console:", file=sys.stderr, flush=True)

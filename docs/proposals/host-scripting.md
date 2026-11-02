@@ -3,7 +3,8 @@
 **Status: proposal, partly implemented.** Implemented: items 1 to 5, the CVE reports,
 the SBOM, the size reports, the library checks and the policy checks, and item 6, whose
 `auto-merge.py` is in the shadow of `auto-merge.sh` (`python/`, see its README). Item 7
-has begun: the harness, `kaetzli.qemu`, and its first client, `test/boot.py`. CLAUDE.md (*Host-side code*)
+has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py` and
+`test/systemd.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -214,8 +215,17 @@ an empty `QEMU_DISPLAY_ARGS=()` is unset to bash's `${x+set}`, so it keeps
 `-nographic`. The console is tested against a fake qemu (`tests/fixtures/qemu/`): a
 shell, a deaf console, a panic, a getty that drops what is typed at first.
 
-Next: the systemd-booting tests, one per pull request, starting with `systemd.sh`, the
-first user of `login`; then `tools/boot-qemu.sh` takes its command line from
+`test/systemd.sh` is `test/systemd.py` (`kaetzli.boot.systemd`), the first user of
+`login`. Its golden is the bash version against the fake qemu, one guest per way the
+test can fail (degraded, tainted, writes to the read-only root, journal errors, a sysctl,
+fw_cfg, kaetzlifetch), console tail included, and the Python reproduces all eleven byte
+for byte. On CI's image the two agree, in eight seconds where bash took 25. Two
+deliberate changes in the harness came with it: `mark()` lets the console settle for a
+quarter second first, so a prompt still on its way is not read as the next command's
+output, and every result is read from the match that ended the wait, not from the last
+line of the whole log that happens to look like one.
+
+Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`
 and `k8s-demo.sh`. Whether the tests become pytest functions sharing a booted machine
 is decided when there are enough of them to share one.
