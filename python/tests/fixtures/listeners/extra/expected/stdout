@@ -1,0 +1,7 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> base listens on:
+   tcp 0.0.0.0:22 sshd
+   tcp 0.0.0.0:8080 ?
+   tcp [::]:22 sshd
+   udp 0.0.0.0:5355 systemd-resolve

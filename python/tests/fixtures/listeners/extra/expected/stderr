@@ -1,0 +1,13 @@
+>> listeners-base test FAILED: base listens on what nobody expected (extra: tcp 0.0.0.0:8080 ? udp 0.0.0.0:5355 systemd-resolve) — close it, or add it to EXPECTED["base"] in python/src/kaetzli/boot/listeners.py
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+LSN> tcp   LISTEN 0      128          0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=301,fd=3))
+LSN> tcp   LISTEN 0      128             [::]:22           [::]:*    users:(("sshd",pid=301,fd=4))
+LSN> udp   UNCONN 0      0          0.0.0.0:5355      0.0.0.0:*    users:(("systemd-resolve",pid=200,fd=11))
+LSN> tcp   LISTEN 0      5          0.0.0.0:8080      0.0.0.0:*
+LISTENERS-DONE

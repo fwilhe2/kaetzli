@@ -228,7 +228,7 @@ the library checks and the policy checks are done.
 ./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
 ./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg
 ./test/network.py output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
-./test/listeners.sh output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
+./test/listeners.py output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
 ./test/ssh.sh output/rootfs.erofs rootfs/boot/bzImage        # sshd, in-guest and from the host (PREBUILT=dir: and those binaries)
 ./test/container.sh output/rootfs.erofs rootfs/boot/bzImage  # crun starts a container
 ./test/podman.sh output/rootfs.erofs rootfs/boot/bzImage     # podman: seccomp, networking, Quadlet
@@ -515,7 +515,8 @@ to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `running` (no failed unit), no taint and nothing at `err` or above in the journal.
 **All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
 sources too, so debugging a CI failure boots the same machine. Its Python twin,
-`kaetzli.qemu` (pexpect), is what `test/boot.py`, `systemd.py` and `network.py` use, and the rest move to it one by one
+`kaetzli.qemu` (pexpect), is what `test/boot.py`, `systemd.py`, `network.py` and
+`listeners.py` use, and the rest move to it one by one
 (`docs/proposals/host-scripting.md`, item 7); until then a change to one is a change to
 both, and `python/tests/test_qemu_machine.py` runs the bash harness to hold the command
 lines, patterns and login strings equal. **Every boot's console is held to

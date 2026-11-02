@@ -113,7 +113,7 @@ check must make it fail.
 
 ## 3. Check what listens on the network
 
-*Implemented:* `test/listeners.sh`, in the `boot` job. It found LLMNR and mDNS on every
+*Implemented:* `test/listeners.py`, in the `boot` job. It found LLMNR and mDNS on every
 interface, now off (`image/files/etc/systemd/resolved.conf.d/50-no-multicast.conf`). The
 rounds are the base and the kubernetes extension: podman's starts nothing at boot, and
 kubelet only listens once kubeadm has configured it.
@@ -130,7 +130,7 @@ files.
 
 **Implementation:**
 
-1. Add `test/listeners.sh <image> <kernel>`, booting through `test/qemu-lib.sh` like the
+1. Add `test/listeners.py <image> <kernel>`, booting through `test/qemu-lib.sh` like the
    other tests. `ss` is in the base (iproute2). In the guest run
    `ss -Hlntup` and `ss -Hlnup`, and print each line with a marker.
 2. On the host, reduce each line to `proto address:port process`, then drop sockets bound

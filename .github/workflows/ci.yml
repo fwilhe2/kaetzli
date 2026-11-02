@@ -637,7 +637,7 @@ jobs:
         run: ./test/network.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check what listens on the network
-        run: ./test/listeners.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/listeners.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check ssh, and binaries built elsewhere
         run: PREBUILT=artifacts/prebuilt ./test/ssh.sh artifacts/rootfs.erofs rootfs/boot/bzImage

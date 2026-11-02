@@ -1,4 +1,4 @@
 # resolved's LLMNR and mDNS responders stay off: without the drop-in it answers on :5355
-# and :5353 on every interface (test/listeners.sh). erofs only, since the OCI flavour has
+# and :5353 on every interface (test/listeners.py). erofs only, since the OCI flavour has
 # no systemd to read it.
 present:erofs etc/systemd/resolved.conf.d/50-no-multicast.conf

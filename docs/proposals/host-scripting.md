@@ -4,7 +4,7 @@
 the SBOM, the size reports, the library checks and the policy checks, and item 6, whose
 `auto-merge.py` is in the shadow of `auto-merge.sh` (`python/`, see its README). Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
-`test/systemd.py` and `test/network.py`. CLAUDE.md (*Host-side code*)
+`test/systemd.py`, `test/network.py` and `test/listeners.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -228,6 +228,11 @@ line of the whole log that happens to look like one.
 `test/network.sh` is `test/network.py`, with `Guest.retry` (type, wait, type again until
 the deadline) for its two rounds; its golden is four guests (clean, no network, no
 tools, a panic), and on CI's image it agrees in eight seconds where bash took 21.
+
+`test/listeners.sh` is `test/listeners.py`, a boot per round as before; its golden is
+seven guests (clean, ss's `*` for IPv6, two rounds, an extra listener, a missing one,
+none, ss never done). One deliberate difference: a listener nobody expected now points at
+`EXPECTED` in `kaetzli.boot.listeners`, where the list lives, rather than the script.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

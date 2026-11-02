@@ -1,0 +1,12 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> base listens on:
+   tcp 0.0.0.0:22 sshd
+   tcp [::]:22 sshd
+>> listeners OK: base
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> kubernetes listens on:
+   tcp 0.0.0.0:22 sshd
+   tcp [::]:22 sshd
+>> listeners OK: kubernetes

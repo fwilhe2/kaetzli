@@ -10,7 +10,7 @@ policy routing, IPsec and SYN cookies and no sock_diag, arm64's had macvlan, tc 
 boards' crypto engines. parity.config in packages/kernel/build.sh decides those once for
 both; this fails on any symbol both configs define with different values, so a defconfig
 change upstream that brings a difference back is a named failure, not something found on
-one arch at runtime (test/listeners.sh, on arm64 only, is how the last one was found).
+one arch at runtime (test/listeners.py, on arm64 only, is how the last one was found).
 
 A symbol only one config defines is the architecture's own, or sits under a menu the
 other has off — and then the menu is what differs, and is reported. What may differ is
