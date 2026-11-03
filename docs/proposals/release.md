@@ -15,67 +15,99 @@ a page that lists what was built, and files that outlive CI's artifact retention
 
 ## Snapshots
 
-Every green build on `main` publishes one GitHub release, at the same point as
-`publish-oci` and from the same commit, so OCI `latest` and release `latest` always agree.
+Every green build on `main` publishes one GitHub release, so OCI `latest` and the latest
+release are always the same commit.
 
-- **Tag**: `YYYYMMDD-<short commit>`, e.g. `20261103-fbc0c39`. The date orders them; the
-  commit says what they are and keeps two builds on one day apart. It is an identifier,
-  not a version.
-- **Immutable**: a published snapshot's assets are never replaced.
+- **Name**: `YYYYMMDD.HHMMSS`, the commit's committer date in UTC, e.g.
+  `20261103.141205`. Names sort, as strings and as versions, in the order the commits
+  reached `main`. They are derived from the commit, so the same commit always gets the
+  same name, and a reproducibility rebuild with the same name gives the same bytes. The
+  commit is in the release notes and in the image (`BUILD_ID`), not in the name.
 - **Latest**: each new snapshot is marked as the repository's latest release, so
   `https://github.com/fwilhe2/kaetzli/releases/latest/download/<file>` is the rolling
-  URL. Moving that pointer switches every file at once. A mutable release whose assets are
-  re-uploaded one by one would not: a download in between could pair a new
-  `rootfs.erofs` with an old `rootfs.cmdline`, and the root hash would not match.
-- **Expiry**: snapshots and their tags are deleted after 30 days. They exist for
-  bisecting a regression, not for pinning.
-- **No empty snapshots**: none is published when the commit is the same as the previous
-  snapshot's.
+  URL. A snapshot is a full release, not a pre-release, because GitHub's latest skips
+  pre-releases.
+- **Immutable**: a published snapshot's assets and tag never change. Enable GitHub's
+  immutable releases setting so this is enforced, not just intended.
+- **Expiry**: snapshots and their tags are deleted after 30 days, the latest never. They
+  exist for bisecting a regression, not for pinning.
+- **Only forward**: a snapshot is published only if its commit descends from the current
+  latest's and is not the same commit. A run that finishes after a newer one does not
+  publish, and the scheduled fresh rebuild of an unchanged `main` does not either.
 
-Every release note starts with:
-
-> Rolling snapshot. No fixes are backported; the only fix is a newer snapshot. Deleted
-> after 30 days.
+The name goes into `/usr/lib/os-release` as `IMAGE_VERSION=`, systemd's field for
+image-based systems. `build-rootfs.sh` currently writes `KAETZLI_VERSION` as `VERSION` and
+`VERSION_ID`, which describe a distribution release, and should stop. Extensions match
+on `SYSEXT_LEVEL`, so the name does not affect which extensions attach.
 
 ## Assets
 
-For each architecture, the files a boot needs, named with the arch:
+Only what someone booting, extending or auditing the image needs. Asset names carry the
+architecture (`amd64`, `arm64`) but not the snapshot, so the `latest/download/` URLs stay
+the same from one snapshot to the next.
 
-- `rootfs-<arch>.erofs` and `rootfs-<arch>.cmdline` (the latter carries the dm-verity
-  root hash, so the two are only usable together);
-- the kernel image;
-- the system and configuration extensions with their `.dm-verity` files;
-- the SBOMs;
-- `bundle-<arch>`: the manifest the rootfs job already writes (run, commit, arch, the
-  SHA-256 of every file).
+| Asset | What it is |
+| --- | --- |
+| `rootfs-<arch>.erofs` | The root filesystem with its dm-verity hash tree. |
+| `rootfs-<arch>.cmdline` | The kernel command line, including the root hash. The image is only usable with it. |
+| `kernel-<arch>` | `bzImage` on amd64, `Image` on arm64. |
+| `<ext>-<arch>.sysext.raw`, `.sysext.dm-verity` | Each system extension (`podman`, `kubernetes`, `debug`) and its verity table. |
+| `<ext>-<arch>.confext.raw`, `.confext.dm-verity` | Each extension's configuration extension and its verity table. |
+| `sbom-<arch>.json` | SPDX 2.3 for the disk image. |
+| `sbom-oci-<arch>.json` | SPDX 2.3 for the OCI image, which is pulled from the registry. |
+| `sbom-ext-<ext>-<arch>.json` | SPDX 2.3 for each extension. |
+| `vex-<arch>.json` | OpenVEX for the CVEs our patches fix, so a scanner that reads the SBOM does not report them open. |
+| `cve-<arch>.ods` | The CVE workbook (`test/cve-workbook.sh`): findings by severity, vulnerability and package, patched ones marked. A scan as of publication, with the grype database date in the notes. |
+| `SHA256SUMS` | Every other asset, for both arches, in `sha256sum -c` format. |
 
-The EROFS file is a filesystem, not a bootable disk; the notes give the boot command for
-each supported VMM.
+These stay out:
 
-## OCI tags
+- The OCI archive: the registry distributes the OCI image.
+- grype's JSON reports and `cve-summary.txt`: the workbook is their readable form, and
+  the SBOMs and VEX let anyone rescan with a current database.
+- CI's `bundle-<arch>` manifest: `SHA256SUMS` replaces it for releases.
+- Test logs, size reports and test binaries.
 
-`kaetzli:latest` keeps its current meaning, the newest green build of `main`, and the
-per-commit tags stay. Each snapshot also tags `kaetzli:<snapshot tag>`. There is no `edge`
-tag: under a rolling model, latest is edge.
+## Release notes
+
+1. The rolling notice:
+   > Rolling snapshot. No fixes are backported; the only fix is a newer snapshot. Deleted
+   > after 30 days.
+2. The commit, the CI run, and the builder and sources images by digest. The sources
+   image holds every pinned tarball and patch, the corresponding source for the copyleft
+   packages, and is kept for at least as long as the snapshot exists.
+3. What changed since the previous snapshot: `test/image-diff.py`'s package and size
+   report, run against that snapshot rather than main's previous green build.
+4. How to boot it with qemu, using the assets by their `latest/download/` URLs.
 
 ## Fetching
 
-`tools/fetch-image.sh` (and `vm.sh update`) downloads `bundle-<arch>` and then the files it
-names from `releases/latest/download/`, using `curl` and the same strict manifest check as
-today. This removes `gh` from the quick start's requirements. The current CI artifact path
-stays, behind `--run <id>`, for pull requests and debugging.
+`tools/fetch-image.sh` (and `vm.sh update`) uses `curl` and no authentication:
 
-## Provenance and source
+1. Resolve which snapshot is latest from the redirect of `releases/latest`, once.
+2. Download `SHA256SUMS` and the assets from that snapshot's URL rather than
+   `latest/download/`, so a snapshot published mid-download cannot mix two builds.
+3. Verify every file against `SHA256SUMS` before installing anything, as the manifest
+   check does today, and record the snapshot name beside the image.
 
-Each release note names the source commit, the CI run, and the builder and sources images
-by digest. The sources image holds every pinned tarball and patch, which is the
-corresponding source for the copyleft packages. Keep that image for at least as long as
-the snapshot exists. The OCI registry already distributes the same binaries, so releases
-add no new obligation, but they make the existing one more visible.
+`--snapshot <name>` fetches an older one. The current CI artifact path stays, behind
+`--run <id>`, for pull requests and debugging.
 
-## Implementation notes
+## Publishing
 
-A thin workflow step calls a script that can also run locally against a fork. The script
-creates the release as a draft, uploads every asset, publishes the release and marks it
-latest, then prunes expired snapshots. The snapshot tag is computed once, so the release,
-the OCI tag, `KAETZLI_VERSION` in the image and the notes all use the same value.
+A `release` job in `ci.yml`, after `boot`, `reproducible` and `cve-scan`, on pushes to `main` only,
+with `concurrency: release` so two runs never publish at once. It calls
+`tools/release.sh`, which can also run against a fork:
+
+1. Compute the name from the commit. Skip if the commit is not ahead of the latest
+   snapshot's.
+2. Collect the assets from the run's artifacts under their release names, and write
+   `SHA256SUMS`. The workbook is the one optional asset: `cve-workbook.sh` never fails a
+   build, so a missing one is a line in the notes, not a missing snapshot.
+3. Create a draft release with that tag on that commit, upload every asset, write the
+   notes.
+4. Publish it and mark it latest. Nothing is visible before this step.
+5. Delete snapshots older than 30 days and their tags, never the latest.
+
+The image is assembled with `KAETZLI_VERSION` set to the name, so the reproducibility
+job must set it too.
