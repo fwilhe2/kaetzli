@@ -7,6 +7,8 @@ are built from pinned source archives, assembled into a read-only EROFS disk ima
 published as an OCI image. Optional systemd extensions add Podman, Kubernetes, and debugging
 tools without changing the base image.
 
+![kaetzli logo](./kaetzli.jpeg)
+
 The project targets QEMU and Firecracker on Linux, and Apple's Virtualization.framework on
 Apple silicon. The EROFS image is a read-only filesystem, not a self-booting disk: a VM
 launcher supplies the matching kernel and command line. It is built from pinned source
