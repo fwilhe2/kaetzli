@@ -17,13 +17,13 @@ on:
   # run noticing: a cache hit proves only that the inputs once built. So this run trusts
   # nothing it did not make — the builder is rebuilt from the Debian snapshot, the sources
   # image from upstream's URLs, every package without its cache (`fresh` below) — and
-  # publishes the result like any run on main. At night in Europe (22:00 CEST, 21:00
-  # CET), like the other scheduled workflows, and an hour before update-packages.yml opens
-  # its pull requests, whose runs then mostly find a warm cache. The time is also when
-  # the cache key's period turns over (.github/actions/build-package), so this is the
-  # first run of each period; change the two together.
+  # publishes the result like any run on main. At 16:00 UTC (18:00 CEST, 17:00 CET),
+  # an hour before update-packages.yml opens its pull requests, whose runs then mostly
+  # find a warm cache, and so before auto-merge.yml starts at 20:00. The time is also
+  # when the cache key's period turns over (.github/actions/build-package), so this is
+  # the first run of each period; change the two together.
   schedule:
-    - cron: "0 20 1,15 * *"
+    - cron: "0 16 1,15 * *"
 
 permissions:
   pull-requests: write

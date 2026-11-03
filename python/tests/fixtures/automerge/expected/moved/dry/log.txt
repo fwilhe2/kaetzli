@@ -1,0 +1,5 @@
+git fetch --quiet origin main
+gh pr list --state open --base main --author app/github-actions --limit 100 --json number,headRefName,createdAt,labels,url,isCrossRepository
+gh pr view 28 --json headRefOid,statusCheckRollup
+git fetch --quiet origin main +refs/heads/update/pushed-1:refs/remotes/origin/update/pushed-1
+git rev-parse origin/update/pushed-1

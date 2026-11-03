@@ -66,11 +66,11 @@ runs:
         # And the half-month, so nothing is served from the cache for longer than about
         # two weeks. Every input above is pinned, but the claim that a pinned input still
         # builds is only tested by building it — a binary cached for a year says nothing
-        # about whether today's checkout compiles. The period turns over at 20:00 UTC on
+        # about whether today's checkout compiles. The period turns over at 16:00 UTC on
         # the 1st and the 15th, which is when ci.yml's schedule runs a clean build of
         # main: that run is the first of its period and fills the cache for the rest.
         # Change the two together.
-        stamp=$(date -u -d '20 hours ago' +%Y-%m-%d)
+        stamp=$(date -u -d '16 hours ago' +%Y-%m-%d)
         period=${stamp:0:7}-$([ "${stamp:8:2}" -lt 15 ] && echo a || echo b)
         # arch has to be in the key: an amd64 and an arm64 build of the same package at
         # the same script hash produce entirely different, mutually useless binaries.

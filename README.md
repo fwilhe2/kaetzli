@@ -176,7 +176,9 @@ it requires, for example:
 
 `./tools/check-updates.py` checks pinned package versions, vendored second tarballs and
 upstream patch series. `./tools/bump-version.sh <package> <version>` updates a package pin
-and checksum. The nightly update workflow opens pull requests for available updates.
+and checksum. The update workflow opens pull requests for available updates at 17:00 UTC,
+and those whose CI is green are merged between 20:00 and 05:00 UTC. Label one `hold` to
+keep it out; closing it only skips that night.
 
 A package can carry patches in `packages/<name>/patches/`; `./tools/check-patches.sh`
 tests in seconds whether they apply. See [Patches](docs/guides/patches.md).

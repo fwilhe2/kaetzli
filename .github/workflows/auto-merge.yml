@@ -4,21 +4,26 @@ name: Auto-merge updates
 # the current main. tools/auto-merge.sh is the policy and explains it; this file is only
 # when it runs and with what permissions.
 #
-# Nothing here may happen during European business hours. The updater runs at 21:00 UTC
-# and this during the night after, so a pull request opened one night is merged the night
-# after next, once it is MIN_AGE_HOURS (24) old — a full working day to look at it and
-# label it `hold`. tools/auto-merge.sh enforces the 22:00–05:00 UTC window itself.
+# Nothing here may happen during European business hours. The updater runs at 17:07 UTC
+# and this from 20:00 to 05:00 UTC the same night, so a pull request opened in the
+# evening is merged that night if its CI is green: the hours between are the time to
+# look at it and label it `hold`, and a mistake that gets through is a revert. There is
+# no minimum age. tools/auto-merge.sh enforces the window itself, and that green means
+# CI's own check passed on the exact commit that lands. GitHub enforces the last part too:
+# the ruleset "main: CI green before a push" refuses a push to main of a commit without a
+# successful `result` check from GitHub Actions. Repository admins bypass it, which is how
+# a human pushes a docs change; this workflow's token does not.
 #
 # One cron line is not enough, because GitHub starts scheduled runs late, and late by
 # hours around midnight UTC: the single 00:30 slot this used to have started at 04:57 and
 # 05:06, outside what was then a 22:00–03:00 window, so every night ended in "the rest
-# waits for tomorrow night" at seven in the morning in Germany. So it is tried once an hour across the window, off
-# the full hour where the queue is longest. A run with nothing to do takes seconds, the
+# waits for tomorrow night" at seven in the morning in Germany. So it is tried once an
+# hour across the window, off the full hour where the queue is longest. A run with nothing to do takes seconds, the
 # concurrency group below keeps them from overlapping, and whichever starts inside the
 # window does the work; the ones after find nothing left.
 on:
   schedule:
-    - cron: "17 22,23,0,1,2,3,4 * * *"
+    - cron: "17 20,21,22,23,0,1,2,3,4 * * *"
   workflow_dispatch:
 
 permissions:

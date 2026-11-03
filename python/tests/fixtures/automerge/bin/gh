@@ -17,7 +17,8 @@ case "$1 $2" in
     "pr list") out < "$FAKE/prs.json" ;;
     "pr view")
         case "$5" in
-            statusCheckRollup) out < "$FAKE/checks.$3.json" ;;
+            headRefOid,statusCheckRollup) out < "$FAKE/checks.$3.json" ;;
+            state,labels) out < "$FAKE/late.$3.json" ;; # just before the merge
             state) # one line per call: OPEN until GitHub has noticed the merge
                 n=$(cat "$FAKE/state-calls.$3" 2>/dev/null || echo 0); echo $((n + 1)) > "$FAKE/state-calls.$3"
                 s=$(sed -n "$((n + 1))p" "$FAKE/state.$3" 2>/dev/null); echo "{\"state\":\"${s:-MERGED}\"}" | out ;;

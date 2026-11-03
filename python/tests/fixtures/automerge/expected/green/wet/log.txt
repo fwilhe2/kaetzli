@@ -1,9 +1,10 @@
 git fetch --quiet origin main
 gh pr list --state open --base main --author app/github-actions --limit 100 --json number,headRefName,createdAt,labels,url,isCrossRepository
-gh pr view 10 --json statusCheckRollup
+gh pr view 10 --json headRefOid,statusCheckRollup
 git fetch --quiet origin main +refs/heads/update/a-2.0:refs/remotes/origin/update/a-2.0
 git rev-parse origin/update/a-2.0
 git merge-base --is-ancestor origin/main 1000000000000000000000000000000000000000
+gh pr view 10 --json state,labels
 git push --quiet origin 1000000000000000000000000000000000000000:refs/heads/main
 git rev-parse --short 1000000000000000000000000000000000000000
 git fetch --quiet origin main

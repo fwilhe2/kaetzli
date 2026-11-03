@@ -4,5 +4,3 @@
   skip: a check failed, needs a human
 #1 update/held-1.0
   skip: labelled hold
-#2 update/young-1.0
-  skip: 3h old, waiting for 24h

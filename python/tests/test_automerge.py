@@ -2,14 +2,17 @@
 
 Each scenario runs dry (-n) and for real through fake git, gh and date; the Python must
 print the same transcript, exit the same, and make the same git, gh and dispatch-ci calls
-in the same order as the bash tools/auto-merge.sh did (expected/). The decisions are also
-tested on their own below.
+in the same order as the bash tools/auto-merge.sh does (expected/), and the bash version
+is run against the same goldens, so that the two cannot drift apart. The decisions are
+also tested on their own below.
 """
 
+import os
+import subprocess
 import time
 
 import pytest
-from automerge_harness import BIN, EXPECTED, SCENARIOS, checkout, materialize, normalize
+from automerge_harness import BIN, CI, EXPECTED, SCENARIOS, checkout, materialize, normalize
 
 from kaetzli import automerge
 
@@ -22,8 +25,7 @@ def test_the_transcript_is_the_bash_versions(name, mode, tmp_path, monkeypatch, 
     fake = tmp_path / "fake"
     for k, v in materialize(name, fake, time.time()).items():
         monkeypatch.setenv(k, v)
-    monkeypatch.setenv("PATH", f"{BIN}:{__import__('os').environ['PATH']}")
-    monkeypatch.delenv("MIN_AGE_HOURS", raising=False)
+    monkeypatch.setenv("PATH", f"{BIN}:{os.environ['PATH']}")
     slept = []
     hour = SCENARIOS[name].get("hour")
 
@@ -44,6 +46,31 @@ def test_the_transcript_is_the_bash_versions(name, mode, tmp_path, monkeypatch, 
         assert slept == [5]  # GitHub noticed the merge on the second look
 
 
+@pytest.mark.parametrize(("name", "mode"), CASES)
+def test_the_bash_version_matches_the_goldens(name, mode, tmp_path):
+    root = checkout(tmp_path)
+    fake = tmp_path / "fake"
+    env = {**os.environ, **materialize(name, fake, time.time())}
+    env["PATH"] = f"{BIN}:{os.environ['PATH']}"
+    if SCENARIOS[name].get("hour") is None:
+        env.pop("FAKE_HOUR", None)
+    argv = [str(root / "tools" / "auto-merge.sh")] + (["-n"] if mode == "dry" else [])
+    # sleep is the real one here: the green scenario waits 5 s for GitHub, once.
+    p = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=60)
+
+    expected = EXPECTED / name / mode
+    assert normalize(p.stdout, fake) == (expected / "stdout.txt").read_text()
+    assert normalize(p.stderr, fake) == (expected / "stderr.txt").read_text()
+    assert p.returncode == int((expected / "rc").read_text())
+    assert normalize((fake / "log").read_text(), fake) == (expected / "log.txt").read_text()
+
+
+def test_no_age_gate():
+    """The merge window is the time to object, not an age: the variable is gone."""
+    for f in ("tools/auto-merge.sh", "python/src/kaetzli/automerge.py"):
+        assert "MIN_AGE_HOURS" not in (BIN.parents[4] / f).read_text(), f
+
+
 NOW = 1_800_000_000
 
 
@@ -57,12 +84,28 @@ class TestChecksState:
 
     def test_green_counts_neutral_and_skipped(self):
         rollup = [
+            {"name": CI, "status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": iso(60)},
             {"status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": iso(60)},
             {"status": "COMPLETED", "conclusion": "NEUTRAL", "startedAt": iso(60)},
             {"status": "COMPLETED", "conclusion": "SKIPPED", "startedAt": iso(60)},
             {"state": "SUCCESS"},  # a status context: no status, no startedAt
         ]
         assert automerge.checks_state(rollup, NOW) == "green"
+
+    def test_green_needs_ci_itself(self):
+        others = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": iso(60)},
+            {"context": "x", "state": "SUCCESS"},
+        ]
+        assert automerge.checks_state(others, NOW) == "untested"
+        for conclusion in ("NEUTRAL", "SKIPPED"):
+            ci = {"name": CI, "status": "COMPLETED", "conclusion": conclusion,
+                  "startedAt": iso(60)}  # fmt: skip
+            assert automerge.checks_state([ci, *others], NOW) == "untested"
+
+    def test_a_status_context_named_like_ci_is_not_ci(self):
+        rollup = [{"context": CI, "state": "SUCCESS"}]
+        assert automerge.checks_state(rollup, NOW) == "untested"
 
     def test_a_failure_wins_over_a_running_check(self):
         rollup = [
@@ -78,7 +121,7 @@ class TestChecksState:
 
     def test_running_for_six_hours_is_a_dead_reporter(self):
         rollup = [
-            {"status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": iso(60)},
+            {"name": CI, "status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": iso(60)},
             {"status": "IN_PROGRESS", "conclusion": "", "startedAt": iso(6 * 3600)},
         ]
         assert automerge.checks_state(rollup, NOW) == "stale"
@@ -92,8 +135,9 @@ class TestChecksState:
 
 @pytest.mark.parametrize(
     ("event", "hour", "night"),
-    [("schedule", 21, False), ("schedule", 22, True), ("schedule", 0, True),
-     ("schedule", 4, True), ("schedule", 5, False), ("schedule", 12, False),
+    [("schedule", 19, False), ("schedule", 20, True), ("schedule", 22, True),
+     ("schedule", 0, True), ("schedule", 4, True), ("schedule", 5, False),
+     ("schedule", 12, False), ("schedule", 16, False),
      ("workflow_dispatch", 12, True), ("", 12, True)],
 )  # fmt: skip
 def test_at_night(event, hour, night):

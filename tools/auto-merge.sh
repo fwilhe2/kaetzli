@@ -5,7 +5,13 @@
 #     ./tools/auto-merge.sh        # what .github/workflows/auto-merge.yml runs
 #     ./tools/auto-merge.sh -n     # say what would happen, touch nothing (works locally)
 #
-# "Green" on its own is not enough, and that is most of this script. A bump's CI ran
+# Green means one thing: the "Package update CI" check, which tools/dispatch-ci.sh writes
+# from ci.yml's run, concluded `success` on the very commit that is pushed to main, and
+# nothing else on it failed. Other checks passing is not CI passing, and a neutral or
+# skipped CI is not a pass. The checks are read together with the commit they belong to,
+# and a branch that has moved since is not merged.
+#
+# Green on its own is not enough either, and that is most of this script. A bump's CI ran
 # against main as it was when the pull request was opened, and the updater opens several
 # at once — so after the first is merged, every other one was tested against a main that
 # no longer exists. Each one is therefore rebased onto the current main and built again
@@ -18,19 +24,25 @@
 # A pull request is left alone, for a human, when:
 #   - it is not from github-actions on an update/ branch — this merges bumps, not changes
 #   - it carries the `hold` label — the way to say "not this one" without closing it
-#   - it is younger than MIN_AGE_HOURS (default 24) — a business day to add that label
 #   - any check on it failed — a red build needs work in build.sh, not a retry
 #   - a check is still running and started recently — someone else's CI is in flight
 #   - the rebase conflicts, or the rebuilt CI fails
+#   - it was labelled `hold` or closed while it was being built: the label and the state
+#     are read again just before the merge, since a rebuild takes an hour
 #
-# Scheduled runs only act at night in Europe: no pull request is started outside
-# 22:00–05:00 UTC (00:00–07:00 CEST, 23:00–06:00 CET). GitHub's cron can start a run an
-# hour or more late, so the schedule alone does not guarantee that — this check does, and
-# it is made before each pull request rather than once, because one rebuild can take an
-# hour. A pull request started just before the cutoff can still be building at eight in
-# the morning in Germany; that is the accepted cost of a window wide enough to survive a
-# late cron. A run started by hand (workflow_dispatch, or locally) is somebody choosing
-# to act now, and is not held to the window.
+# There is no minimum age. The updater opens pull requests at 17:00 UTC and nothing is
+# merged before 20:00, which is the time to look and label; a mistake that gets through
+# is a revert. Closing a pull request skips only that night: update-packages.yml opens
+# it again the next evening, and `hold` is what keeps it out.
+#
+# Scheduled runs only act in the evening and at night in Europe: no pull request is
+# started outside 20:00–05:00 UTC (22:00–07:00 CEST, 21:00–06:00 CET). GitHub's cron can
+# start a run an hour or more late, so the schedule alone does not guarantee that — this
+# check does, and it is made before each pull request rather than once, because one
+# rebuild can take an hour. A pull request started just before the cutoff can still be
+# building at eight in the morning in Germany; that is the accepted cost of a window
+# wide enough to survive a late cron. A run started by hand (workflow_dispatch, or
+# locally) is somebody choosing to act now, and is not held to the window.
 #
 # Pushes made with GITHUB_TOKEN start no workflow, which applies to main as much as to a
 # branch: once anything was merged, ci.yml is dispatched on main, so publish-oci and the
@@ -43,10 +55,10 @@ DRY_RUN=
 if [ "${1:-}" = -n ]; then DRY_RUN=1; shift; fi
 [ $# -eq 0 ] || { echo "usage: $0 [-n]" >&2; exit 2; }
 
-MIN_AGE_HOURS=${MIN_AGE_HOURS:-24}
-NIGHT_START_UTC=22
+NIGHT_START_UTC=20
 NIGHT_END_UTC=5
 HOLD_LABEL=hold
+CI_CHECK="Package update CI"
 now=$(date +%s)
 
 # run <cmd...> — run it, or in a dry run only say so.
@@ -54,13 +66,16 @@ run() {
     if [ -n "$DRY_RUN" ]; then echo "  would run: $*"; else "$@"; fi
 }
 
-# checks_state <pr> — green, pending, failed or none, from every check and status on the
-# pull request's head. A check that has been "running" for longer than any CI run takes
-# is not treated as running: it is one whose reporter died (a timed-out run of this
-# script leaves its check in_progress), and waiting on it would wait forever.
+# checks_state — green, untested, pending, failed, stale or none, from the
+# statusCheckRollup on stdin: every check and status on the pull request's head. Green
+# needs the CI check run itself to have succeeded; all done without that is untested. A
+# check that has been "running" for longer than any CI run takes is not treated as
+# running: it is one whose reporter died (a timed-out run of this script leaves its
+# check in_progress), and waiting on it would wait forever.
 checks_state() {
-    gh pr view "$1" --json statusCheckRollup | jq -r --argjson now "$now" '
+    jq -r --argjson now "$now" --arg ci "$CI_CHECK" '
         [.statusCheckRollup[] | {
+            ci: (.name == $ci and .conclusion == "SUCCESS"),
             done: ((.status // "COMPLETED") == "COMPLETED" and (.state // "") != "PENDING"),
             result: (.conclusion // .state // ""),
             age: ($now - ((.startedAt // "1970-01-01T00:00:00Z") | fromdateiso8601))
@@ -68,7 +83,8 @@ checks_state() {
         | if   ($c | length) == 0 then "none"
           elif any($c[]; .done and (.result | IN("SUCCESS", "NEUTRAL", "SKIPPED") | not)) then "failed"
           elif any($c[]; (.done | not) and .age < 6 * 3600) then "pending"
-          elif all($c[]; .done) then "green"
+          elif all($c[]; .done) and any($c[]; .ci) then "green"
+          elif all($c[]; .done) then "untested"
           else "stale"
           end'
 }
@@ -91,11 +107,10 @@ prs=$(gh pr list --state open --base main --author app/github-actions --limit 10
     --json number,headRefName,createdAt,labels,url,isCrossRepository \
     --jq 'sort_by(.createdAt)[]
           | select(.headRefName | startswith("update/")) | select(.isCrossRepository | not)
-          | [.number, .headRefName, (.createdAt | fromdateiso8601 | tostring),
-             ([.labels[].name] | join(",")), .url] | join("\u001f")')
+          | [.number, .headRefName, ([.labels[].name] | join(",")), .url] | join("\u001f")')
 
 # On fd 3, so that nothing in the loop body (gh, git) can read the list from stdin.
-while IFS=$'\x1f' read -r -u 3 pr branch created labels url; do
+while IFS=$'\x1f' read -r -u 3 pr branch labels url; do
     [ -n "$pr" ] || continue
     if ! at_night; then
         echo "outside ${NIGHT_START_UTC}:00–0${NIGHT_END_UTC}:00 UTC, stopping; the rest waits for tomorrow night"
@@ -106,12 +121,11 @@ while IFS=$'\x1f' read -r -u 3 pr branch created labels url; do
     if [[ ",$labels," == *",$HOLD_LABEL,"* ]]; then
         echo "  skip: labelled $HOLD_LABEL"; continue
     fi
-    age_h=$(( (now - created) / 3600 ))
-    if [ "$age_h" -lt "$MIN_AGE_HOURS" ]; then
-        echo "  skip: ${age_h}h old, waiting for ${MIN_AGE_HOURS}h"; continue
-    fi
 
-    state=$(checks_state "$pr")
+    # One call, so the checks and the commit they are for cannot come from two moments.
+    view=$(gh pr view "$pr" --json headRefOid,statusCheckRollup)
+    seen=$(jq -r .headRefOid <<< "$view")
+    state=$(checks_state <<< "$view")
     case "$state" in
         failed)  echo "  skip: a check failed, needs a human"; continue ;;
         pending) echo "  skip: a check is still running"; continue ;;
@@ -119,6 +133,10 @@ while IFS=$'\x1f' read -r -u 3 pr branch created labels url; do
 
     git fetch --quiet origin main "+refs/heads/$branch:refs/remotes/origin/$branch"
     head=$(git rev-parse "origin/$branch")
+    if [ "$head" != "$seen" ]; then
+        echo "  branch moved since its checks were read, leaving it for the next run"
+        continue
+    fi
 
     if [ "$state" = green ] && git merge-base --is-ancestor origin/main "$head"; then
         echo "  green on top of the current main"
@@ -159,6 +177,15 @@ while IFS=$'\x1f' read -r -u 3 pr branch created labels url; do
             echo "  branch moved while CI ran, leaving it for the next run"
             continue
         fi
+    fi
+
+    # Read again: a label or a close while it was built is a veto all the same.
+    late=$(gh pr view "$pr" --json state,labels | jq -r '[.state, (.labels | map(.name) | join(","))] | join(" ")')
+    if [ "${late%% *}" != OPEN ]; then
+        echo "  ${late%% *} while it was built, leaving it" | tr '[:upper:]' '[:lower:]'; continue
+    fi
+    if [[ ",${late#* }," == *",$HOLD_LABEL,"* ]]; then
+        echo "  labelled $HOLD_LABEL while it was built, leaving it"; continue
     fi
 
     # Not --force: a fast-forward or nothing, so main gets exactly the tested commit.

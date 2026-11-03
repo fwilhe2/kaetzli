@@ -2,8 +2,9 @@ name: Package updates
 
 # Opens one pull request per package whose upstream has released a newer version, so
 # CI answers "does it still build, and does the image still boot" before the bump is
-# on main. Closing a pull request without merging it keeps that exact version from
-# being proposed again; a later release still gets its own.
+# on main. auto-merge.yml merges the green ones from 20:00 UTC; until then, and for as
+# long as it carries it, the `hold` label keeps one out. Closing a pull request only
+# skips a night: the next run opens it again.
 #
 # "Package" includes the toolchain. The Debian snapshot both Containerfiles are pinned to
 # is an input like any other — it decides what every binary is compiled by and what
@@ -16,9 +17,11 @@ name: Package updates
 # getting a workflow of its own.
 on:
   schedule:
-    # At night in Europe (23:00 CEST, 22:00 CET), like auto-merge.yml: opening pull
-    # requests and their CI runs stays out of the working day.
-    - cron: "0 21 * * *"
+    # After the working day in Europe (19:07 CEST, 18:07 CET), off the full hour where
+    # GitHub's queue is longest. That leaves about three hours for the pull requests'
+    # CI to finish, and to look at them, before auto-merge.yml starts merging at 20:00
+    # UTC. A late start only means a later merge: green CI is required either way.
+    - cron: "7 17 * * *"
   workflow_dispatch:
     inputs:
       packages:
@@ -69,7 +72,7 @@ jobs:
           # every package's cache on both architectures, a full rebuild that is worth a
           # current toolchain once a week and not every night. So the nightly schedule
           # asks only on Sunday (UTC); auto-merge.yml takes the pull request as it takes
-          # any other, a day later if it is green and not labelled `hold`. A run started by
+          # any other, that night if it is green and not labelled `hold`. A run started by
           # hand asks whenever it is told to.
           echo '[]' > snapshot.json
           if [ "$EVENT" = schedule ]; then

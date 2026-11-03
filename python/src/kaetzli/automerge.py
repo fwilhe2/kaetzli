@@ -4,7 +4,13 @@ has passed on exactly the commit that lands on main:
     ./tools/auto-merge.py        # what .github/workflows/auto-merge.yml runs
     ./tools/auto-merge.py -n     # say what would happen, touch nothing (works locally)
 
-"Green" on its own is not enough, and that is most of this script. A bump's CI ran
+Green means one thing: the "Package update CI" check, which tools/dispatch-ci.sh writes
+from ci.yml's run, concluded `success` on the very commit that is pushed to main, and
+nothing else on it failed. Other checks passing is not CI passing, and a neutral or
+skipped CI is not a pass. The checks are read together with the commit they belong to,
+and a branch that has moved since is not merged.
+
+Green on its own is not enough either, and that is most of this script. A bump's CI ran
 against main as it was when the pull request was opened, and the updater opens several
 at once — so after the first is merged, every other one was tested against a main that
 no longer exists. Each one is therefore rebased onto the current main and built again
@@ -17,19 +23,25 @@ mid-run safe — that pull request simply waits for the next run.
 A pull request is left alone, for a human, when:
   - it is not from github-actions on an update/ branch — this merges bumps, not changes
   - it carries the `hold` label — the way to say "not this one" without closing it
-  - it is younger than MIN_AGE_HOURS (default 24) — a business day to add that label
   - any check on it failed — a red build needs work in build.sh, not a retry
   - a check is still running and started recently — someone else's CI is in flight
   - the rebase conflicts, or the rebuilt CI fails
+  - it was labelled `hold` or closed while it was being built: the label and the state
+    are read again just before the merge, since a rebuild takes an hour
 
-Scheduled runs only act at night in Europe: no pull request is started outside
-22:00 to 05:00 UTC (00:00 to 07:00 CEST, 23:00 to 06:00 CET). GitHub's cron can start a run an
-hour or more late, so the schedule alone does not guarantee that — this check does, and
-it is made before each pull request rather than once, because one rebuild can take an
-hour. A pull request started just before the cutoff can still be building at eight in
-the morning in Germany; that is the accepted cost of a window wide enough to survive a
-late cron. A run started by hand (workflow_dispatch, or locally) is somebody choosing to
-act now, and is not held to the window.
+There is no minimum age. The updater opens pull requests at 17:00 UTC and nothing is
+merged before 20:00, which is the time to look and label; a mistake that gets through is
+a revert. Closing a pull request skips only that night: update-packages.yml opens it
+again the next evening, and `hold` is what keeps it out.
+
+Scheduled runs only act in the evening and at night in Europe: no pull request is
+started outside 20:00 to 05:00 UTC (22:00 to 07:00 CEST, 21:00 to 06:00 CET). GitHub's
+cron can start a run an hour or more late, so the schedule alone does not guarantee
+that — this check does, and it is made before each pull request rather than once,
+because one rebuild can take an hour. A pull request started just before the cutoff can
+still be building at eight in the morning in Germany; that is the accepted cost of a
+window wide enough to survive a late cron. A run started by hand (workflow_dispatch, or
+locally) is somebody choosing to act now, and is not held to the window.
 
 Pushes made with GITHUB_TOKEN start no workflow, which applies to main as much as to a
 branch: once anything was merged, ci.yml is dispatched on main, so publish-oci and the
@@ -53,9 +65,10 @@ from pathlib import Path
 
 from kaetzli import repo
 
-NIGHT_START_UTC = 22
+NIGHT_START_UTC = 20
 NIGHT_END_UTC = 5
 HOLD_LABEL = "hold"
+CI_CHECK = "Package update CI"
 # A check "running" for longer than any CI run takes is one whose reporter died (a
 # timed-out run of this script leaves its check in_progress); waiting on it would wait
 # forever.
@@ -77,9 +90,13 @@ def _or(*values):
 
 
 def checks_state(rollup: list[dict], now: int) -> str:
-    """green, pending, failed, stale or none, from every check and status on the head."""
+    """green, untested, pending, failed, stale or none, from every check and status on the
+    head. Green needs the CI check run itself to have succeeded; all done without that is
+    untested."""
     checks = []
+    ci = False
     for c in rollup:
+        ci = ci or (c.get("name") == CI_CHECK and c.get("conclusion") == "SUCCESS")
         done = (
             _or(c.get("status"), "COMPLETED") == "COMPLETED"
             and _or(c.get("state"), "") != "PENDING"
@@ -94,7 +111,7 @@ def checks_state(rollup: list[dict], now: int) -> str:
     if any(not done and age < RUNNING_AT_MOST for done, _, age in checks):
         return "pending"
     if all(done for done, _, _ in checks):
-        return "green"
+        return "green" if ci else "untested"
     return "stale"
 
 
@@ -107,7 +124,6 @@ def at_night(event: str, hour: int) -> bool:
 class PullRequest:
     number: int
     branch: str
-    created: int
     labels: list[str]
     url: str
 
@@ -118,7 +134,6 @@ def updates(prs: list[dict]) -> list[PullRequest]:
         PullRequest(
             p["number"],
             p["headRefName"],
-            _epoch(p["createdAt"]),
             [label["name"] for label in p["labels"]],
             p["url"],
         )
@@ -165,19 +180,28 @@ def say(line: str) -> None:
     print(line, flush=True)
 
 
-def merge_one(pr: PullRequest, r: Runner, now: int, min_age_hours: int) -> bool:
+def vetoed(late: dict) -> str | None:
+    """Why a pull request read again just before the merge must not be merged, if it
+    must not: closed (or merged by hand) meanwhile, or labelled hold."""
+    if late["state"] != "OPEN":
+        return f"{late['state'].lower()} while it was built, leaving it"
+    if HOLD_LABEL in [label["name"] for label in late["labels"]]:
+        return f"labelled {HOLD_LABEL} while it was built, leaving it"
+    return None
+
+
+def merge_one(pr: PullRequest, r: Runner, now: int) -> bool:
     """One pull request, as far as it goes; True when it landed on main."""
     say(f"#{pr.number} {pr.branch}")
     if HOLD_LABEL in pr.labels:
         say(f"  skip: labelled {HOLD_LABEL}")
         return False
-    age_h = (now - pr.created) // 3600
-    if age_h < min_age_hours:
-        say(f"  skip: {age_h}h old, waiting for {min_age_hours}h")
-        return False
 
-    rollup = json.loads(r.out("gh", "pr", "view", str(pr.number), "--json", "statusCheckRollup"))
-    state = checks_state(rollup["statusCheckRollup"], now)
+    # One call, so the checks and the commit they are for cannot come from two moments.
+    view = json.loads(r.out(
+        "gh", "pr", "view", str(pr.number), "--json", "headRefOid,statusCheckRollup"
+    ))  # fmt: skip
+    state = checks_state(view["statusCheckRollup"], now)
     if state == "failed":
         say("  skip: a check failed, needs a human")
         return False
@@ -188,6 +212,9 @@ def merge_one(pr: PullRequest, r: Runner, now: int, min_age_hours: int) -> bool:
     tracking = f"+refs/heads/{pr.branch}:refs/remotes/origin/{pr.branch}"
     r.check("git", "fetch", "--quiet", "origin", "main", tracking)
     head = r.out("git", "rev-parse", f"origin/{pr.branch}")
+    if head != view["headRefOid"]:
+        say("  branch moved since its checks were read, leaving it for the next run")
+        return False
 
     if state == "green" and r.ok("git", "merge-base", "--is-ancestor", "origin/main", head):
         say("  green on top of the current main")
@@ -226,6 +253,12 @@ def merge_one(pr: PullRequest, r: Runner, now: int, min_age_hours: int) -> bool:
             say("  branch moved while CI ran, leaving it for the next run")
             return False
 
+    # Read again: a label or a close while it was built is a veto all the same.
+    late = json.loads(r.out("gh", "pr", "view", str(pr.number), "--json", "state,labels"))
+    if reason := vetoed(late):
+        say(f"  {reason}")
+        return False
+
     # Not --force: a fast-forward or nothing, so main gets exactly the tested commit.
     if not r.act("git", "push", "--quiet", "origin", f"{head}:refs/heads/main"):
         say(f"::warning::main moved during this run, #{pr.number} waits for the next one")
@@ -260,7 +293,6 @@ def main(
         print("usage: tools/auto-merge.py [-n]", file=sys.stderr)
         return 2
     root = root or repo.enter_root()
-    min_age_hours = int(os.environ.get("MIN_AGE_HOURS") or 24)
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     now = int(time.time())
     r = Runner(root, dry_run)
@@ -280,7 +312,7 @@ def main(
                 " the rest waits for tomorrow night"
             )
             break
-        if merge_one(pr, r, now, min_age_hours):
+        if merge_one(pr, r, now):
             merged_any = True
             after_merge(pr, r, sleep)
 

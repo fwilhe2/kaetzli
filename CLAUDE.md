@@ -646,7 +646,8 @@ which is why `vm.config` names so much arm64 board support.
   lets upstream keep the architecture's own requirements current.
 - **The kernel follows the latest stable**, from x.y.1. New `default y` drivers are reported,
   not gated: the kernel job posts `test/kernel-config-diff.py` against main on the pull
-  request, and the 24 hours before auto-merge are the time to clear them or label `hold`.
+  request, and the hours between the 17:00 UTC update run and the 20:00 UTC merge window
+  are the time to clear them or label `hold`.
 
 ## Reproducible builds
 
@@ -681,11 +682,16 @@ each artifact holds only its own files. Its cache key hashes the build scripts, 
 `env.sh` and `build.sh` (every package compiles against them), the package's `env.sh`,
 `build.sh` and `src/` (and the `env.sh` it `FOLLOWS`), the builder tag, and the half-month:
 **nothing is served from the cache for more than about two weeks**. On the 1st and 15th at
-20:00 UTC a scheduled run rebuilds main from scratch — `FRESH=1` rebuilds the builder and
+16:00 UTC a scheduled run rebuilds main from scratch — `FRESH=1` rebuilds the builder and
 sources images, and the package jobs skip the cache — and `gh workflow run ci.yml -f
 fresh=true` does the same by hand. A plain cache miss is not that: it still pulls both
 images. Note that `build.sh`, `tools/lib.sh` and `builder/build-package.sh` are in every
 key, so even a comment there rebuilds every package.
+
+**Only a green commit reaches `main` by automation**: the ruleset *main: CI green before a
+push* requires `result` from GitHub Actions on the pushed commit, admins bypassing it.
+`tools/auto-merge.sh` merges update pull requests from 20:00 to 05:00 UTC by fast-forward
+to the commit CI passed, after re-reading `hold` and the state; there is no minimum age.
 
 `publish-oci` is the only job that writes anything public, and only on `main`, so a pull
 request cannot exercise it — verify changes to it or `tools/publish-oci.sh` by hand
