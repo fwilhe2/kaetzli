@@ -72,6 +72,9 @@ NF_TABLES_NETDEV    netdev-family ingress hooks: Calico nftables, Cilium's host 
 NETFILTER_XT_TARGET_REDIRECT  -j REDIRECT; kubeadm's preflight refuses a node without it
 NETFILTER_XT_MATCH_COMMENT    -m comment; kubeadm's preflight, and every kube-proxy/CNI rule
 DUMMY               dummy interfaces: kube-proxy IPVS, NodeLocal DNSCache, node conformance
+IP_SET              ipset; Calico's Felix panics without it, even with its nftables dataplane
+NETFILTER_XT_TARGET_NETMAP  -j NETMAP, how Gardener's VPN maps a shoot's networks into ranges of its own
+NETFILTER_XT_MATCH_OWNER  -m owner, how Gardener's vpn-seed-server matches its own traffic
 VIRTIO_BLK          the root and /var disks on every VMM
 VIRTIO_NET          the network on every VMM
 VIRTIO_PCI          qemu's and Virtualization.framework's devices
