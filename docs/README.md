@@ -19,6 +19,8 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Image variants](proposals/image-variants.md): select package sets at assembly time.
 - [macOS container host](proposals/container-host.md): use the image as a Podman VM.
 - [Releases](proposals/release.md): rolling, expiring snapshots as GitHub releases; no supported versions.
+- [Launcher](proposals/launcher.md): one downloaded binary that runs machines on Linux,
+  macOS and Windows, without a checkout.
 - [Build reproduction](proposals/reproducing-a-build.md): archive the recipe as a future
   improvement; package patches are already supported ([guide](guides/patches.md)).
 - [Ideas from other builders](proposals/ideas-from-other-builders.md): checks, hardening
