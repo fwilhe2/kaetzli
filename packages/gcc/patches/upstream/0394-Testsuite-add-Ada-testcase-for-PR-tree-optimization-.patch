@@ -1,0 +1,33 @@
+From 4b03dde2e3ad210db469ee763194c0cbec22cf45 Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Tue, 3 Nov 2026 10:39:03 +0100
+Subject: [PATCH] Testsuite: add Ada testcase for PR tree-optimization/127475
+
+gcc/testsuite/
+	PR tree-optimization/127475
+	* gnat.dg/specs/vect1.ads: New test.
+---
+ gcc/testsuite/gnat.dg/specs/vect1.ads | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+ create mode 100644 gcc/testsuite/gnat.dg/specs/vect1.ads
+
+diff --git a/gcc/testsuite/gnat.dg/specs/vect1.ads b/gcc/testsuite/gnat.dg/specs/vect1.ads
+new file mode 100644
+index 000000000000..6ce64ced51ce
+--- /dev/null
++++ b/gcc/testsuite/gnat.dg/specs/vect1.ads
+@@ -0,0 +1,14 @@
++-- { dg-do compile }
++-- { dg-options "-O2" }
++
++with Ada.Finalization;
++
++package Vect1 is
++
++  type Rec is new Ada.Finalization.Controlled with record
++    Data : Integer;
++  end record;
++
++  type Arr is array (Boolean, Boolean, Boolean) of Rec;
++
++end Vect1;

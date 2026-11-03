@@ -1,0 +1,177 @@
+From 189695dbcb527c3e34facd4ba1fe6376e4435f05 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Fri, 30 Oct 2026 10:16:50 +0100
+Subject: [PATCH] i386: Use separate unspecs for CRC32 widths [PR128310]
+
+The CRC32 insns used a single UNSPEC_CRC32 for all operand widths.
+When the second operand is a constant, which carries no mode, the
+QI, HI and SI forms become identical unspec expressions, so CSE
+merges crc32 results of different widths and e.g.
+_mm_crc32_u16 (c, 0x7f) == _mm_crc32_u32 (c, 0x7f) folds to 1.
+Use a distinct unspec for each width.
+
+Also add the 64-bit zero-extended form of crc32b.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128310
+
+gcc/ChangeLog:
+
+	* config/i386/i386.md (UNSPEC_CRC32): Remove.
+	(UNSPEC_CRC32B, UNSPEC_CRC32W)
+	(UNSPEC_CRC32L, UNSPEC_CRC32Q): New.
+	(sse4_2_crc32qi): Rename from sse4_2_crc32<mode>.
+	Use UNSPEC_CRC32B.
+	(*sse4_2_crc32qi_zext): New insn.
+	(sse4_2_crc32hi): New insn.
+	(sse4_2_crc32si): Ditto.
+	(sse4_2_crc32di): Use UNSPEC_CRC32Q.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128310.c: New test.
+
+(cherry picked from commit cdc06c5d808d338b240b4f50ae33cb43b71ccb40)
+---
+ gcc/config/i386/i386.md                  | 60 ++++++++++++++++++++----
+ gcc/testsuite/gcc.target/i386/pr128310.c | 33 +++++++++++++
+ 2 files changed, 83 insertions(+), 10 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128310.c
+
+diff --git a/gcc/config/i386/i386.md b/gcc/config/i386/i386.md
+index 80703a095345..7e6f3aa572d5 100644
+--- a/gcc/config/i386/i386.md
++++ b/gcc/config/i386/i386.md
+@@ -191,7 +191,10 @@
+   UNSPEC_ROUND
+ 
+   ;; For CRC32 support
+-  UNSPEC_CRC32
++  UNSPEC_CRC32B
++  UNSPEC_CRC32W
++  UNSPEC_CRC32L
++  UNSPEC_CRC32Q
+ 
+   ;; For LZCNT suppoprt
+   UNSPEC_LZCNT
+@@ -29826,34 +29829,71 @@
+         (symbol_ref "memory_address_length (operands[0], false)"))
+    (set_attr "memory" "none")])
+ 
+-(define_insn "sse4_2_crc32<mode>"
++(define_insn "sse4_2_crc32qi"
+   [(set (match_operand:SI 0 "register_operand" "=r")
+ 	(unspec:SI
+ 	  [(match_operand:SI 1 "register_operand" "0")
+-	   (match_operand:SWI124 2 "nonimmediate_operand" "<r>m")]
+-	  UNSPEC_CRC32))]
++	   (match_operand:QI 2 "nonimmediate_operand" "qm")]
++	  UNSPEC_CRC32B))]
+   "TARGET_CRC32"
+-  "crc32{<imodesuffix>}\t{%2, %0|%0, %2}"
++  "crc32{b}\t{%2, %0|%0, %2}"
+   [(set_attr "type" "sselog1")
+    (set_attr "prefix_rep" "1")
+    (set_attr "prefix_extra" "1")
+-   (set (attr "prefix_data16")
+-     (if_then_else (match_operand:HI 2)
+-       (const_string "1")
+-       (const_string "*")))
+    (set (attr "prefix_rex")
+      (if_then_else (match_operand:QI 2 "ext_QIreg_operand")
+        (const_string "1")
+        (const_string "*")))
+    (set_attr "mode" "SI")])
+ 
++(define_insn "*sse4_2_crc32qi_zext"
++  [(set (match_operand:DI 0 "register_operand" "=r")
++	(zero_extend:DI
++	  (unspec:SI
++	    [(match_operand:SI 1 "register_operand" "0")
++	     (match_operand:QI 2 "nonimmediate_operand" "qm")]
++	    UNSPEC_CRC32B)))]
++  "TARGET_64BIT && TARGET_CRC32"
++  "crc32{b}\t{%2, %0|%0, %2}"
++  [(set_attr "type" "sselog1")
++   (set_attr "prefix_rep" "1")
++   (set_attr "prefix_extra" "1")
++   (set_attr "mode" "SI")])
++
++(define_insn "sse4_2_crc32hi"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(unspec:SI
++	  [(match_operand:SI 1 "register_operand" "0")
++	   (match_operand:HI 2 "nonimmediate_operand" "rm")]
++	  UNSPEC_CRC32W))]
++  "TARGET_CRC32"
++  "crc32{w}\t{%2, %0|%0, %2}"
++  [(set_attr "type" "sselog1")
++   (set_attr "prefix_rep" "1")
++   (set_attr "prefix_extra" "1")
++   (set_attr "prefix_data16" "1")
++   (set_attr "mode" "SI")])
++
++(define_insn "sse4_2_crc32si"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(unspec:SI
++	  [(match_operand:SI 1 "register_operand" "0")
++	   (match_operand:SI 2 "nonimmediate_operand" "rm")]
++	  UNSPEC_CRC32L))]
++  "TARGET_CRC32"
++  "crc32{l}\t{%2, %0|%0, %2}"
++  [(set_attr "type" "sselog1")
++   (set_attr "prefix_rep" "1")
++   (set_attr "prefix_extra" "1")
++   (set_attr "mode" "SI")])
++
+ (define_insn "sse4_2_crc32di"
+   [(set (match_operand:DI 0 "register_operand" "=r")
+ 	(zero_extend:DI
+ 	  (unspec:SI
+ 	    [(match_operand:SI 1 "register_operand" "0")
+ 	     (match_operand:DI 2 "nonimmediate_operand" "rm")]
+-	  UNSPEC_CRC32)))]
++	  UNSPEC_CRC32Q)))]
+   "TARGET_64BIT && TARGET_CRC32"
+   "crc32{q}\t{%2, %0|%0, %2}"
+   [(set_attr "type" "sselog1")
+diff --git a/gcc/testsuite/gcc.target/i386/pr128310.c b/gcc/testsuite/gcc.target/i386/pr128310.c
+new file mode 100644
+index 000000000000..d90475971cf8
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128310.c
+@@ -0,0 +1,33 @@
++/* PR target/128310 */
++/* { dg-do run } */
++/* { dg-options "-O2 -mcrc32" } */
++/* { dg-require-effective-target sse4 } */
++
++#include "sse4_2-check.h"
++#include <immintrin.h>
++#include <stdint.h>
++
++__attribute__((noipa)) int bh (uint32_t c)
++{ return _mm_crc32_u8 (c, 0x7f) == _mm_crc32_u16 (c, 0x7f); }
++
++__attribute__((noipa)) int bs (uint32_t c)
++{ return _mm_crc32_u8 (c, 0x7f) == _mm_crc32_u32 (c, 0x7f); }
++
++__attribute__((noipa)) int hs (uint32_t c)
++{ return _mm_crc32_u16 (c, 0x7f) == _mm_crc32_u32 (c, 0x7f); }
++
++#ifdef __x86_64__
++__attribute__((noipa)) int bq (uint32_t c)
++{ return _mm_crc32_u8 (c, 0x7f) == _mm_crc32_u64 (c, 0x7f); }
++#endif
++
++static void
++sse4_2_test (void)
++{
++  if (bh (7) || bs (7) || hs (7))
++    __builtin_abort ();
++#ifdef __x86_64__
++  if (bq (7))
++    __builtin_abort ();
++#endif
++}

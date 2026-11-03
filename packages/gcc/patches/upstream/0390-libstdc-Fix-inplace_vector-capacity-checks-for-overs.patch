@@ -1,0 +1,657 @@
+From 224e4aca31cc1195dc4ce57bc51198379b82b1fe Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
+Date: Tue, 27 Oct 2026 13:37:03 +0100
+Subject: [PATCH] libstdc++: Fix inplace_vector capacity checks for oversized
+ ranges.
+
+The inplace_vector's _S_distance check, was unconditionally casting
+range size into the size_type. For oversized ranges, whose difference_type
+and is larger size_t, this trims the value, and may lead to false acceptance
+of range of size that is greater than capacity.
+
+This patch, addresses the above, by replacing above with S_distance_if_fits
+function, that also checks capacity. The checks are performed by _S_check_size
+and _S_check_distance functions. The former is templated on integer type,
+and performs the cast only after verifying that range size fits in the
+capacity (and thus in size_type).
+
+For _S_check_distance, stops iterating the range after capacity() - size()
+elements, instead of calling std::distance. The change is also applied
+to the range overloads, via newly defined _S_distance_if_fits overload.
+
+Finally, the runtime if on _S_distance (false_type was returned in case
+of input iterators), is replaced with the if constexpr. Previously both
+branches were emitted for forward (or stronger iterator), as else branch
+was triggered for ranges of size zero. The constraints are extracted to
+new __any_sizeable_iterator concept (mirroring __any_input_iterator).
+
+libstdc++-v3/ChangeLog:
+
+	* include/bits/stl_iterator_base_types.h (__any_sizeable_iterator):
+	Define.
+	* include/std/inplace_vector (inplace_vector::_S_reserve):
+	Replace with...
+	(inplace_vector::_S_check_size, inplace_vector::_S_check_distance):
+	Define.
+	(inplace_vector::_S_distance): Replace with..
+	(inplace_vector::_S_distance_if_fits): Rework _S_distance with
+	integrated bounds checking, and overloaded for rangs.
+	(inplace_vector::reserve, inplace_vector::resize): Replace
+	_S_reserve with _S_check_size.
+	(inplace_vector::inplace_vector, inplace_vector::assign): Replace
+	runtime check with if constexpr and use _S_distance_if_fits.
+	(inplace_vector::insert): Likewise, and skip rotate for insertion
+	at the end.
+	(inplace_vector::append_range): Use _S_distance_if_fits to compute
+	size.
+	* testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc:
+	New test.
+
+Reviewed-by: Jonathan Wakely <jwakely@redhat.com>
+(cherry picked from commit 404fb73f95f44a2930066c7948c983d3f58572da)
+---
+ .../include/bits/stl_iterator_base_types.h    |   7 +
+ libstdc++-v3/include/std/inplace_vector       | 119 ++++---
+ .../modifiers/capacity_check.cc               | 315 ++++++++++++++++++
+ 3 files changed, 393 insertions(+), 48 deletions(-)
+ create mode 100644 libstdc++-v3/testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc
+
+diff --git a/libstdc++-v3/include/bits/stl_iterator_base_types.h b/libstdc++-v3/include/bits/stl_iterator_base_types.h
+index 9c008276b98f..e551ce0eb04a 100644
+--- a/libstdc++-v3/include/bits/stl_iterator_base_types.h
++++ b/libstdc++-v3/include/bits/stl_iterator_base_types.h
+@@ -263,6 +263,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   template<typename _InIterator>
+     concept __any_input_iterator
+       = input_iterator<_InIterator> || __has_input_iter_cat<_InIterator>;
++
++  // Is a Cpp17ForwardIterator or satisfies std::forward_iterator or sized_sentinel_for
++  template<typename _InIterator>
++    concept __any_sizeable_iterator
++      = forward_iterator<_InIterator>
++	|| is_convertible_v<__iter_category_t<_InIterator>, forward_iterator_tag>
++	|| sized_sentinel_for<_InIterator, _InIterator>;
+ #endif
+ #endif
+ 
+diff --git a/libstdc++-v3/include/std/inplace_vector b/libstdc++-v3/include/std/inplace_vector
+index 0159f7021f37..d3b2c2c406ef 100644
+--- a/libstdc++-v3/include/std/inplace_vector
++++ b/libstdc++-v3/include/std/inplace_vector
+@@ -84,7 +84,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       inplace_vector(size_type __n)
+       {
+ 	_M_init();
+-	_S_reserve(__n);
++	_S_check_size(__n);
+ 	std::uninitialized_value_construct_n(data(), __n);
+ 	_M_size = __n;
+       }
+@@ -93,7 +93,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       inplace_vector(size_type __n, const _Tp& __value)
+       {
+ 	_M_init();
+-	_S_reserve(__n);
++	_S_check_size(__n);
+ 	std::uninitialized_fill_n(data(), __n, __value);
+ 	_M_size = __n;
+       }
+@@ -103,9 +103,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	inplace_vector(_InputIterator __first, _InputIterator __last)
+ 	: inplace_vector()
+ 	{
+-	  if (const auto __n = _S_distance(__first, __last))
++	  if constexpr (__any_sizeable_iterator<_InputIterator>)
+ 	    {
+-	      _S_reserve(__n);
++	      const size_type __n = _S_distance_if_fits(0, __first, __last);
+ 	      std::uninitialized_copy(__first, __last, data());
+ 	      _M_size = __n;
+ 	    }
+@@ -126,7 +126,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       inplace_vector(initializer_list<_Tp> __il)
+       {
+ 	_M_init();
+-	_S_reserve(__il.size());
++	_S_check_size(__il.size());
+ 	std::uninitialized_copy(__il.begin(), __il.end(), data());
+ 	_M_size = __il.size();
+       }
+@@ -211,9 +211,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	constexpr void
+ 	assign(_InputIterator __first, _InputIterator __last)
+ 	{
+-	  if (const auto __n = _S_distance(__first, __last))
++	  if constexpr (__any_sizeable_iterator<_InputIterator>)
+ 	    {
+-	      _S_reserve(__n);
++	      const size_type __n = _S_distance_if_fits(0, __first, __last);
+ 	      if (_M_size <= __n)
+ 		{
+ 		  for (size_t __i = 0; __i < _M_size; ++__i, (void)++__first)
+@@ -248,9 +248,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	{
+ 	  if constexpr (ranges::forward_range<_Rg> || ranges::sized_range<_Rg>)
+ 	    {
+-	      const auto __sz = ranges::distance(__rg);
+-	      if (__sz > _Nm)
+-		__throw_bad_alloc();
++	      const size_type __sz = _S_distance_if_fits(0, __rg);
+ 	      if (__sz <= size())
+ 		{
+ 		  ranges::copy_n(ranges::begin(__rg), __sz, data());
+@@ -297,7 +295,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       constexpr void
+       assign(size_type __n, const _Tp& __u)
+       {
+-	_S_reserve(__n);
++	_S_check_size(__n);
+ 	if (_M_size <= __n)
+ 	  std::uninitialized_fill_n(std::fill_n(data(), _M_size, __u),
+ 				    __n - _M_size, __u);
+@@ -388,7 +386,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       constexpr void
+       resize(size_type __n)
+       {
+-	_S_reserve(__n);
++	_S_check_size(__n);
+ 	if (__n > _M_size)
+ 	  std::uninitialized_value_construct_n(data() + _M_size, __n - _M_size);
+ 	else if (__n < _M_size)
+@@ -399,7 +397,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+       constexpr void
+       resize(size_type __n, const _Tp& __c)
+       {
+-	_S_reserve(__n);
++	_S_check_size(__n);
+ 	if (__n > _M_size)
+ 	  std::uninitialized_fill_n(data() + _M_size, __n - _M_size, __c);
+ 	else if (__n < _M_size)
+@@ -409,7 +407,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 
+       static constexpr void
+       reserve(size_type __n)
+-      { _S_reserve(__n); }
++      { _S_check_size(__n); }
+ 
+       static constexpr void
+       shrink_to_fit() { }
+@@ -523,14 +521,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	{
+ 	  if constexpr (ranges::forward_range<_Rg> || ranges::sized_range<_Rg>)
+ 	    {
+-	      const auto __sz = ranges::distance(__rg);
+-	      if (__sz > (_Nm - size()))
+-		__throw_bad_alloc();
++	      const size_t __sz = _S_distance_if_fits(_M_size, __rg);
+ 	      // Bounded on output range due PR121143
+ 	      ranges::uninitialized_copy(
+ 		ranges::begin(__rg), unreachable_sentinel,
+ 		data() + _M_size, data() + _M_size + __sz);
+-	      _M_size += size_type(__sz);
++	      _M_size += __sz;
+ 	    }
+ 	  else
+ 	    {
+@@ -641,10 +637,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	  __glibcxx_assert(__b <= _M_size);
+ 	  iterator __pos = begin() + __b;
+ 	  const size_t __s = _M_size;
+-	  if (const auto __n = _S_distance(__first, __last))
++	  if constexpr (__any_sizeable_iterator<_InputIterator>)
+ 	    {
+-	      if ((_Nm - _M_size) < __n)
+-		__throw_bad_alloc();
++	      const size_type __n = _S_distance_if_fits(_M_size, __first, __last);
+ 	      std::uninitialized_copy(__first, __last, data() + _M_size);
+ 	      _M_size += __n;
+ 	    }
+@@ -653,7 +648,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	      while (__first != __last)
+ 		emplace_back(*__first++);
+ 	    }
+-	  if (__s)
++	  if (__b < __s)
+ 	    std::rotate(__pos, begin() + __s, end());
+ 	  return __pos;
+ 	}
+@@ -666,20 +661,17 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	  const auto __end = end();
+ 	  if constexpr (ranges::forward_range<_Rg> || ranges::sized_range<_Rg>)
+ 	    {
+-	      const auto __len = ranges::distance(__rg);
+-	      if (__len > (_Nm - size()))
+-		__throw_bad_alloc();
+-	      if (!__len) [[unlikely]]
++	      const size_type __sz = _S_distance_if_fits(_M_size, __rg);
++	      if (!__sz) [[unlikely]]
+ 		return __pos;
+ 
+-	      const size_type __n = size_type(__len);
+ 	      const size_type __num_after = __end - __pos;
+-	      if (__num_after >= __n)
++	      if (__num_after >= __sz)
+ 		{
+-		  ranges::uninitialized_move(__end - __n, __end,
++		  ranges::uninitialized_move(__end - __sz, __end,
+ 					     __end, unreachable_sentinel);
+-		  _M_size += __n;
+-		  ranges::move_backward(__pos, __end - __n, __end);
++		  _M_size += __sz;
++		  ranges::move_backward(__pos, __end - __sz, __end);
+ 		  ranges::copy(__rg, __pos);
+ 		}
+ 	      else if constexpr (ranges::forward_range<_Rg>)
+@@ -687,9 +679,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 		  auto __mid = ranges::next(ranges::begin(__rg), __num_after);
+ 		  ranges::uninitialized_copy(__mid, ranges::end(__rg),
+ 					     __end, unreachable_sentinel);
+-		  _M_size += __n - __num_after;
++		  _M_size += __sz - __num_after;
+ 		  ranges::uninitialized_move(__pos, __end,
+-					     __pos + __n, unreachable_sentinel);
++					     __pos + __sz, unreachable_sentinel);
+ 		  _M_size += __num_after;
+ 		  ranges::copy(ranges::begin(__rg), __mid, __pos);
+ 		}
+@@ -698,7 +690,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 		  ranges::uninitialized_copy(
+ 		    ranges::begin(__rg), ranges::end(__rg),
+ 		    __end, unreachable_sentinel);
+-		  _M_size += __n;
++		  _M_size += __sz;
+ 		  std::rotate(__pos, __end, end());
+ 		}
+ 	    }
+@@ -858,25 +850,56 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
+ 	  }
+       }
+ 
+-      static constexpr void
+-      _S_reserve(size_t __n)
+-      {
+-	if (__n > _Nm)
++      template<typename _Integer>
++	static constexpr size_type
++	_S_check_size(_Integer __n, size_type __size = 0)
++	{
++	  if constexpr (__detail::__is_signed_integer_like<_Integer>)
++	    if (__n < 0)
++	      __throw_bad_alloc();
++	  if (__n > (_Nm - __size))
++	    __throw_bad_alloc();
++	  return static_cast<size_type>(__n);
++	}
++
++      template<typename _Iterator, typename _Sentinel>
++	static constexpr size_type
++	_S_check_distance(_Iterator __first, _Sentinel __last, size_type __size)
++	{
++	  for (size_type __i = __size; __i < _Nm; ++__i)
++	    if (__first == __last)
++	      return __i - __size;
++	    else
++	      ++__first;
++
++	  if (__first == __last)
++	    return _Nm - __size;
++
+ 	  __throw_bad_alloc();
+-      }
++	}
+ 
++      // Returns the size of the range if it will fit in the remaining
++      // capacity (_Nm - used), otherwise throws bad_alloc.
+       template<typename _InputIterator>
+-	constexpr static auto
+-	_S_distance(_InputIterator __first, _InputIterator __last)
++	constexpr static size_t
++	_S_distance_if_fits(size_t __size, _InputIterator __first, _InputIterator __last)
++	{
++	  if constexpr (sized_sentinel_for<_InputIterator, _InputIterator>)
++	    return _S_check_size(__last - __first, __size);
++	  else
++	    return _S_check_distance(__first, __last, __size);
++	}
++
++      // See above.
++      template<typename _Rg>
++	constexpr static size_t
++	_S_distance_if_fits(size_t __size, _Rg& __rg)
+ 	{
+-	  if constexpr (sized_sentinel_for<_InputIterator, _InputIterator>
+-			  || forward_iterator<_InputIterator>)
+-	    return (size_type)ranges::distance(__first, __last);
+-	  else if constexpr (derived_from<__iter_category_t<_InputIterator>,
+-				     forward_iterator_tag>)
+-	    return (size_type)std::distance(__first, __last);
++	  if constexpr (ranges::sized_range<_Rg>)
++	    return _S_check_size(ranges::size(__rg), __size);
+ 	  else
+-	    return false_type{};
++	    return _S_check_distance(ranges::begin(__rg), ranges::end(__rg),
++				     __size);
+ 	}
+     };
+ 
+diff --git a/libstdc++-v3/testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc b/libstdc++-v3/testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc
+new file mode 100644
+index 000000000000..77829b6639cb
+--- /dev/null
++++ b/libstdc++-v3/testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc
+@@ -0,0 +1,315 @@
++// { dg-do run { target c++26 } }
++// { dg-require-effective-target exceptions_enabled }
++
++#include <inplace_vector>
++
++#include <ranges>
++#include <testsuite_hooks.h>
++
++template<typename Category>
++struct iter_category_base
++{ using iterator_category = Category; };
++
++template<>
++struct iter_category_base<void>
++{ };
++
++template<typename Concept>
++struct iter_concept_base
++{ using iterator_concept = Concept; };
++
++template<>
++struct iter_concept_base<void>
++{ };
++
++template<typename DifferenceType, bool Sized = true,
++	 typename Category = std::random_access_iterator_tag,
++	 typename Concept = Category>
++struct iota_iterator
++: iter_category_base<Category>, iter_concept_base<Concept>
++{
++  using value_type = DifferenceType;
++  using difference_type = DifferenceType;
++  using pointer = const DifferenceType*;
++  using reference = DifferenceType;
++
++  static constexpr bool sized = Sized;
++  static inline std::size_t incrementCount = 0;
++  static inline std::size_t decrement_count = 0;
++
++  iota_iterator() = default;
++
++  constexpr explicit
++  iota_iterator(DifferenceType v)
++  : value(v)
++  { }
++
++  constexpr DifferenceType
++  operator*() const
++  { return value; }
++
++  constexpr DifferenceType
++  operator[](difference_type n) const
++  { return value + n; }
++
++  constexpr iota_iterator&
++  operator++()
++  { ++incrementCount; ++value; return *this; }
++
++  constexpr iota_iterator
++  operator++(int)
++  { ++incrementCount; auto tmp = *this; ++value; return tmp; }
++
++  constexpr iota_iterator&
++  operator--()
++  { ++decrement_count; --value; return *this; }
++
++  constexpr iota_iterator
++  operator--(int)
++  { ++decrement_count; auto tmp = *this; --value; return tmp; }
++
++  constexpr iota_iterator&
++  operator+=(difference_type n)
++  { incrementCount += n; value += n; return *this; }
++
++  constexpr iota_iterator&
++  operator-=(difference_type n)
++  { decrement_count += n; value -= n; return *this; }
++
++  friend constexpr iota_iterator
++  operator+(iota_iterator i, difference_type n)
++  { return iota_iterator(i.value + n); }
++
++  friend constexpr iota_iterator
++  operator+(difference_type n, iota_iterator i)
++  { return iota_iterator(i.value + n); }
++
++  friend constexpr iota_iterator
++  operator-(iota_iterator i, difference_type n)
++  { return iota_iterator(i.value - n); }
++
++  friend constexpr difference_type
++  operator-(iota_iterator a, iota_iterator b)
++    requires Sized
++  { return a.value - b.value; }
++
++  friend constexpr bool
++  operator==(iota_iterator lhs, iota_iterator rhs) noexcept
++  { return lhs.value == rhs.value; }
++
++  friend constexpr auto
++  operator<=>(iota_iterator lhs, iota_iterator rhs) noexcept
++  { return lhs.value <=> rhs.value; }
++
++private:
++  DifferenceType value = {};
++};
++
++template<size_t N, typename Iterator>
++constexpr void
++do_test(Iterator first, Iterator last)
++{
++  std::inplace_vector<int, N> v;
++  std::ranges::subrange<Iterator> range(first, last);
++
++  v.clear();
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.assign(first, last);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v.clear();
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.assign_range(range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v.clear();
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.insert(v.begin(), first, last);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v.clear();
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.insert_range(v.begin(), range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v.clear();
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.append_range(range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  if constexpr (N < 4)
++    return;
++
++  v = {1, 2, 3, 4};
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.assign(first, last);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v = {1, 2, 3, 4};
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.assign_range(range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N+1 );
++
++  v = {1, 2, 3, 4};
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.insert(v.begin(), first, last);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N-3 );
++
++  v = {1, 2, 3, 4};
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.insert_range(v.begin(), range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N-3 );
++
++  v = {1, 2, 3, 4};
++  Iterator::incrementCount = 0;
++  try
++  {
++    v.append_range(range);
++    VERIFY(false);
++  }
++  catch (std::bad_alloc const&)
++  {
++  }
++  if (Iterator::sized)
++    VERIFY( Iterator::incrementCount == 0 );
++  else
++    VERIFY( Iterator::incrementCount <= N-3 );
++}
++
++template<size_t N, typename DifferenceType, bool Sized,
++	 typename Category, typename Concept>
++constexpr void
++test_iter()
++{
++  using Iterator = iota_iterator<DifferenceType, Sized, Category, Concept>;
++  using Limits = std::numeric_limits<DifferenceType>;
++  do_test<N>(Iterator(DifferenceType(0)), Iterator(Limits::max()));
++
++  DifferenceType v2 = (DifferenceType(1) << (Limits::digits - 1)) + 2;
++  do_test<N>(Iterator(DifferenceType(0)), Iterator(v2));
++}
++
++template<size_t N, bool Sized, typename Category, typename Concept>
++constexpr void
++test_difference()
++{
++  test_iter<N, int, Sized, Category, Concept>();
++  using over_size_t = std::ranges::range_difference_t<std::ranges::iota_view<std::ptrdiff_t>>;
++  test_iter<N, over_size_t, Sized, Category, Concept>();
++}
++
++template<size_t N, bool Sized, typename Category>
++constexpr void
++test_category()
++{
++  test_difference<N, Sized, Category, Category>();
++  test_difference<N, Sized, void, Category>();
++}
++
++template<size_t N>
++constexpr void
++test_size()
++{
++  test_category<N, true, std::random_access_iterator_tag>();
++  test_category<N, true, std::forward_iterator_tag>();
++  test_category<N, true, std::input_iterator_tag>();
++  test_category<N, false, std::forward_iterator_tag>();
++  test_category<N, false, std::input_iterator_tag>();
++}
++
++int main()
++{
++  test_size<0>();
++  test_size<4>();
++  test_size<10>();
++}

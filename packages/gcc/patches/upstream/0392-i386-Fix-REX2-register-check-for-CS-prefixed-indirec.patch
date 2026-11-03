@@ -1,0 +1,69 @@
+From 764f8d4fb762796df9559944dda85ea950530590 Mon Sep 17 00:00:00 2001
+From: Hongyu Wang <hongyu.wang@intel.com>
+Date: Tue, 3 Nov 2026 11:10:20 +0800
+Subject: [PATCH] i386: Fix REX2 register check for CS-prefixed indirect calls
+ [PR128388]
+
+When adding APX EGPRs, the indirect call path of
+ix86_output_indirect_branch_via_reg tested REX_INT_REGNO_P twice instead
+of REX_INT_REGNO_P || REX2_INT_REGNO_P.  Check REX2_INT_REGNO_P as the
+jmp path in ix86_output_jmp_thunk_or_indirect does, so
+-mindirect-branch-cs-prefix also adds CS for calls via r16-r31 thunks.
+
+gcc/ChangeLog:
+
+	PR target/128388
+	* config/i386/i386.cc (ix86_output_indirect_branch_via_reg):
+	Check REX2_INT_REGNO_P instead of REX_INT_REGNO_P twice.
+
+gcc/testsuite/ChangeLog:
+
+	PR target/128388
+	* gcc.target/i386/pr128388.c: New test.
+---
+ gcc/config/i386/i386.cc                  |  2 +-
+ gcc/testsuite/gcc.target/i386/pr128388.c | 22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128388.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index b66be5227e85..61bd0acac9bd 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -17440,7 +17440,7 @@ ix86_output_indirect_branch_via_reg (rtx call_op, bool sibcall_p)
+     {
+       if (thunk_name != NULL)
+ 	{
+-	  if ((REX_INT_REGNO_P (regno) || REX_INT_REGNO_P (regno))
++	  if ((REX_INT_REGNO_P (regno) || REX2_INT_REGNO_P (regno))
+ 	      && ix86_indirect_branch_cs_prefix)
+ 	    fprintf (asm_out_file, "\tcs\n");
+ 	  fprintf (asm_out_file, "\tcall\t");
+diff --git a/gcc/testsuite/gcc.target/i386/pr128388.c b/gcc/testsuite/gcc.target/i386/pr128388.c
+new file mode 100644
+index 000000000000..fde34a0f8ed9
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128388.c
+@@ -0,0 +1,22 @@
++/* PR target/128388 */
++/* { dg-do compile { target { ! ia32 } } } */
++/* { dg-options "-O2 -mapxf -mindirect-branch-cs-prefix -mindirect-branch=thunk-extern -ffixed-rax -ffixed-rbx -ffixed-rcx -ffixed-rdx -ffixed-rsi -ffixed-rdi -ffixed-rbp -ffixed-r8 -ffixed-r9 -ffixed-r10 -ffixed-r11 -ffixed-r12 -ffixed-r13 -ffixed-r14 -ffixed-r15" } */
++/* { dg-additional-options "-fno-pic" { target { ! *-*-darwin* } } } */
++
++extern void (*fptr) (void);
++
++void
++foo (void)
++{
++  fptr ();
++}
++
++int
++bar (void)
++{
++  fptr ();
++  return 0;
++}
++
++/* { dg-final { scan-assembler-times "\tcs\n\tjmp\[ \t\]+_?__x86_indirect_thunk_r16" 1 } } */
++/* { dg-final { scan-assembler-times "\tcs\n\tcall\[ \t\]+_?__x86_indirect_thunk_r16" 1 } } */

@@ -1,0 +1,50 @@
+From 26638947124fc97aa6a14dcd9f2b28a4b6171451 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Tue, 3 Nov 2026 00:20:05 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/DATESTAMP          |  2 +-
+ libstdc++-v3/ChangeLog | 25 +++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 73d4219a61da..8bd685bc968b 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261102
++20261103
+diff --git a/libstdc++-v3/ChangeLog b/libstdc++-v3/ChangeLog
+index 7db37d33d105..3382004af65e 100644
+--- a/libstdc++-v3/ChangeLog
++++ b/libstdc++-v3/ChangeLog
+@@ -1,3 +1,28 @@
++2026-11-02  Tomasz Kamiński  <tkaminsk@redhat.com>
++
++	Backported from master:
++	2026-10-28  Tomasz Kamiński  <tkaminsk@redhat.com>
++
++	* include/bits/stl_iterator_base_types.h (__any_sizeable_iterator):
++	Define.
++	* include/std/inplace_vector (inplace_vector::_S_reserve):
++	Replace with...
++	(inplace_vector::_S_check_size, inplace_vector::_S_check_distance):
++	Define.
++	(inplace_vector::_S_distance): Replace with..
++	(inplace_vector::_S_distance_if_fits): Rework _S_distance with
++	integrated bounds checking, and overloaded for rangs.
++	(inplace_vector::reserve, inplace_vector::resize): Replace
++	_S_reserve with _S_check_size.
++	(inplace_vector::inplace_vector, inplace_vector::assign): Replace
++	runtime check with if constexpr and use _S_distance_if_fits.
++	(inplace_vector::insert): Likewise, and skip rotate for insertion
++	at the end.
++	(inplace_vector::append_range): Use _S_distance_if_fits to compute
++	size.
++	* testsuite/23_containers/inplace_vector/modifiers/capacity_check.cc:
++	New test.
++
+ 2026-10-29  Jonathan Wakely  <jwakely@redhat.com>
+ 
+ 	Backported from master:
