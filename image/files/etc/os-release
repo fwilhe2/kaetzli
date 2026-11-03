@@ -2,7 +2,7 @@ NAME="Kaetzli"
 ID=kaetzli
 # PRETTY_NAME is what almost everything actually displays, and its absence was visible
 # in two places at once: agetty printed the bare fallback "Linux" above the login
-# prompt, and kaetzlifetch fell back to NAME. os-release(5) says consumers should use
+# prompt, and fetch fell back to NAME. os-release(5) says consumers should use
 # PRETTY_NAME and only fall back to NAME, so shipping just NAME meant relying on the
 # fallback everywhere.
 PRETTY_NAME="Kaetzli"

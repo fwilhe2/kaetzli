@@ -1,4 +1,4 @@
->> systemd test FAILED: kaetzlifetch did not print 'State: in memory'
+>> systemd test FAILED: fetch did not print 'State: in memory'
 >> last 80 lines of the console:
 [    0.000000] Linux version 7.3.1
 [    0.100000] Run /bin/bash as init process
@@ -30,6 +30,6 @@ SYSTEMD-FWCFG:[delivered]
                  Root: erofs, read-only, dm-verity
                  Status: in memory (/var is tmpfs, lost at shutdown)
 
-KAETZLIFETCH-DONE
+FETCH-DONE
 UNIT LOAD ACTIVE SUB DESCRIPTION
 foo.service loaded failed failed Foo

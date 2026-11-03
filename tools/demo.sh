@@ -9,7 +9,7 @@
 #   1. the immutable root: EROFS on dm-verity, read-only, the root hash on the kernel
 #      command line; the only writable state is /var
 #   2. its identity: os-release with the commit it was built from, the machine ID and
-#      hostname a VM gives it, and kaetzlifetch
+#      hostname a VM gives it, and fetch
 #   3. a system extension attached to the running machine: the base has no podman, so
 #      podman.raw is copied to /var/lib/extensions and merged with systemd-sysext
 #   4. a container: a one-layer image made from the guest's own bash, run by podman and
@@ -77,7 +77,7 @@ guest 'findmnt -no SOURCE,FSTYPE /var   # state lives here: a disk of its own, o
 stop "2. What it is, and which machine"
 guest '. /etc/os-release; echo "$PRETTY_NAME, built from ${BUILD_ID:-an unrecorded commit}"'
 guest 'echo "hostname $(</proc/sys/kernel/hostname), machine ID $(</etc/machine-id)"'
-guest 'kaetzlifetch'
+guest 'fetch'
 
 stop "3. An extension, attached while it runs"
 guest 'command -v podman || echo "no podman in the base image"'

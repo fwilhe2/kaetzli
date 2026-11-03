@@ -1,4 +1,4 @@
->> systemd test FAILED: kaetzlifetch ran but printed no OS field — /etc/os-release unreadable?
+>> systemd test FAILED: fetch ran but printed no OS field — /etc/os-release unreadable?
 >> last 80 lines of the console:
 [    0.000000] Linux version 7.3.1
 [    0.100000] Run /bin/bash as init process
@@ -30,6 +30,6 @@ SYSTEMD-FWCFG:[delivered]
                  Root: erofs, read-only, dm-verity
                  State: in memory (/var is tmpfs, lost at shutdown)
 
-KAETZLIFETCH-DONE
+FETCH-DONE
 UNIT LOAD ACTIVE SUB DESCRIPTION
 foo.service loaded failed failed Foo

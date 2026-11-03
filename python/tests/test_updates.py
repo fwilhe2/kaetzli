@@ -145,8 +145,8 @@ class TestLatest:
             upstream.Source.of("coreutils", vendor=True)
 
     def test_local_source_has_no_upstream(self):
-        with pytest.raises(upstream.UpstreamError, match="kaetzlifetch: local source, no upstream"):
-            upstream.Source.of("kaetzlifetch")
+        with pytest.raises(upstream.UpstreamError, match="fetch: local source, no upstream"):
+            upstream.Source.of("fetch")
 
     def test_package_name(self):
         assert upstream.package_name("packages/bash/") == "bash"
@@ -209,9 +209,9 @@ class TestCheck:
         assert r.failed
 
     def test_local_source(self):
-        (version,) = repo.env_get("kaetzlifetch", "VERSION")
-        r = check.check("kaetzlifetch", FakeHttp())
-        assert r.lines == [f"{'kaetzlifetch':<12} {version:<10} local source, no upstream"]
+        (version,) = repo.env_get("fetch", "VERSION")
+        r = check.check("fetch", FakeHttp())
+        assert r.lines == [f"{'fetch':<12} {version:<10} local source, no upstream"]
 
     def test_follows_and_its_own_vendor_tarball(self):
         version, follows, name, vendor = repo.env_get(

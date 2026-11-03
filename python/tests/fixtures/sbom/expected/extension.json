@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "kaetzli-ext-podman-amd64",
-  "documentNamespace": "https://github.com/fwilhe2/kaetzli/spdx/kaetzli-ext-podman-amd64-2a219b13bebc2937",
+  "documentNamespace": "https://github.com/fwilhe2/kaetzli/spdx/kaetzli-ext-podman-amd64-c23a89ac93fada16",
   "creationInfo": {
     "created": "2026-01-01T00:00:00Z",
     "creators": [
@@ -24,6 +24,23 @@
       "licenseDeclared": "NOASSERTION",
       "copyrightText": "NOASSERTION",
       "primaryPackagePurpose": "OPERATING_SYSTEM"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fetch",
+      "name": "fetch",
+      "versionInfo": "0",
+      "downloadLocation": "git+https://github.com/fwilhe2/kaetzli",
+      "filesAnalyzed": false,
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:generic/fetch@0"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION"
     },
     {
       "SPDXID": "SPDXRef-Package-gawk",
@@ -97,23 +114,6 @@
       "comment": "patched: upstream/0001-a.patch@1111aaaa, upstream/0002-b.patch@2222bbbb, 0001-ours.patch@3333cccc",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "LGPL-2.1-or-later AND GPL-2.0-or-later WITH GCC-exception-2.0",
-      "copyrightText": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Package-kaetzlifetch",
-      "name": "kaetzlifetch",
-      "versionInfo": "0",
-      "downloadLocation": "git+https://github.com/fwilhe2/kaetzli",
-      "filesAnalyzed": false,
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:generic/kaetzlifetch@0"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
       "copyrightText": "NOASSERTION"
     },
     {
@@ -334,6 +334,16 @@
     {
       "spdxElementId": "SPDXRef-Extension",
       "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-Package-fetch"
+    },
+    {
+      "spdxElementId": "SPDXRef-Builder-ghcr.io-fwilhe2-kaetzli-builder-4f1c2a9b",
+      "relationshipType": "BUILD_TOOL_OF",
+      "relatedSpdxElement": "SPDXRef-Package-fetch"
+    },
+    {
+      "spdxElementId": "SPDXRef-Extension",
+      "relationshipType": "CONTAINS",
       "relatedSpdxElement": "SPDXRef-Package-gawk"
     },
     {
@@ -350,16 +360,6 @@
       "spdxElementId": "SPDXRef-Builder-ghcr.io-fwilhe2-kaetzli-builder-4f1c2a9b",
       "relationshipType": "BUILD_TOOL_OF",
       "relatedSpdxElement": "SPDXRef-Package-glibc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Extension",
-      "relationshipType": "CONTAINS",
-      "relatedSpdxElement": "SPDXRef-Package-kaetzlifetch"
-    },
-    {
-      "spdxElementId": "SPDXRef-Builder-ghcr.io-fwilhe2-kaetzli-builder-4f1c2a9b",
-      "relationshipType": "BUILD_TOOL_OF",
-      "relatedSpdxElement": "SPDXRef-Package-kaetzlifetch"
     },
     {
       "spdxElementId": "SPDXRef-Extension",

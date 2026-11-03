@@ -7,7 +7,7 @@
 >> systemd OK: no errors in the journal
 >> systemd OK: the image's sysctls are applied
 >> systemd OK: a credential arrived through fw_cfg
->> kaetzlifetch says:
+>> fetch says:
    
          /\_/\      root@kaetzli
         ( o.o )     OS: Kaetzli

@@ -100,8 +100,8 @@
       "copyrightText": "NOASSERTION"
     },
     {
-      "SPDXID": "SPDXRef-Package-kaetzlifetch",
-      "name": "kaetzlifetch",
+      "SPDXID": "SPDXRef-Package-fetch",
+      "name": "fetch",
       "versionInfo": "0",
       "downloadLocation": "git+https://github.com/fwilhe2/kaetzli",
       "filesAnalyzed": false,
@@ -109,7 +109,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:generic/kaetzlifetch@0"
+          "referenceLocator": "pkg:generic/fetch@0"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -377,7 +377,7 @@
     {
       "spdxElementId": "SPDXRef-Builder-ghcr.io-fwilhe2-kaetzli-builder-4f1c2a9b",
       "relationshipType": "BUILD_TOOL_OF",
-      "relatedSpdxElement": "SPDXRef-Package-kaetzlifetch"
+      "relatedSpdxElement": "SPDXRef-Package-fetch"
     },
     {
       "spdxElementId": "SPDXRef-Builder-ghcr.io-fwilhe2-kaetzli-builder-4f1c2a9b",
