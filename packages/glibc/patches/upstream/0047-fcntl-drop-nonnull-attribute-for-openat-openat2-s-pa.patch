@@ -1,8 +1,8 @@
 From e01330dcec96ddc3495bb3c62fe59e4fc9bbe083 Mon Sep 17 00:00:00 2001
 From: Sam James <sam@gentoo.org>
 Date: Sat, 29 Aug 2026 17:02:29 +0100
-Subject: [PATCH 47/66] fcntl: drop nonnull attribute for openat, openat2's
- path argument [BZ #34313]
+Subject: [PATCH] fcntl: drop nonnull attribute for openat, openat2's path
+ argument [BZ #34313]
 
 .. and openat64.
 

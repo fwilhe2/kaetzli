@@ -1,8 +1,7 @@
 From 1356b29f6cdf4a9cae63afb98d30880b5397bbff Mon Sep 17 00:00:00 2001
 From: Matthias Kretz <m.kretz@gsi.de>
 Date: Thu, 2 Jul 2026 13:37:57 +0200
-Subject: [PATCH 078/385] libstdc++: Remove unnecessary code from reduce
- implementation
+Subject: [PATCH] libstdc++: Remove unnecessary code from reduce implementation
 
 Previously, this was necessary for efficient reductions. When I tried to
 turn it into a missed-optimization PR, there was no issue (anymore). The

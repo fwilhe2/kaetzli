@@ -1,7 +1,7 @@
 From 8587edfc9642b46232292b5722fec955851aa7c2 Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Mon, 3 Aug 2026 19:55:09 -0400
-Subject: [PATCH 35/66] alpha: expect test-float32x-float64-div to fail
+Subject: [PATCH] alpha: expect test-float32x-float64-div to fail
 
 _Float32x and _Float64 are both binary64 on Alpha, so this narrowing
 divide is a plain divide and the hardware alone decides whether to signal

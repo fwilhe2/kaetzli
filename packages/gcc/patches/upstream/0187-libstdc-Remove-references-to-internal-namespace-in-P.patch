@@ -1,8 +1,8 @@
 From b1f57942cd02bce28a79f04aec25de1b7aa61eb1 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 26 Aug 2026 18:00:28 +0100
-Subject: [PATCH 187/385] libstdc++: Remove references to internal namespace in
- PSTL tests
+Subject: [PATCH] libstdc++: Remove references to internal namespace in PSTL
+ tests
 
 libstdc++-v3/ChangeLog:
 

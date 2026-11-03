@@ -1,8 +1,8 @@
 From 7f2626bd531984a2f964d70438cb2b09891b8ae1 Mon Sep 17 00:00:00 2001
 From: Paul Thomas <pault@gcc.gnu.org>
 Date: Sat, 23 May 2026 14:58:36 +0100
-Subject: [PATCH 019/385] Fortran: Fix scalar class to derived select type
- entities. [PR125263]
+Subject: [PATCH] Fortran: Fix scalar class to derived select type entities.
+ [PR125263]
 
 2026-05-23  Paul Thomas  <pault@gcc.gnu.org>
 

@@ -1,7 +1,7 @@
 From 355549a594cae4280838653827b8026ba23fa3c8 Mon Sep 17 00:00:00 2001
 From: Harald Anlauf <anlauf@gmx.de>
 Date: Tue, 13 Oct 2026 20:46:28 +0200
-Subject: [PATCH 299/385] fortran: Fix MINLOC/MAXLOC with MASK and BACK=.true.
+Subject: [PATCH] fortran: Fix MINLOC/MAXLOC with MASK and BACK=.true.
  [PR127846]
 
 The runtime library templates for MINLOC/MAXLOC did not advance properly

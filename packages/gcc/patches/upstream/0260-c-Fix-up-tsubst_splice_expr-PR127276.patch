@@ -1,7 +1,7 @@
 From 2a59ef66015f83f20096a7f76b348218b1cb9f60 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 11 Sep 2026 09:31:57 +0200
-Subject: [PATCH 260/385] c++: Fix up tsubst_splice_expr [PR127276]
+Subject: [PATCH] c++: Fix up tsubst_splice_expr [PR127276]
 
 The following testcase is incorrectly rejected.
 While when parsing the splice expressions outside of templates we call

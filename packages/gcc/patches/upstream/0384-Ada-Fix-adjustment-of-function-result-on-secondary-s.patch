@@ -1,8 +1,8 @@
 From f5a93d408f97a5c0de9835e571c92dd2649246a5 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Sat, 31 Oct 2026 17:15:19 +0100
-Subject: [PATCH 384/385] Ada: Fix adjustment of function result on secondary
- stack in allocator
+Subject: [PATCH] Ada: Fix adjustment of function result on secondary stack in
+ allocator
 
 This is a regression present on the mainline and 16 branch, introduced by a
 recent optimization: when function calls return on the secondary stack, the

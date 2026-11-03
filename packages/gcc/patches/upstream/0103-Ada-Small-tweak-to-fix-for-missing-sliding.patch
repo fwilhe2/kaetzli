@@ -1,7 +1,7 @@
 From 5050f3391bab222ca6197faeb5f4e08c20b354be Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Thu, 27 Aug 2026 00:18:13 +0200
-Subject: [PATCH 103/385] Ada: Small tweak to fix for missing sliding
+Subject: [PATCH] Ada: Small tweak to fix for missing sliding
 
 The Must_Slide predicate now unnecessarily returns True for an aggregate
 that contains only an Others_Clause.

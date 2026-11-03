@@ -1,8 +1,8 @@
 From b7c4fd69b69f6fdb4851a88be29a352c695ad875 Mon Sep 17 00:00:00 2001
 From: Steven Sudit <stevensudit@gmail.com>
 Date: Tue, 8 Sep 2026 21:00:00 -0400
-Subject: [PATCH 156/385] libstdc++: Make __valid_types_for_check_dynamic_spec
- static [PR127219]
+Subject: [PATCH] libstdc++: Make __valid_types_for_check_dynamic_spec static
+ [PR127219]
 
 basic_format_parse_context::check_dynamic_spec<_Ts...> checks its
 template arguments with

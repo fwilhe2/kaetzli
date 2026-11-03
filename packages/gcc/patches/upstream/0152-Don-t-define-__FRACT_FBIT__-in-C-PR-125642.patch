@@ -1,7 +1,7 @@
 From 0f4ddc3a4440fc50b94b18aa0091de38fa046a75 Mon Sep 17 00:00:00 2001
 From: Zhou Qiankang <wszqkzqk@qq.com>
 Date: Mon, 8 Jun 2026 10:30:45 +0800
-Subject: [PATCH 152/385] Don't define __FRACT_FBIT__ in C++ [PR 125642]
+Subject: [PATCH] Don't define __FRACT_FBIT__ in C++ [PR 125642]
 
 	PR c++/125642
 

@@ -1,8 +1,7 @@
 From edec216117d563c244ebedd2e565fa286b9ab94b Mon Sep 17 00:00:00 2001
 From: Robin Dapp <robin.dapp@oss.qualcomm.com>
 Date: Tue, 22 Sep 2026 14:18:45 +0200
-Subject: [PATCH 277/385] RISC-V: Error out early for unsupported builtins.
- [PR127553]
+Subject: [PATCH] RISC-V: Error out early for unsupported builtins. [PR127553]
 
 Right now we only show an error if the expansion of a builtin fails.
 But there is builtin code that get optimized away before expansion and

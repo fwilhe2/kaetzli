@@ -1,7 +1,7 @@
 From 345870510d2b044d9ebc5bf6a086bc384f2ee9d5 Mon Sep 17 00:00:00 2001
 From: Harald Anlauf <anlauf@gmx.de>
 Date: Tue, 13 Oct 2026 22:52:52 +0200
-Subject: [PATCH 300/385] fortran: Fix FINDLOC with DIM and MASK [PR127845]
+Subject: [PATCH] fortran: Fix FINDLOC with DIM and MASK [PR127845]
 
 The runtime library templates for FINDLOC did not advance properly
 through the MASK array argument when MASK and DIM are present.

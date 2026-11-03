@@ -1,7 +1,7 @@
 From de4ab861a91edf03e8f563e0b0e78d03120b9bfb Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Thu, 27 Aug 2026 00:21:09 +0000
-Subject: [PATCH 104/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/ChangeLog           | 18 ++++++++++++++++++

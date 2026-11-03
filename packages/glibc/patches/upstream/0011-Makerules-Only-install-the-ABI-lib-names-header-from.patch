@@ -1,8 +1,8 @@
 From 45b8a13c48da92bc5dd6fe102011391dd6847862 Mon Sep 17 00:00:00 2001
 From: Rudi Heitbaum <rudi@heitbaum.com>
 Date: Thu, 6 Aug 2026 14:07:56 -0300
-Subject: [PATCH 11/66] Makerules: Only install the ABI lib-names header from
- the top level (BZ 34439)
+Subject: [PATCH] Makerules: Only install the ABI lib-names header from the top
+ level (BZ 34439)
 
 The $(inst_includedir)/%.h install rules exist only where $(headers) is
 non-empty, so in a subdir without headers (e.g. csu) the prerequisite

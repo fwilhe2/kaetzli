@@ -1,8 +1,8 @@
 From e47727a876ca2adccfab8bb1b4ede8a97326b636 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Fri, 11 Sep 2026 10:23:33 +0200
-Subject: [PATCH 160/385] libstdc++: Remove unecessary std::start_lifetime_as
- call in inplace_vector [PR124121].
+Subject: [PATCH] libstdc++: Remove unecessary std::start_lifetime_as call in
+ inplace_vector [PR124121].
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

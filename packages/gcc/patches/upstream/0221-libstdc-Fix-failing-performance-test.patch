@@ -1,7 +1,7 @@
 From dbb20c388157df875a8aa4005dd958c34fd76746 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Tue, 29 Sep 2026 15:17:25 +0100
-Subject: [PATCH 221/385] libstdc++: Fix failing performance test
+Subject: [PATCH] libstdc++: Fix failing performance test
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

@@ -1,8 +1,7 @@
 From d0558173f7fc411bd2f364f8e16eb3f5e5b5c48d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Thu, 27 Aug 2026 07:44:59 +0200
-Subject: [PATCH 122/385] libstdc++: Make chrono::tzdb parser case-insensive
- [PR123510]
+Subject: [PATCH] libstdc++: Make chrono::tzdb parser case-insensive [PR123510]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

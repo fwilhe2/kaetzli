@@ -1,8 +1,7 @@
 From 0188974b4ceaa1f8f3600fec82fdabf7c0ada843 Mon Sep 17 00:00:00 2001
 From: Alice Carlotti <alice.carlotti@arm.com>
 Date: Fri, 7 Aug 2026 17:56:49 +0100
-Subject: [PATCH 064/385] aarch64: Fix -march=native when -mtune is used
- [PR124629]
+Subject: [PATCH] aarch64: Fix -march=native when -mtune is used [PR124629]
 
 Handling of -march=native for recognised cores was broken by
 r13-2937-g00c22ba69d8e73, which added "V" to ARCH_IDENT values and

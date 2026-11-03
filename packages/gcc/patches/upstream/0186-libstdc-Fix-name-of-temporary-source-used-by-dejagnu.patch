@@ -1,8 +1,8 @@
 From 6fbd6d7739806031d0da05233f1fa20683cb4723 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 17 Sep 2026 19:05:00 +0100
-Subject: [PATCH 186/385] libstdc++: Fix name of temporary source used by
- dejagnu checks
+Subject: [PATCH] libstdc++: Fix name of temporary source used by dejagnu
+ checks
 
 The v3_check_preprocessor_condition proc takes an argument to use as the
 filename, but was then passing it to v3_try_preprocess as the literal

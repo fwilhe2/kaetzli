@@ -1,8 +1,7 @@
 From a8ce20256d4ffac873c81bae1a339e4eac9472f5 Mon Sep 17 00:00:00 2001
 From: Anlai Lu <agicy@qq.com>
 Date: Sun, 16 Aug 2026 04:01:03 +0000
-Subject: [PATCH 073/385] libstdc++: Fix SIGSEGV in std::print with a setvbuf'd
- FILE
+Subject: [PATCH] libstdc++: Fix SIGSEGV in std::print with a setvbuf'd FILE
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

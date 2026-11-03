@@ -1,7 +1,7 @@
 From 8fe5f0583ddf7f41ddb9a254cfb8f7cf24ba3e6c Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Mon, 19 Oct 2026 21:06:53 +0200
-Subject: [PATCH 314/385] Ada: Fix assertion failure on allocator for extension
+Subject: [PATCH] Ada: Fix assertion failure on allocator for extension
  aggregate with task
 
 It occurs for an allocator whose (qualified) expression is an extension

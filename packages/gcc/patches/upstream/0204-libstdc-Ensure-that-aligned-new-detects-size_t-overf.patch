@@ -1,8 +1,8 @@
 From d6f4bc858383e071b1a1e2b303f6622b614c37a1 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 23 Sep 2026 13:15:18 +0100
-Subject: [PATCH 204/385] libstdc++: Ensure that aligned new detects size_t
- overflow (CVE-2026-95619)
+Subject: [PATCH] libstdc++: Ensure that aligned new detects size_t overflow
+ (CVE-2026-95619)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

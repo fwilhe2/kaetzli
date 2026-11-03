@@ -1,8 +1,8 @@
 From c2d5855c8746bcee5ed9f8c5768ea3a3944368f1 Mon Sep 17 00:00:00 2001
 From: Paul Thomas <pault@gcc.gnu.org>
 Date: Mon, 1 Jun 2026 12:40:53 +0100
-Subject: [PATCH 086/385] Fortran: Fix submodule access to private symbols in
- parent module [PR88632,104630]
+Subject: [PATCH] Fortran: Fix submodule access to private symbols in parent
+ module [PR88632,104630]
 
 PRs 88632 and 104630 both suffered link a problem, where a private procedure
 in a parent module was not visible in a descendent submodule if they were

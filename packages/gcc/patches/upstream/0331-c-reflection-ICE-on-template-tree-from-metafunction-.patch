@@ -1,8 +1,8 @@
 From 22b698e6c1a2f1ca0d2a9ef86697e4cc1f177dd8 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Wed, 7 Oct 2026 13:16:03 -0400
-Subject: [PATCH 331/385] c++/reflection: ICE on template tree from
- metafunction [PR127749]
+Subject: [PATCH] c++/reflection: ICE on template tree from metafunction
+ [PR127749]
 
 Here we are in a generic lambda and want to process a call to
 identifier_of.  Since it's a generic lambda, the lambda's operator()

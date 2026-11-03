@@ -1,8 +1,7 @@
 From e557f4fb58705ac6e48b8874bdac6161ea32c2ab Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Mon, 3 Aug 2026 13:02:01 -0400
-Subject: [PATCH 074/385] c++/reflection: ^^ rejects pack-index-specifier
- [PR126546]
+Subject: [PATCH] c++/reflection: ^^ rejects pack-index-specifier [PR126546]
 
 [expr.reflect] says that a reflection of a pack-index-expressions
 is ill-formed.  But that applies to the ^^id-expression production,

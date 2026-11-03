@@ -1,8 +1,8 @@
 From 742ca4610d51e156c287daebc8e293f155725c0b Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 11:03:43 +0200
-Subject: [PATCH 011/385] testsuite: Clarify the std module export plugin
- diagnostics [PR125200]
+Subject: [PATCH] testsuite: Clarify the std module export plugin diagnostics
+ [PR125200]
 
 The following patch attempts to clarify the diagnostics, so that one e.g.
 doesn't look for import std::whatever; in the headers or something similar.

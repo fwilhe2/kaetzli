@@ -1,8 +1,8 @@
 From f5808934bc17cb5b27f2fd0a652407cda41a04fa Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 21 Oct 2026 18:14:33 +0100
-Subject: [PATCH 368/385] libstdc++: Fix buffer overrun in __gnu_parallel
- search (CVE-2026-114690)
+Subject: [PATCH] libstdc++: Fix buffer overrun in __gnu_parallel search
+ (CVE-2026-114690)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

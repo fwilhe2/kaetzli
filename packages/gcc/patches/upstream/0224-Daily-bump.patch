@@ -1,7 +1,7 @@
 From 10f23521c44ffae46b9fcd351f2817a71806bb3a Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Thu, 1 Oct 2026 00:21:15 +0000
-Subject: [PATCH 224/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  ChangeLog               |  8 ++++++++

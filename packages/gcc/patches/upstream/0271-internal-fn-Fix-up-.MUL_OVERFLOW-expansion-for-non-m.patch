@@ -1,8 +1,8 @@
 From b70dedc141813ecceb0023d7ea3b1b455350c6eb Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 25 Sep 2026 11:09:37 +0200
-Subject: [PATCH 271/385] internal-fn: Fix up .MUL_OVERFLOW expansion for
- non-mode precision arguments [PR127517]
+Subject: [PATCH] internal-fn: Fix up .MUL_OVERFLOW expansion for non-mode
+ precision arguments [PR127517]
 
 Most of expand_mul_overflow just assumes mode precision arguments
 of the same mode and perhaps different signedness and in the end only

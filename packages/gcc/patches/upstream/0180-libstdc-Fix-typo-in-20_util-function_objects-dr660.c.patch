@@ -1,8 +1,7 @@
 From 50d9ca11d6aba84c4e4da9d84776a16274a22c58 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 16 Sep 2026 15:01:07 +0100
-Subject: [PATCH 180/385] libstdc++: Fix typo in
- 20_util/function_objects/dr660.cc
+Subject: [PATCH] libstdc++: Fix typo in 20_util/function_objects/dr660.cc
 
 libstdc++-v3/ChangeLog:
 

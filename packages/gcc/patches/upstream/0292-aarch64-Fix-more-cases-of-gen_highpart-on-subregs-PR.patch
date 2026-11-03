@@ -1,8 +1,7 @@
 From 04d9b422a9dbf55726d2f6c4a7c877663bf53089 Mon Sep 17 00:00:00 2001
 From: Richard Earnshaw <rearnsha@arm.com>
 Date: Mon, 5 Oct 2026 17:00:08 +0100
-Subject: [PATCH 292/385] aarch64: Fix more cases of gen_highpart on subregs
- [PR127393]
+Subject: [PATCH] aarch64: Fix more cases of gen_highpart on subregs [PR127393]
 
 Following on from the fix in r17-4565, there were reports of more cases
 where we could get ICEs during expansion of TImode patterns when subregs

@@ -1,8 +1,8 @@
 From d744c19c6ea13454394ceff863df451a781fe165 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Thu, 6 Aug 2026 11:49:20 +0200
-Subject: [PATCH 167/385] tree-optimization/126658 - TARGET_MEM_REF and
- non-null infering
+Subject: [PATCH] tree-optimization/126658 - TARGET_MEM_REF and non-null
+ infering
 
 The following adjusts three places to avoid infering that operand
 zero of a TARGET_MEM_REF is literally dereferenced and thus may

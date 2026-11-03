@@ -1,7 +1,7 @@
 From 394e626ed19a73b6c30ce62c6be9148357c2a43d Mon Sep 17 00:00:00 2001
 From: Jason Merrill <jason@redhat.com>
 Date: Wed, 7 Oct 2026 17:23:39 -0400
-Subject: [PATCH 248/385] c++/modules: redeclaring built-ins [PR122774]
+Subject: [PATCH] c++/modules: redeclaring built-ins [PR122774]
 
 Here we merged the export from _a with the built-in declaration in _b, but
 the latter is still hidden in the overload set.  Then when we go to push a

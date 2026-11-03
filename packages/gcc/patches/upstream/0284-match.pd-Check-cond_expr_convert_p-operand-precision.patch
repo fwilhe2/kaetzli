@@ -1,7 +1,7 @@
 From d135ff4f42672b11b5bfdc2a5a447f3919b3d331 Mon Sep 17 00:00:00 2001
 From: liuhongt <hongtao.liu@intel.com>
 Date: Mon, 14 Sep 2026 23:51:26 -0700
-Subject: [PATCH 284/385] match.pd: Check cond_expr_convert_p operand precision
+Subject: [PATCH] match.pd: Check cond_expr_convert_p operand precision
  [PR127382]
 
 cond_expr_convert_p compared the selected operands only by TYPE_SIZE.

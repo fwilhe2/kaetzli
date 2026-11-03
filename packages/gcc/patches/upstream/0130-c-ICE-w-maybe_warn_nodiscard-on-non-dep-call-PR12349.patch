@@ -1,8 +1,8 @@
 From 0c8300a9e0481130961415b4a5d7e647dec3ba66 Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Fri, 14 Aug 2026 14:33:46 -0400
-Subject: [PATCH 130/385] c++: ICE w/ maybe_warn_nodiscard on non-dep call
- [PR123495, PR126860]
+Subject: [PATCH] c++: ICE w/ maybe_warn_nodiscard on non-dep call [PR123495,
+ PR126860]
 
 Another latent issue uncovered by the NON_DEPENDENT_EXPR removal.
 cp_get_fndecl_from_callee, called from maybe_warn_nodiscard, tries to

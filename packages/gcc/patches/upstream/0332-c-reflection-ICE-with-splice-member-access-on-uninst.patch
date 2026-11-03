@@ -1,7 +1,7 @@
 From 5aaefd4ac65a39335d8a823b2fa1e75e1c73b8bf Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Tue, 6 Oct 2026 17:12:43 -0400
-Subject: [PATCH 332/385] c++/reflection: ICE with splice member access on
+Subject: [PATCH] c++/reflection: ICE with splice member access on
  uninstantiated class [PR126794]
 
 We ICE in perform_or_defer_access_check on a null binfo of the object

@@ -1,8 +1,8 @@
 From 7f84e9af923261f3fdd7f15b064c449b7d4157b9 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 29 Jul 2026 16:55:39 +0100
-Subject: [PATCH 050/385] libstdc++: Fix grep for linker warning about
- --gc-sections [PR126452]
+Subject: [PATCH] libstdc++: Fix grep for linker warning about --gc-sections
+ [PR126452]
 
 Current versions of GNU ld print "warning" with a lowercase 'w' so
 adjust the grep patter. Also use LC_ALL=C to ensure the warning isn't

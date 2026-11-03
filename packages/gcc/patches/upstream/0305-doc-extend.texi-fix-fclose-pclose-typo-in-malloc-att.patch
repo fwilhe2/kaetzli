@@ -1,7 +1,7 @@
 From d6b778ced7795ace1e91f18f59f6dd61e94c5580 Mon Sep 17 00:00:00 2001
 From: Rasmus Villemoes <rv@rasmusvillemoes.dk>
 Date: Fri, 16 Oct 2026 13:23:04 +0200
-Subject: [PATCH 305/385] doc/extend.texi: fix fclose -> pclose typo in malloc
+Subject: [PATCH] doc/extend.texi: fix fclose -> pclose typo in malloc
  attribute example
 
 This was correct initially, but got accidentally changed to fclose by

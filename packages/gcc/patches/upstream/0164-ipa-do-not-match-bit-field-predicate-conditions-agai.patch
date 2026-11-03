@@ -1,8 +1,8 @@
 From 36176e6f0bcf3d5640877bbeeab24f863d8ed738 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Wed, 2 Sep 2026 09:46:31 +0200
-Subject: [PATCH 164/385] ipa: do not match bit-field predicate conditions
- against byte offsets
+Subject: [PATCH] ipa: do not match bit-field predicate conditions against byte
+ offsets
 
 Conditions of IPA predicates record the position of an aggregate load as
 a bit offset (ipa_load_from_parm_agg derives it from

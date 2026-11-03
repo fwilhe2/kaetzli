@@ -1,7 +1,7 @@
 From 1848099f063e99d4ffecbd7667766d54862398b9 Mon Sep 17 00:00:00 2001
 From: Mark Wielaard <mark@klomp.org>
 Date: Fri, 18 Sep 2026 00:24:34 +0200
-Subject: [PATCH 50/66] stdlib: Don't call clearenv from __libc_setenv_freemem
+Subject: [PATCH] stdlib: Don't call clearenv from __libc_setenv_freemem
 
 Since commit 7a61e7f557a9 ("stdlib: Make getenv thread-safe in more
 cases") clearenv doesn't call any deallocation functions anymore.

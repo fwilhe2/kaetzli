@@ -1,8 +1,7 @@
 From 4a8174a224d9bc94104e3d34927ddc3173c9793e Mon Sep 17 00:00:00 2001
 From: Nicolas Boulenguez <nicolas@debian.org>
 Date: Mon, 26 Oct 2026 09:51:32 +0100
-Subject: [PATCH 341/385] Ada: Remove superfluous call to
- Milliseconds_To_Timeval
+Subject: [PATCH] Ada: Remove superfluous call to Milliseconds_To_Timeval
 
 Timeval is a public type of System.C_Time so aggregates can be used for it.
 

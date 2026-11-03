@@ -1,8 +1,8 @@
 From fcfd9dd65b9fd34414b26c160847b134dd317707 Mon Sep 17 00:00:00 2001
 From: Paul Thomas <pault@gcc.gnu.org>
 Date: Fri, 24 Jul 2026 15:05:46 +0100
-Subject: [PATCH 016/385] Fortran: Auto deallocate coarrays, allocated in team
- blocks [PR126205]
+Subject: [PATCH] Fortran: Auto deallocate coarrays, allocated in team blocks
+ [PR126205]
 
 Gfortran was not compliant with F2018(11.1.5.2), which requires that
 coarrays that are allocated within a team block are deallocated immediately

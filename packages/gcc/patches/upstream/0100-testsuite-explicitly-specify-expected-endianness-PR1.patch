@@ -1,8 +1,7 @@
 From 351264e6d92d62743801395ed36f690fabe629d9 Mon Sep 17 00:00:00 2001
 From: Alexandre Oliva <oliva@adacore.com>
 Date: Tue, 25 Aug 2026 22:38:23 -0300
-Subject: [PATCH 100/385] testsuite: explicitly specify expected endianness
- [PR126650]
+Subject: [PATCH] testsuite: explicitly specify expected endianness [PR126650]
 
 The pr126650.c testcase carries an expectation that the data
 structures are little endian; we don't get the expected results

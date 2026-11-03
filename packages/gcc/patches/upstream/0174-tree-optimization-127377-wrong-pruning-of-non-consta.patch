@@ -1,8 +1,8 @@
 From adb9e99ab70b559f512922a2492e8e55d8dcc9ce Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Mon, 14 Sep 2026 11:08:37 +0200
-Subject: [PATCH 174/385] tree-optimization/127377 - wrong pruning of
- non-constant partial defs
+Subject: [PATCH] tree-optimization/127377 - wrong pruning of non-constant
+ partial defs
 
 The following fixes the failure to adjust for sub-byte padding of
 the partial definition before the object when pruning the size

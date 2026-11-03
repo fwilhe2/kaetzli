@@ -1,7 +1,7 @@
 From fbff798e15cf4d3b5088e690e0b53288918f609a Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 30 Sep 2026 12:10:52 +0100
-Subject: [PATCH 220/385] libstdc++: Fix header name in pb_ds tutorial docs
+Subject: [PATCH] libstdc++: Fix header name in pb_ds tutorial docs
 
 In more proof that nobody cares about this code, the docs have been
 giving the wrong names for the headers for many years.

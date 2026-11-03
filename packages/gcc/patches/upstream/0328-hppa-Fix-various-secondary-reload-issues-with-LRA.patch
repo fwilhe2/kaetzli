@@ -1,7 +1,7 @@
 From 9a8e61e2f5a60e6060245854ec6e27f7d152fe7c Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Sat, 10 Oct 2026 16:44:59 -0400
-Subject: [PATCH 328/385] hppa: Fix various secondary reload issues with LRA
+Subject: [PATCH] hppa: Fix various secondary reload issues with LRA
 
 While commit 1887cd4b8fd0 fixed some reload issues on hppa, it
 exposed some new issues.  For the most part, these involve the

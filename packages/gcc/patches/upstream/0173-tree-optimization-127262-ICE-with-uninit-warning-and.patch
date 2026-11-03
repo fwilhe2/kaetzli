@@ -1,8 +1,8 @@
 From a3f0101ea908248e1d46e9714a482ae696230812 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Wed, 9 Sep 2026 09:13:25 +0200
-Subject: [PATCH 173/385] tree-optimization/127262 - ICE with uninit warning
- and switches
+Subject: [PATCH] tree-optimization/127262 - ICE with uninit warning and
+ switches
 
 We are not expecting the switch index and the case labels to differ
 in types.  The following fixes this by converting the case label

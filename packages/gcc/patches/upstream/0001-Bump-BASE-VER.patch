@@ -1,7 +1,7 @@
 From ff7909eb0eb9c31eb7ebce4d2ef3bdffeef25d1a Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 7 Aug 2026 09:54:35 +0200
-Subject: [PATCH 001/385] Bump BASE-VER
+Subject: [PATCH] Bump BASE-VER
 
 	* BASE-VER: Set to 16.2.1.
 ---

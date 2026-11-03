@@ -1,8 +1,8 @@
 From 9da5b256666b88aec0db5dfdd5a46508b50f0ee2 Mon Sep 17 00:00:00 2001
 From: Yongqiang Tian <yqtian668@gmail.com>
 Date: Fri, 2 Oct 2026 22:33:13 +0200
-Subject: [PATCH 273/385] tree-optimization: Skip debug stmts before assigning
- UIDs [PR127687]
+Subject: [PATCH] tree-optimization: Skip debug stmts before assigning UIDs
+ [PR127687]
 
 GIMPLE_DEBUG statements currently consume UIDs and are then treated as
 non-assignments, which flushes pending VEC_PERM simplify sequences.  This

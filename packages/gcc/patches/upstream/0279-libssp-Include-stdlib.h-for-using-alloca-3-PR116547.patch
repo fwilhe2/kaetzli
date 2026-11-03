@@ -1,8 +1,7 @@
 From bb769ffa8aeaa82ad59d224843b4ac5396496eea Mon Sep 17 00:00:00 2001
 From: WHR <whr@rivoreo.one>
 Date: Sat, 31 Aug 2024 06:26:02 +0000
-Subject: [PATCH 279/385] libssp: Include 'stdlib.h' for using alloca(3)
- [PR116547]
+Subject: [PATCH] libssp: Include 'stdlib.h' for using alloca(3) [PR116547]
 
 As GCC now treating implicit declaration of function as an error instead of
 warning, compilation of libssp has been broken on some operating systems.

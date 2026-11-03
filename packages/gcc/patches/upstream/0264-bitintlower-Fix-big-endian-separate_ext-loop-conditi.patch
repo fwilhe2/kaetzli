@@ -1,8 +1,8 @@
 From dbae82bbb5aee537b0f87604658ea45742167669 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 18 Sep 2026 11:03:28 +0200
-Subject: [PATCH 264/385] bitintlower: Fix big-endian separate_ext loop
- condition [PR127378]
+Subject: [PATCH] bitintlower: Fix big-endian separate_ext loop condition
+ [PR127378]
 
 On the following testcase on powerpc64-linux (both -m32 and -m64) we emit
 incorrect loop condition in the separate_ext loop.

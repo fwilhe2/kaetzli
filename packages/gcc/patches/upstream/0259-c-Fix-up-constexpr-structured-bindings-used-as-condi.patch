@@ -1,8 +1,8 @@
 From 34477a5f60d03f38e2f92a7308cf35269323c900 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 3 Sep 2026 09:45:58 +0200
-Subject: [PATCH 259/385] c++: Fix up constexpr structured bindings used as
- condition [PR127109]
+Subject: [PATCH] c++: Fix up constexpr structured bindings used as condition
+ [PR127109]
 
 The following testcase is incorrectly rejected with
 error: accessing '<anonymous>' outside its lifetime

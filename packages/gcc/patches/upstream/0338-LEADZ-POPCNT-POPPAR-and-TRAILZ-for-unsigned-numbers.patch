@@ -1,8 +1,7 @@
 From 794c029d592b0e47e5698da855c995dad4bbb586 Mon Sep 17 00:00:00 2001
 From: Thomas Koenig <tkoenig@gcc.gnu.org>
 Date: Sat, 24 Oct 2026 17:24:42 +0200
-Subject: [PATCH 338/385] LEADZ, POPCNT, POPPAR and TRAILZ for unsigned
- numbers.
+Subject: [PATCH] LEADZ, POPCNT, POPPAR and TRAILZ for unsigned numbers.
 
 Playing around with UNSIGNED, I noted that LEADZ and TRAILZ were rejected
 for UNSIGNED, which makes no sense.  POPCNT and POPPAR worked, but this

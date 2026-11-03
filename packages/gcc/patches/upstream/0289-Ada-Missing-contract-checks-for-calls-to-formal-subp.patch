@@ -1,8 +1,8 @@
 From 7b252297337b7b8457e1ca73c94854c73d12d3fb Mon Sep 17 00:00:00 2001
 From: Gary Dismukes <dismukes@adacore.com>
 Date: Thu, 15 Jan 2026 20:40:28 +0000
-Subject: [PATCH 289/385] Ada: Missing contract checks for calls to formal
- subprogram within instances
+Subject: [PATCH] Ada: Missing contract checks for calls to formal subprogram
+ within instances
 
 While working on a visibility bug, it was noticed that preconditions
 on formal subprograms are not being checked on calls to the subprograms

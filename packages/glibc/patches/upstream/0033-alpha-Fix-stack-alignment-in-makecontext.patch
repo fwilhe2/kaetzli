@@ -1,7 +1,7 @@
 From 890f1c13f0de88678db16f8f189d43b51b77b8dc Mon Sep 17 00:00:00 2001
 From: Magnus Lindholm <linmag7@gmail.com>
 Date: Mon, 3 Aug 2026 17:51:59 +0200
-Subject: [PATCH 33/66] alpha: Fix stack alignment in makecontext
+Subject: [PATCH] alpha: Fix stack alignment in makecontext
 
 The Alpha ABI requires the stack pointer to be 16-byte aligned.
 However, __makecontext did not realign it after reserving space for

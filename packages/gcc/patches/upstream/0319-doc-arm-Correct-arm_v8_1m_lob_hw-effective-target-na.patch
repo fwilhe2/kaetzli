@@ -1,8 +1,7 @@
 From 9abaa10eb543314885ab04d2670d69278cd7b617 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
 Date: Wed, 21 Oct 2026 15:48:53 +0200
-Subject: [PATCH 319/385] doc: arm: Correct arm_v8_1m_lob_hw effective-target
- name
+Subject: [PATCH] doc: arm: Correct arm_v8_1m_lob_hw effective-target name
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

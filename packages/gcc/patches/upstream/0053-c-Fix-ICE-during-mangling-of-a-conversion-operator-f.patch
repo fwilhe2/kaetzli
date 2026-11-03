@@ -1,7 +1,7 @@
 From 9960824ebdee198f3dfff5545b630f5ab3c5ebfa Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 18 Aug 2026 17:49:11 +0200
-Subject: [PATCH 053/385] c++: Fix ICE during mangling of a conversion operator
+Subject: [PATCH] c++: Fix ICE during mangling of a conversion operator
  function template [PR126093]
 
 On Tue, Aug 11, 2026 at 04:25:19PM -0400, Jason Merrill wrote:

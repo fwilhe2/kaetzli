@@ -1,8 +1,8 @@
 From d4f62f96d967429220ecdbada57737cb16f58edc Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 13 Oct 2026 10:47:53 +0200
-Subject: [PATCH 373/385] tailc: Conservatively punt on some return type
- mismatches in tail call opt [PR127848]
+Subject: [PATCH] tailc: Conservatively punt on some return type mismatches in
+ tail call opt [PR127848]
 
 The first testcase is miscompiled on x86_64 and various other
 bitint_ext_undef targets, where the padding bits are unspecified.

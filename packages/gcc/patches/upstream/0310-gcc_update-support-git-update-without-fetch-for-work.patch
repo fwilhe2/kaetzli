@@ -1,8 +1,7 @@
 From 00057d8221906736c8825559a27a2837e1c1cd31 Mon Sep 17 00:00:00 2001
 From: Richard Earnshaw <rearnsha@arm.com>
 Date: Fri, 16 Oct 2026 16:04:10 +0100
-Subject: [PATCH 310/385] gcc_update: support git update without fetch for
- worktrees
+Subject: [PATCH] gcc_update: support git update without fetch for worktrees
 
 Git has a very useful facility that allows multiple checkouts to share
 a single git tree by setting up worktrees.  When using this workflow,

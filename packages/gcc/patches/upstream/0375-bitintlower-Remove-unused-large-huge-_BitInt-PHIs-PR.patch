@@ -1,8 +1,7 @@
 From 8ddb287efebf7f8c73e9839ae9562c060456b56d Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 19 Oct 2026 09:55:20 +0200
-Subject: [PATCH 375/385] bitintlower: Remove unused large/huge _BitInt PHIs
- [PR127904]
+Subject: [PATCH] bitintlower: Remove unused large/huge _BitInt PHIs [PR127904]
 
 tree-outof-ssa.cc before performing coalescing does
 eliminate_useless_phis (), which removes removes PHIs and dead PHIs.

@@ -1,7 +1,7 @@
 From 6c21617221f2b8241ba228b2cce16a741008a05a Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 1 Sep 2026 15:09:42 +0200
-Subject: [PATCH 172/385] tree-optimization/127130 - avoid peeled CHREC with UB
+Subject: [PATCH] tree-optimization/127130 - avoid peeled CHREC with UB
 
 The following properly guards the peeled CHREC optimization
 when we are analyzing a CHREC with non-wrapping overflow.

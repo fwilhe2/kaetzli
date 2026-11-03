@@ -1,8 +1,7 @@
 From 3258c3fd9167ac5e1bfbb62b55710a139382d6a0 Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Mon, 3 Aug 2026 19:55:06 -0400
-Subject: [PATCH 34/66] alpha: add the denormal trap enable bit to
- FE_NOMASK_ENV
+Subject: [PATCH] alpha: add the denormal trap enable bit to FE_NOMASK_ENV
 
 FE_NOMASK_ENV is the floating-point environment in which no exception is
 masked, so it must enable every exception that FE_ALL_EXCEPT covers.  On

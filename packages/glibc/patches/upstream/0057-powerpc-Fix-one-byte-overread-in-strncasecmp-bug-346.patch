@@ -1,8 +1,8 @@
 From 34106fee698c83eb0af71d4d0381e66b399be746 Mon Sep 17 00:00:00 2001
 From: Sachin Monga <smonga@linux.ibm.com>
 Date: Thu, 1 Oct 2026 00:51:23 +0530
-Subject: [PATCH 57/66] powerpc: Fix one byte overread in strncasecmp (bug
- 34683, CVE-2026-97399)
+Subject: [PATCH] powerpc: Fix one byte overread in strncasecmp (bug 34683,
+ CVE-2026-97399)
 
 The Power8 strncasecmp (strcasecmp.S with USE_AS_STRNCASECMP) touches
 s1[n]/s2[n] in three places when the first n bytes compare equal and

@@ -1,7 +1,7 @@
 From 65d35639a9d055e423345c8748908c8aa48b19b9 Mon Sep 17 00:00:00 2001
 From: Magnus Lindholm <linmag7@gmail.com>
 Date: Wed, 5 Aug 2026 23:14:58 +0200
-Subject: [PATCH 22/66] string: Speed up strcmp test data initialization
+Subject: [PATCH] string: Speed up strcmp test data initialization
 
 The strcmp and strncmp tests repeatedly initialize large buffers for
 many combinations of lengths and alignments.  The existing loops

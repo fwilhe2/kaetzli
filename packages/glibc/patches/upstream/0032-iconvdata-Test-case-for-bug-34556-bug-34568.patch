@@ -1,7 +1,7 @@
 From ca54198decdc3be693b010687f8de716a750b0e4 Mon Sep 17 00:00:00 2001
 From: Florian Weimer <fweimer@redhat.com>
 Date: Fri, 28 Aug 2026 10:26:07 +0200
-Subject: [PATCH 32/66] iconvdata: Test case for bug 34556, bug 34568
+Subject: [PATCH] iconvdata: Test case for bug 34556, bug 34568
 
 Assisted-by: LLM
 Reviewed-by: Carlos O'Donell <carlos@redhat.com>

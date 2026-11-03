@@ -1,8 +1,8 @@
 From 7ebe0af619c317969346b7c612198776c2f89cc8 Mon Sep 17 00:00:00 2001
 From: Matthias Kretz <m.kretz@gsi.de>
 Date: Mon, 17 Aug 2026 15:44:35 +0200
-Subject: [PATCH 098/385] libstdc++: Resolve integer type mismatches in
- stdx::simd [PR122981]
+Subject: [PATCH] libstdc++: Resolve integer type mismatches in stdx::simd
+ [PR122981]
 
 Conversions from generic vector to ARM vector are rejected when the
 value type is not equal. Since arm-none-eabi defines int32_t as long

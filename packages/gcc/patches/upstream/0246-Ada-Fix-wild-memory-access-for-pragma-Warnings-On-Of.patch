@@ -1,8 +1,7 @@
 From 6a970972c580723a065a83ff2adb3da7ff382b41 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 7 Oct 2026 21:22:28 +0200
-Subject: [PATCH 246/385] Ada: Fix wild memory access for pragma Warnings
- (On|Off, "*")
+Subject: [PATCH] Ada: Fix wild memory access for pragma Warnings (On|Off, "*")
 
 This occurs when the pragma is in a configuration file.  The problem is that
 Find_Direct_Name manually walks the scope stack while it is still empty.

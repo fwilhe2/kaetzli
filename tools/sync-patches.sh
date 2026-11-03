@@ -127,10 +127,14 @@ if [ -n "$repo" ]; then
         { echo "error: $base is not an ancestor of $branch" >&2; exit 1; }
     # Pinned diff settings, so the bytes depend on the commits and not on whoever ran this:
     # GNU patch cannot apply a rename or a binary diff, and abbrev/prefix change the text.
+    # --no-numbered, because "[PATCH 01/66]" names the length of the series in every file,
+    # so one new commit upstream would rewrite them all and fail the append-only check.
+    # The file names still carry the order (0001-…).
     mkdir "$tmp/series"
     g -c core.abbrev=12 -c diff.renames=false -c diff.noprefix=false -c diff.mnemonicPrefix=false \
-        -c diff.algorithm=myers -c format.signOff=false \
-        format-patch -q --no-signature --no-renames --no-binary -o "$tmp/series" "$base..upstream/branch"
+        -c diff.algorithm=myers -c format.signOff=false -c format.numbered=false \
+        format-patch -q --no-numbered --no-signature --no-renames --no-binary \
+        -o "$tmp/series" "$base..upstream/branch"
     if grep -l '^Binary files ' "$tmp/series"/* 2>/dev/null; then
         echo "error: a commit on $branch changes a binary file, which patch(1) cannot apply" >&2
         exit 1

@@ -1,8 +1,7 @@
 From c2ab0eb5be80a4d88683666ec3af9129636ca0d4 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Sat, 31 Oct 2026 17:14:04 +0100
-Subject: [PATCH 383/385] Ada: Fix compiler hang on structural generic
- instantiation
+Subject: [PATCH] Ada: Fix compiler hang on structural generic instantiation
 
 This happens when the first reference to the structural instance is made
 within an expression function, because the implicit instantiation is not

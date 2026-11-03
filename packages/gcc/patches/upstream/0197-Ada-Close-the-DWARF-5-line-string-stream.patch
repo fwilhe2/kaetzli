@@ -1,7 +1,7 @@
 From b2232186255291a666a9914d60f0259f79adb00c Mon Sep 17 00:00:00 2001
 From: Andrew Teylu <Andrew.Teylu@vector.com>
 Date: Tue, 22 Sep 2026 14:49:01 +0200
-Subject: [PATCH 197/385] Ada: Close the DWARF 5 line-string stream
+Subject: [PATCH] Ada: Close the DWARF 5 line-string stream
 
 System.Dwarf_Lines.Open creates a mapped stream for .debug_line_str when
 the optional DWARF 5 section is present.  Close omits that stream, losing

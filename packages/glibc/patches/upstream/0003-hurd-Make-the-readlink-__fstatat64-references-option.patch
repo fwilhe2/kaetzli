@@ -1,7 +1,7 @@
 From 0b05bc142249ac47e72be5cad5c37f33f4bb68d4 Mon Sep 17 00:00:00 2001
 From: Samuel Thibault <samuel.thibault@ens-lyon.org>
 Date: Fri, 24 Jul 2026 23:10:02 +0200
-Subject: [PATCH 03/66] hurd: Make the readlink __fstatat64 references optional
+Subject: [PATCH] hurd: Make the readlink __fstatat64 references optional
 
 They may show up or not depending on the toolchain in use.
 ---

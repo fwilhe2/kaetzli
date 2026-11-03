@@ -1,8 +1,7 @@
 From 391b113a2b78e9ec66acfae75c1ca3679d166fb6 Mon Sep 17 00:00:00 2001
 From: Georg-Johann Lay <avr@gjlay.de>
 Date: Sat, 29 Aug 2026 13:25:49 +0200
-Subject: [PATCH 117/385] AVR: Provide pushti1 to fix passing vector(16) in
- memory
+Subject: [PATCH] AVR: Provide pushti1 to fix passing vector(16) in memory
 
 This patch adds TImode to the MPUSH mode iterator that
 determines which push<mode>1 insns are available.

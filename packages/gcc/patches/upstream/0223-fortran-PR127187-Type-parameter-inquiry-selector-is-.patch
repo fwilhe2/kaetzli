@@ -1,8 +1,8 @@
 From 3e3771d80a37fd6c83799d6a8a8f54401f552c90 Mon Sep 17 00:00:00 2001
 From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
 Date: Tue, 29 Sep 2026 10:04:39 -0700
-Subject: [PATCH 223/385] fortran: [PR127187] Type parameter inquiry selector
- is not a variable
+Subject: [PATCH] fortran: [PR127187] Type parameter inquiry selector is not a
+ variable
 
 A selector that is a LEN or KIND type parameter inquiry, e.g. s%len, was
 treated as a variable, so the associate-name pointed to the string length

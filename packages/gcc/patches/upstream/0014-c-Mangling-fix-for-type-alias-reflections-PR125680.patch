@@ -1,8 +1,7 @@
 From 141139e43d5d2f0e752e95cc32eaf8b39a2b3510 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 12:24:15 +0200
-Subject: [PATCH 014/385] c++: Mangling fix for type alias reflections
- [PR125680]
+Subject: [PATCH] c++: Mangling fix for type alias reflections [PR125680]
 
 The following testcase ICEs, because we use write_unqualified_name to
 write the type alias name.  Unfortunately, it is an alias for an unnamed

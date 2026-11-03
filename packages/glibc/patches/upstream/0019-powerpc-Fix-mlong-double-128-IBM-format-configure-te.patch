@@ -1,8 +1,8 @@
 From eacd9cced93498e671c7e7f758aaf52593847e01 Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Sun, 26 Jul 2026 14:43:11 -0400
-Subject: [PATCH 19/66] powerpc: Fix -mlong-double-128 IBM format configure
- test for Clang
+Subject: [PATCH] powerpc: Fix -mlong-double-128 IBM format configure test for
+ Clang
 
 The check for -mlong-double-128 IBM extended format support wrapped its
 test code in AC_LANG_PROGRAM, which places the body inside main().  The

@@ -1,8 +1,8 @@
 From 94e3e59b0fcf6933d8bcd5f7de2bfa71c15505de Mon Sep 17 00:00:00 2001
 From: Piotr Kubaj <pkubaj@FreeBSD.org>
 Date: Wed, 22 Jul 2026 15:45:04 +0200
-Subject: [PATCH 032/385] libgcc: rs6000: fix TOC restore when unwinding on
- FreeBSD powerpc64 ELFv2 [PR target/125803]
+Subject: [PATCH] libgcc: rs6000: fix TOC restore when unwinding on FreeBSD
+ powerpc64 ELFv2 [PR target/125803]
 
 On powerpc64, when the unwind info for a frame does not explicitly
 describe how r2 (the TOC pointer) was saved -- which is the normal case

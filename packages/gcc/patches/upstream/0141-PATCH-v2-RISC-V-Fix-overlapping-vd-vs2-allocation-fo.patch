@@ -1,8 +1,8 @@
 From c457a158598614cc05abc46ce154c370b15628ef Mon Sep 17 00:00:00 2001
 From: Jin Ma <jinma@linux.alibaba.com>
 Date: Sat, 5 Sep 2026 10:07:33 -0600
-Subject: [PATCH 141/385] [PATCH v2] RISC-V: Fix overlapping vd/vs2 allocation
- for vector crypto [PR126196]
+Subject: [PATCH] [PATCH v2] RISC-V: Fix overlapping vd/vs2 allocation for
+ vector crypto [PR126196]
 
 The RISC-V Vector Crypto specification reserves encodings where the
 vd register group overlaps vs2 for vsm3me.vv, vsm3c.vi, vaes*.vs and

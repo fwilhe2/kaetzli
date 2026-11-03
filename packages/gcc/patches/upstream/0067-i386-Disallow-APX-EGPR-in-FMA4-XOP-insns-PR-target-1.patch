@@ -1,8 +1,7 @@
 From 00ee5bf89b03753ff07d3a827aa06256f38f4897 Mon Sep 17 00:00:00 2001
 From: Hongyu Wang <hongyu.wang@intel.com>
 Date: Tue, 11 Aug 2026 16:57:48 +0800
-Subject: [PATCH 067/385] i386: Disallow APX EGPR in FMA4/XOP insns [PR
- target/126787]
+Subject: [PATCH] i386: Disallow APX EGPR in FMA4/XOP insns [PR target/126787]
 
 FMA4 and XOP instructions are VEX-only, so cannot be promoted to EVEX form.
 When enforcing -mapxf on such target clone, which is at --with-arch=native

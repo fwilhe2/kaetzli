@@ -1,7 +1,7 @@
 From 111aa7e0b9ce55571ea0c38264800d64e3952f53 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 20 Oct 2026 12:06:59 +0200
-Subject: [PATCH 378/385] isel: Fix up optimize_atomic_bit_test_and [PR127965]
+Subject: [PATCH] isel: Fix up optimize_atomic_bit_test_and [PR127965]
 
 If __atomic_fetch_{or,and}_* has its lhs used only in a cast,
 optimize_atomic_bit_test_and accepts it in some cases with

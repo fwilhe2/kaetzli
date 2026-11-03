@@ -1,7 +1,7 @@
 From c1653f3e7463cab673b3c02d49d34c3e4e3674ef Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Wed, 28 Oct 2026 00:21:02 +0000
-Subject: [PATCH 351/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/ChangeLog           | 29 +++++++++++++++++++++++++++++

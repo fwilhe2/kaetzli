@@ -1,8 +1,8 @@
 From 70cc8ed46bf41a4a7c807cf037b993126b368478 Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:16:33 -0400
-Subject: [PATCH 107/385] Backport changes to use load/store vector pair
- instructions for -mcpu=future
+Subject: [PATCH] Backport changes to use load/store vector pair instructions
+ for -mcpu=future
 
 In the development for the power10 processor, GCC did not enable using the load
 vector pair and store vector pair instructions when optimizing things like

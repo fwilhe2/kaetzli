@@ -1,8 +1,7 @@
 From d039ff6179592064d1646c06c85dbabaea90b1f5 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 1 Oct 2026 17:28:03 +0100
-Subject: [PATCH 352/385] libstdc++: Re-enable some pb_ds tests for C++17 and
- later
+Subject: [PATCH] libstdc++: Re-enable some pb_ds tests for C++17 and later
 
 I disabled these tests for C++17 in r7-2679-gc42966921a2897 due to
 ambiguous string conversions in __gnu_pbds::test::basic_type. I think

@@ -1,7 +1,7 @@
 From 4e3274800752936bb5cdcafe836b7cd700f8ad6d Mon Sep 17 00:00:00 2001
 From: Robin Dapp <robin.dapp@oss.qualcomm.com>
 Date: Tue, 4 Aug 2026 11:37:33 +0200
-Subject: [PATCH 027/385] RISC-V: Fix single-step expansion [PR126550].
+Subject: [PATCH] RISC-V: Fix single-step expansion [PR126550].
 
 In expand_const_vector_single_step_npatterns, we use a second vector
 builder that is derived from the main one, in order to create a

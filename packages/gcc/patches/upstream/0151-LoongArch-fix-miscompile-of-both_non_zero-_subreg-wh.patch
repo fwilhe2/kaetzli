@@ -1,8 +1,8 @@
 From 3c902c5144ff29f5d92f2d5924bb38ec3c882983 Mon Sep 17 00:00:00 2001
 From: Xi Ruoyao <xry111@xry111.site>
 Date: Mon, 31 Aug 2026 16:18:12 +0800
-Subject: [PATCH 151/385] LoongArch: fix miscompile of both_non_zero{,_subreg}
- when operands[0] == operands[2] [PR 127153]
+Subject: [PATCH] LoongArch: fix miscompile of both_non_zero{,_subreg} when
+ operands[0] == operands[2] [PR 127153]
 
 Here operands[0] is written before the instruction is finished using
 operands[2] so it cannot lie in a register that is read by the

@@ -1,7 +1,7 @@
 From d5e024b2f4358adf1841751194cba3ee66c4ce75 Mon Sep 17 00:00:00 2001
 From: Gerald Pfeifer <gerald@pfeifer.com>
 Date: Sun, 30 Aug 2026 11:03:26 +0200
-Subject: [PATCH 176/385] libstdc++: Update reference to openDPL Parallel API
+Subject: [PATCH] libstdc++: Update reference to openDPL Parallel API
 
 libstdc++v-3:
 	* doc/xml/manual/status_cxx2017.xml: Update reference to openDPL

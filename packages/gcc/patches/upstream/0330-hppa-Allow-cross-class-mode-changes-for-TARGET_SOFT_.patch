@@ -1,8 +1,7 @@
 From ea5e337ed0e3937fd70914f3d2f632be3f31eb2d Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Thu, 15 Oct 2026 18:13:44 -0400
-Subject: [PATCH 330/385] hppa: Allow cross-class mode changes for
- TARGET_SOFT_FLOAT
+Subject: [PATCH] hppa: Allow cross-class mode changes for TARGET_SOFT_FLOAT
 
 Floating-point register support is disabled for TARGET_SOFT_FLOAT,
 so we can allow cross-class mode changes.

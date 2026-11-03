@@ -1,7 +1,7 @@
 From 368f72c019d68fec8b496bb4c964cce0d5a0865d Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Thu, 1 Oct 2026 13:53:32 -0400
-Subject: [PATCH 333/385] c++/reflection: fix extract-ref [PR127232]
+Subject: [PATCH] c++/reflection: fix extract-ref [PR127232]
 
 A couple of problems here:
 

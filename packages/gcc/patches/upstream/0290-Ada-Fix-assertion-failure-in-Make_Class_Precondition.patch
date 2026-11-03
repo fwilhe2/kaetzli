@@ -1,8 +1,7 @@
 From 9dac0f686778815dad93e9b6722f20289f603d47 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 14 Oct 2026 13:52:19 +0200
-Subject: [PATCH 290/385] Ada: Fix assertion failure in
- Make_Class_Precondition_Subps
+Subject: [PATCH] Ada: Fix assertion failure in Make_Class_Precondition_Subps
 
 Build_Class_Condition_Subprograms calls Make_Class_Precondition_Subps on
 Is_Primitive_Wrapper subprograms too.

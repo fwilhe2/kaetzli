@@ -1,8 +1,8 @@
 From 0788b940a039fa8e9404f4b1a9ea100bfabf2309 Mon Sep 17 00:00:00 2001
 From: Uros Bizjak <ubizjak@gmail.com>
 Date: Fri, 23 Oct 2026 14:30:44 +0200
-Subject: [PATCH 326/385] i386: Disable AES, SHA and PCLMUL when SSE2 is
- disabled [PR128105]
+Subject: [PATCH] i386: Disable AES, SHA and PCLMUL when SSE2 is disabled
+ [PR128105]
 
 AES, SHA and PCLMUL all depend on SSE2 (their *_SET masks pull it in),
 but OPTION_MASK_ISA_SSE2_UNSET did not clear them.  As a result,

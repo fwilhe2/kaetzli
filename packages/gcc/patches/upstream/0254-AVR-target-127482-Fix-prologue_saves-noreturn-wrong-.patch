@@ -1,8 +1,7 @@
 From 66aa293e29ebeb841ff89019d7b7954c6807a39c Mon Sep 17 00:00:00 2001
 From: Georg-Johann Lay <avr@gjlay.de>
 Date: Mon, 5 Oct 2026 17:16:50 +0200
-Subject: [PATCH 254/385] AVR: target/127482 - Fix prologue_saves + noreturn
- wrong code
+Subject: [PATCH] AVR: target/127482 - Fix prologue_saves + noreturn wrong code
 
 This patch fixes wrong code when a noreturn function is compiled
 with -mcall-prologues and the function gets arguments on the stack.

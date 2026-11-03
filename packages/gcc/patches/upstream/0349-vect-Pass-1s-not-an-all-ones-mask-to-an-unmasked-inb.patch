@@ -1,8 +1,8 @@
 From 2ab72a5a399b838232e4f1c9de4b6c48d9b86305 Mon Sep 17 00:00:00 2001
 From: Igor Shevlyakov <igor@tachyum.com>
 Date: Fri, 9 Oct 2026 11:08:56 -0600
-Subject: [PATCH 349/385] vect: Pass 1s, not an all-ones mask, to an unmasked
- inbranch clone [PR127784]
+Subject: [PATCH] vect: Pass 1s, not an all-ones mask, to an unmasked inbranch
+ clone [PR127784]
 
 When vectorizable_simd_clone_call uses an inbranch SIMD clone for a call
 site that is not masked, it synthesizes an all-true mask.  For clones

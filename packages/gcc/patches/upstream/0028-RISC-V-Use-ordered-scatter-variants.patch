@@ -1,7 +1,7 @@
 From 14101132aa3baf0affe755f676bee1eb691cb85f Mon Sep 17 00:00:00 2001
 From: Robin Dapp <robin.dapp@oss.qualcomm.com>
 Date: Tue, 21 Jul 2026 10:37:58 +0200
-Subject: [PATCH 028/385] RISC-V: Use ordered scatter variants.
+Subject: [PATCH] RISC-V: Use ordered scatter variants.
 
 The vectorizer expects scatters to write in an ordered fashion.
 Only the ordered indexed stores offer this, so use them instead of the

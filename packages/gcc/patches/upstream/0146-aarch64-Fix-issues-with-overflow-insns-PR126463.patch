@@ -1,7 +1,7 @@
 From e5883b45adb12a5a2092a9b5b7d4e4db0c386a86 Mon Sep 17 00:00:00 2001
 From: Richard Earnshaw <rearnsha@arm.com>
 Date: Wed, 2 Sep 2026 17:14:16 +0100
-Subject: [PATCH 146/385] aarch64: Fix issues with 'overflow' insns [PR126463]
+Subject: [PATCH] aarch64: Fix issues with 'overflow' insns [PR126463]
 
 This issue looked like a simple 1-character typo, but when trying to
 construct a suitable testcase, I found that the patterns were hardly

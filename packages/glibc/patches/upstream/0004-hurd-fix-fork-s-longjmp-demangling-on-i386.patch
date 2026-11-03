@@ -1,7 +1,7 @@
 From c045fc61e8435c103ebfe06d01fec7f56503e2b4 Mon Sep 17 00:00:00 2001
 From: Samuel Thibault <samuel.thibault@ens-lyon.org>
 Date: Mon, 27 Jul 2026 00:59:36 +0200
-Subject: [PATCH 04/66] hurd: fix fork's longjmp demangling on i386
+Subject: [PATCH] hurd: fix fork's longjmp demangling on i386
 
 i386's setjmp does not actually mangle ebp.
 ---

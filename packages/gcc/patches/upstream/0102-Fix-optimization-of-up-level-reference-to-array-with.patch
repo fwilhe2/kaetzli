@@ -1,8 +1,8 @@
 From cb29197ffcd7b5d4851e72a6e3321343cd558f97 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Tue, 25 Aug 2026 22:50:50 +0200
-Subject: [PATCH 102/385] Fix optimization of up-level reference to array with
- negative low bound
+Subject: [PATCH] Fix optimization of up-level reference to array with negative
+ low bound
 
 The problem is that the DSE pass incorrectly deletes a store to an up-level
 reference to an array with negative low bound:

@@ -1,7 +1,7 @@
 From 623e14a2298c4c2f0a4d33b4db5d9e0e10b6aca9 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Fri, 21 Aug 2026 14:26:39 +0100
-Subject: [PATCH 080/385] libstdc++: Ensure ./tzdata.zi is present in testcase
+Subject: [PATCH] libstdc++: Ensure ./tzdata.zi is present in testcase
 
 When libstdc++ is configured without an embedded copy of the tzdata.zi
 file (e.g. when using --with-libstdcxx-zoneinfo) this testcase can fail.

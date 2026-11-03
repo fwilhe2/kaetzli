@@ -1,7 +1,7 @@
 From bf226617ad929123e7e34adbd131ecacfc4ea1ff Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:08:03 -0400
-Subject: [PATCH 106/385] Update my entry in MAINTAINERS.
+Subject: [PATCH] Update my entry in MAINTAINERS.
 
 This change updates my information.
 

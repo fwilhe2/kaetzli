@@ -1,8 +1,7 @@
 From 07dc0a64a3256151beb20a2b4ebc77ee74ebe0dc Mon Sep 17 00:00:00 2001
 From: Samuel Thibault <samuel.thibault@ens-lyon.org>
 Date: Mon, 28 Sep 2026 01:23:15 +0200
-Subject: [PATCH 56/66] realloc: Fix mmap non-mremap reallocation case [BZ
- #34697]
+Subject: [PATCH] realloc: Fix mmap non-mremap reallocation case [BZ #34697]
 
 This case was missing copying SIZE_SZ bytes from the old allocation.
 

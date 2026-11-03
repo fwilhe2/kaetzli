@@ -1,8 +1,7 @@
 From a79e6dce98dd9550636f3034af2a55cd5cad0e15 Mon Sep 17 00:00:00 2001
 From: Harald Anlauf <anlauf@gmx.de>
 Date: Fri, 23 Oct 2026 21:27:01 +0200
-Subject: [PATCH 345/385] fortran: Fix invalid read with 'use, only:'
- [PR128067]
+Subject: [PATCH] fortran: Fix invalid read with 'use, only:' [PR128067]
 
 	PR fortran/128067
 

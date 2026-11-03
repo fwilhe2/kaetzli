@@ -1,8 +1,7 @@
 From 1f32d57ce4ecabe3fdd5a98d726ecacb20349d11 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 19 Aug 2026 15:10:00 +0200
-Subject: [PATCH 062/385] Ada: Fix infinite loop on reduction expression with
- -gnatVa
+Subject: [PATCH] Ada: Fix infinite loop on reduction expression with -gnatVa
 
 This is a regression present on the mainline and 16 branch, coming from an
 invalid tree sharing in the new implementation of the (complex) analysis of

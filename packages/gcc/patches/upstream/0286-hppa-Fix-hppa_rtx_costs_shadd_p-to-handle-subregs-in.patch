@@ -1,8 +1,8 @@
 From 76bc3425a9e6e042e30d92edd005e6e0a2b023c8 Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Mon, 5 Oct 2026 10:32:04 -0400
-Subject: [PATCH 286/385] hppa: Fix hppa_rtx_costs_shadd_p to handle subregs in
- inner operands
+Subject: [PATCH] hppa: Fix hppa_rtx_costs_shadd_p to handle subregs in inner
+ operands
 
 Fixes gcc.target/hppa/shadd-4.c on hppa64-hp-hpux11.11.
 

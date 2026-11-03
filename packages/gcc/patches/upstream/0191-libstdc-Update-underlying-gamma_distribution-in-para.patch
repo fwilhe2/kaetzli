@@ -1,8 +1,8 @@
 From ffe6c9af6a9435c94b570831c999cffa7c53ca21 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Wed, 16 Sep 2026 10:10:00 +0200
-Subject: [PATCH 191/385] libstdc++: Update underlying gamma_distribution in
- param() [PR123409]
+Subject: [PATCH] libstdc++: Update underlying gamma_distribution in param()
+ [PR123409]
 
 This updates the underlying gamma distribution in the param function by
 invoking the param function on the corresponding member:

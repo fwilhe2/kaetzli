@@ -1,7 +1,7 @@
 From 1b8df100b9ba660d48b5dbb6f292387e0cc456db Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Sat, 17 Oct 2026 10:37:29 +0200
-Subject: [PATCH 374/385] testsuite: Fix up literals{1,2}.C tests [PR127945]
+Subject: [PATCH] testsuite: Fix up literals{1,2}.C tests [PR127945]
 
 David Malcolm's new dg-lint found a bug in these tests, they were incorrectly
 using { target c++23 } as second dg-error argument (which is the comment argument).

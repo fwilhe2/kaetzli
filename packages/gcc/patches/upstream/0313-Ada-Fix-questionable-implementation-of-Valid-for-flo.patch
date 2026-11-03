@@ -1,8 +1,8 @@
 From c35d40973a2413ba48c047c10a090433e731759c Mon Sep 17 00:00:00 2001
 From: Liam Powell <liam@liampwll.com>
 Date: Mon, 19 Oct 2026 20:48:27 +0200
-Subject: [PATCH 313/385] Ada: Fix questionable implementation of 'Valid for
- floating point
+Subject: [PATCH] Ada: Fix questionable implementation of 'Valid for floating
+ point
 
 This only pertains to obsolete targets that do not support denormals, but is
 worth fixing because it also improves the generated code for the others.

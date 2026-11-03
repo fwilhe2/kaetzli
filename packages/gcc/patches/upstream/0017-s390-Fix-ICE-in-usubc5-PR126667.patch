@@ -1,7 +1,7 @@
 From 887a62fd0fd79cea79c5f292764aa79b1b039859 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 7 Aug 2026 17:33:53 +0200
-Subject: [PATCH 017/385] s390: Fix ICE in usubc5 [PR126667]
+Subject: [PATCH] s390: Fix ICE in usubc5 [PR126667]
 
 The following testcase ICEs on s390x-linux I believe since r15-6791
 when usubc<mode>5 named pattern has been introduced.

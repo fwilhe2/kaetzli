@@ -1,8 +1,8 @@
 From 239247823ca6171c919b2fcb8aa3aae93f9913d7 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 29 Jul 2026 19:04:37 +0100
-Subject: [PATCH 230/385] libstdc++: Make chrono::parse accept out-of-range
- values that aren't needed [PR126364]
+Subject: [PATCH] libstdc++: Make chrono::parse accept out-of-range values that
+ aren't needed [PR126364]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

@@ -1,8 +1,8 @@
 From 9d7f5369bd888a1c62376db5065cea49007a7eb8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Thu, 13 Aug 2026 09:51:56 +0200
-Subject: [PATCH 072/385] libstdc++: Format std::float16_t and std::bfloat16_t
- using respective std::to_chars overloads [PR126731]
+Subject: [PATCH] libstdc++: Format std::float16_t and std::bfloat16_t using
+ respective std::to_chars overloads [PR126731]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

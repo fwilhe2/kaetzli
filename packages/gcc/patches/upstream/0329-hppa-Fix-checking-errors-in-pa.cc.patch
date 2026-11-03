@@ -1,7 +1,7 @@
 From 02adce43620e28b07c38f8eb6d15f248a520e74f Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Tue, 13 Oct 2026 10:04:32 -0400
-Subject: [PATCH 329/385] hppa: Fix checking errors in pa.cc
+Subject: [PATCH] hppa: Fix checking errors in pa.cc
 
 Constant pool addresses are special SYMBOL_REF references and they
 are handled by direct SYMBOL_REF checks.  So, we can remove the

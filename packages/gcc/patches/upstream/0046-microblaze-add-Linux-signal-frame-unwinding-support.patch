@@ -1,7 +1,7 @@
 From 0afd703f7953da33c49e310ed6b8542f75db2833 Mon Sep 17 00:00:00 2001
 From: Ramin Moussavi <lordrasmus@gmail.com>
 Date: Wed, 3 Jun 2026 00:00:00 +0200
-Subject: [PATCH 046/385] microblaze: add Linux signal frame unwinding support
+Subject: [PATCH] microblaze: add Linux signal frame unwinding support
 
 libgcc has no MD_FALLBACK_FRAME_STATE_FOR for microblaze*-linux*, so the
 DWARF unwinder cannot step through signal frames at all.  Anything that

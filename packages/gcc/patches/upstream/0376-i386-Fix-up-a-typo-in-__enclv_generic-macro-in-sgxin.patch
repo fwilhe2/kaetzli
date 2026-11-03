@@ -1,8 +1,8 @@
 From 1a2c8d335a9936efa16a2fcdae9441f53516badd Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 20 Oct 2026 10:13:26 +0200
-Subject: [PATCH 376/385] i386: Fix up a typo in __enclv_generic macro in
- sgxintrin.h [PR128015]
+Subject: [PATCH] i386: Fix up a typo in __enclv_generic macro in sgxintrin.h
+ [PR128015]
 
 This macro contains an obvious typo, compared to other __en*_generic
 which contain after the asm template:

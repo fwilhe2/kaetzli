@@ -1,7 +1,7 @@
 From 134dce07882cec6c1cea32c79e4dc513161d92a0 Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Sun, 4 Oct 2026 13:25:13 -0400
-Subject: [PATCH 285/385] hppa: Fix canonicalize_funcptr_for_compare expander
+Subject: [PATCH] hppa: Fix canonicalize_funcptr_for_compare expander
 
 This fixes the case where the canonicalize_funcptr_for_compare
 expander is called with a SYMBOL_REF that isn't a function

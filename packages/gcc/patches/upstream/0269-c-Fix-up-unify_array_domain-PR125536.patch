@@ -1,7 +1,7 @@
 From 3dfc02c5bfc79e1ab5c282d274c8a1c1aff0f9b2 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 23 Sep 2026 09:24:55 +0200
-Subject: [PATCH 269/385] c++: Fix up unify_array_domain [PR125536]
+Subject: [PATCH] c++: Fix up unify_array_domain [PR125536]
 
 The following testcase is incorrectly rejected on lp64 targets.
 The bug is that unify_array_domain uses forcefully

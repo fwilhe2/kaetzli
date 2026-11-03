@@ -1,8 +1,7 @@
 From b4f51887c48ac82acfdb13f96d9eab5d120cb2b7 Mon Sep 17 00:00:00 2001
 From: Hemanth Kumar M D <Hemanth.KumarMD@windriver.com>
 Date: Mon, 7 Sep 2026 01:59:06 -0700
-Subject: [PATCH 41/66] nptl: Skip pretty-printer tests without python3 [BZ
- #34507]
+Subject: [PATCH] nptl: Skip pretty-printer tests without python3 [BZ #34507]
 
 The tests-printers-out rule in Rules wraps $(PYTHON) through
 $(test-wrapper-env).  Unlike ordinary tests, which wrap a freshly built

@@ -1,8 +1,8 @@
 From 2fcaf703240723d246195d0f9f02c57268b541f0 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Mon, 12 Oct 2026 09:17:01 +0200
-Subject: [PATCH 364/385] tree-optimization/127814 - niter assumptions /
- may_be_zero and UB
+Subject: [PATCH] tree-optimization/127814 - niter assumptions / may_be_zero
+ and UB
 
 The following avoids UB and following miscompiles via ranger when
 vectorizing loops that have niter assumptions and/or may_be_zero

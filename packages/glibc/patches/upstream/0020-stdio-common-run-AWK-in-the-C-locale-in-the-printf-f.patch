@@ -1,8 +1,8 @@
 From 89da37bb6e4a631f375b5fe48783e5c023441b0c Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Tue, 4 Aug 2026 10:17:20 -0400
-Subject: [PATCH 20/66] stdio-common: run AWK in the C locale in the printf
- format tests
+Subject: [PATCH] stdio-common: run AWK in the C locale in the printf format
+ tests
 
 The program under test runs in the C locale, through the test program
 prefix, but AWK inherits whatever locale the build was started in.  They

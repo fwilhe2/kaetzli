@@ -1,8 +1,8 @@
 From cb61572ea3f773e1e1978f6c412cc36a30acdb0c Mon Sep 17 00:00:00 2001
 From: Florian Weimer <fweimer@redhat.com>
 Date: Fri, 28 Aug 2026 10:26:07 +0200
-Subject: [PATCH 31/66] iconvdata: EUC_JISX0213 decoding lacks pending
- character reset (CVE-2026-80489)
+Subject: [PATCH] iconvdata: EUC_JISX0213 decoding lacks pending character
+ reset (CVE-2026-80489)
 
 This fixes bug 34568.
 

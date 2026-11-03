@@ -1,8 +1,7 @@
 From 531696944d7e373838d03d9be4e9cb85c22d3c53 Mon Sep 17 00:00:00 2001
 From: Alice Carlotti <alice.carlotti@arm.com>
 Date: Wed, 19 Aug 2026 16:52:54 +0100
-Subject: [PATCH 097/385] aarch64: Update FEAT_TPS and FEAT_TPSP system
- registers
+Subject: [PATCH] aarch64: Update FEAT_TPS and FEAT_TPSP system registers
 
 The specification has been changed to use individual tpcr* registers,
 instead of the original tpmin*/tpmax* pairs.  Copy the updated file from

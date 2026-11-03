@@ -1,7 +1,7 @@
 From 84373afc873953747427d8d1f7f82ca818e62ada Mon Sep 17 00:00:00 2001
 From: Christophe Lyon <christophe.lyon@arm.com>
 Date: Fri, 2 Oct 2026 07:44:06 +0000
-Subject: [PATCH 322/385] [testsuite, arm]: Rework arm_fp16_ok effective target
+Subject: [PATCH] [testsuite, arm]: Rework arm_fp16_ok effective target
  [PR126082]
 
 arm_fp16_ok accepts a few -mfpu= overrides (*fp16*, vfpvN where N>=4,

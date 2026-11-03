@@ -1,7 +1,7 @@
 From 37b61808f7e6ce007b1070154864c177f02cd1d4 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Tue, 29 Sep 2026 15:12:51 +0100
-Subject: [PATCH 219/385] libstdc++: Replace invalid memset usage in testsuite
+Subject: [PATCH] libstdc++: Replace invalid memset usage in testsuite
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

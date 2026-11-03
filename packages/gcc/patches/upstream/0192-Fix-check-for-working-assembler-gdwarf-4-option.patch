@@ -1,7 +1,7 @@
 From 26d59a83fc6e54290b627ea636c6b65bd63f43b1 Mon Sep 17 00:00:00 2001
 From: Christophe Lyon <christophe.lyon@arm.com>
 Date: Fri, 18 Sep 2026 15:58:02 +0200
-Subject: [PATCH 192/385] Fix check for working assembler --gdwarf-4 option
+Subject: [PATCH] Fix check for working assembler --gdwarf-4 option
 
 The code fragment used to check for --gdwarf-4 option with the APP
 marker ends with a hard-coded 'ret' instruction, which is not supported

@@ -1,7 +1,7 @@
 From c6d9625a15154a745e7bb58ce5b0955739f2d5c6 Mon Sep 17 00:00:00 2001
 From: Vincenzo Calabretta <vincenzo.cal.main@gmail.com>
 Date: Sat, 29 Aug 2026 19:28:12 -0700
-Subject: [PATCH 120/385] c++: unshare RANGE_EXPR CONSTRUCTOR index [PR127046]
+Subject: [PATCH] c++: unshare RANGE_EXPR CONSTRUCTOR index [PR127046]
 
 unshare_constructor creates an unshared copy of a CONSTRUCTOR and its
 nested CONSTRUCTOR values.  The implementation copies the tree and the

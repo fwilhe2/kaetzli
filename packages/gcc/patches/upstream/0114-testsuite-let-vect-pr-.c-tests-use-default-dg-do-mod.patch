@@ -1,8 +1,7 @@
 From 6a08905ba3f04841189c5882503725b60b0a511a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
 Date: Mon, 10 Aug 2026 19:48:38 +0200
-Subject: [PATCH 114/385] testsuite: let vect/pr*.c tests use default dg-do
- mode
+Subject: [PATCH] testsuite: let vect/pr*.c tests use default dg-do mode
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

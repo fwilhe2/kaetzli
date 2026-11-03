@@ -1,8 +1,8 @@
 From 888cefc00f16d9199372b2dd733c7fdd390adf99 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Tue, 5 May 2026 21:34:41 +0100
-Subject: [PATCH 295/385] libstdc++: Use proper hash function for atomic::wait
- state [PR115955]
+Subject: [PATCH] libstdc++: Use proper hash function for atomic::wait state
+ [PR115955]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

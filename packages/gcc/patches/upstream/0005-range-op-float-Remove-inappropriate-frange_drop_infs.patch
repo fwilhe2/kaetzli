@@ -1,8 +1,8 @@
 From 925574f378c7fb3403b7027f6ac7c783964d5ee4 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 4 Aug 2026 10:34:01 +0200
-Subject: [PATCH 005/385] range-op-float: Remove inappropriate frange_drop_infs
- call [PR126549]
+Subject: [PATCH] range-op-float: Remove inappropriate frange_drop_infs call
+ [PR126549]
 
 For integer to floating conversions I've added frange_drop_infs
 call into the handler.  Supposedly I thought that integers converted

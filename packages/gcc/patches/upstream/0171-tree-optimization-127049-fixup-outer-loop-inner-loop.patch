@@ -1,8 +1,8 @@
 From df47bc80683a4391e603e50b0d4ad016e6aa71a7 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 25 Aug 2026 15:46:07 +0200
-Subject: [PATCH 171/385] tree-optimization/127049 - fixup outer loop inner
- loop DR analysis
+Subject: [PATCH] tree-optimization/127049 - fixup outer loop inner loop DR
+ analysis
 
 The following fixes a bogus use of build_fold_indirect_ref to build
 the reference we analyze for the innermost loop behavior for outer

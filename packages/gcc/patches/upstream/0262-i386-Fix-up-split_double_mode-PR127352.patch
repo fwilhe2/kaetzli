@@ -1,7 +1,7 @@
 From c681c4f2aa8fc44c4e3822cc34b32fc93d1c607d Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 15 Sep 2026 12:02:18 +0200
-Subject: [PATCH 262/385] i386: Fix up split_double_mode [PR127352]
+Subject: [PATCH] i386: Fix up split_double_mode [PR127352]
 
 The following testcase ICEs, because we try to split during split2 pass
 (insn 313 311 314 36 (parallel [

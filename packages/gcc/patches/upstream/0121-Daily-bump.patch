@@ -1,7 +1,7 @@
 From ac1d802cad423e7b2e7c2449ec16a1e51460de62 Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Mon, 31 Aug 2026 00:21:14 +0000
-Subject: [PATCH 121/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/DATESTAMP           | 2 +-

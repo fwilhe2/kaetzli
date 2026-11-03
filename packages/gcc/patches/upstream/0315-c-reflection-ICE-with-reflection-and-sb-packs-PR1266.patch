@@ -1,8 +1,7 @@
 From e36bd73d7030b3efb182821f06c48c5258809766 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Mon, 12 Oct 2026 17:04:24 -0400
-Subject: [PATCH 315/385] c++/reflection: ICE with reflection and sb packs
- [PR126680]
+Subject: [PATCH] c++/reflection: ICE with reflection and sb packs [PR126680]
 
 We mark consteval-only vars DECL_EXTERNAL, which confused the
 code in set_decl_context_in_fn:

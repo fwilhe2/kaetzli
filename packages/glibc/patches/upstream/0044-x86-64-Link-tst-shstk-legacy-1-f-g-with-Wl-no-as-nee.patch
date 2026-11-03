@@ -1,8 +1,7 @@
 From d19791b12ae5f054187ebe93a653c0ef90447a4f Mon Sep 17 00:00:00 2001
 From: "H.J. Lu" <hjl.tools@gmail.com>
 Date: Wed, 16 Sep 2026 08:22:35 +0800
-Subject: [PATCH 44/66] x86-64: Link tst-shstk-legacy-1{f,g} with
- -Wl,--no-as-needed
+Subject: [PATCH] x86-64: Link tst-shstk-legacy-1{f,g} with -Wl,--no-as-needed
 
 Link tst-shstk-legacy-1f and tst-shstk-legacy-1g with -Wl,--no-as-needed
 so that tst-shstk-legacy-mod-1.so is added to DT_NEEDED.  This fixes

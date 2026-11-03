@@ -1,8 +1,8 @@
 From f3a54b153806cbd7d1883acca4a660432bbce942 Mon Sep 17 00:00:00 2001
 From: Hugo Sales <hugo@hsal.es>
 Date: Fri, 16 Oct 2026 11:50:48 +0100
-Subject: [PATCH 348/385] ipa-cp: Check polymorphic contexts before redirecting
- to a clone [PR127917]
+Subject: [PATCH] ipa-cp: Check polymorphic contexts before redirecting to a
+ clone [PR127917]
 
 perhaps_add_new_callers redirects a call to an existing specialized
 clone when the call passes the value the clone was made for, and all

@@ -1,8 +1,8 @@
 From cf366d0dae6aef5db474f0f3897186d82681d3c9 Mon Sep 17 00:00:00 2001
 From: Kyrylo Tkachov <ktkachov@nvidia.com>
 Date: Thu, 15 Oct 2026 20:09:21 +0200
-Subject: [PATCH 309/385] match-sat-alu.pd: Fix a constant check in signed
- SAT_ADD [PR127357]
+Subject: [PATCH] match-sat-alu.pd: Fix a constant check in signed SAT_ADD
+ [PR127357]
 
 The form
 

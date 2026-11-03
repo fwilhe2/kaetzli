@@ -1,7 +1,7 @@
 From 9d2389a9929e45b7e9df7135166bf53e70c77b97 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 28 Oct 2026 15:26:55 +0000
-Subject: [PATCH 369/385] libstdc++: Improve exception text from
+Subject: [PATCH] libstdc++: Improve exception text from
  chrono::tzdb::locate_zone
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

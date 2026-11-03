@@ -1,7 +1,7 @@
 From a0969384a83a5d65701934c1bb6e113a4d7e14b4 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 18 Aug 2026 17:51:14 +0200
-Subject: [PATCH 054/385] c++: Fix up assert in build_vec_init [PR126752]
+Subject: [PATCH] c++: Fix up assert in build_vec_init [PR126752]
 
 The following testcase ICEs in an assert added by Marek in
 r15-6308.  A subsequent change r15-6897 made the code added in

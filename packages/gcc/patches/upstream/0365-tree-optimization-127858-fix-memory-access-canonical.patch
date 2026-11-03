@@ -1,8 +1,8 @@
 From a4834d9e504ed1c669d8a599413ebcea2cd24b51 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 13 Oct 2026 15:28:09 +0200
-Subject: [PATCH 365/385] tree-optimization/127858 - fix memory access
- canonicalization in LIM
+Subject: [PATCH] tree-optimization/127858 - fix memory access canonicalization
+ in LIM
 
 When we canonicalize a memory access we merge accesses with differing
 access paths to a plain MEM_REF, but when there is a previous access

@@ -1,7 +1,7 @@
 From 16664bccc9d7b8f40f32f154493723fe285bdc92 Mon Sep 17 00:00:00 2001
 From: Odysseas Georgoudis <odygrd@hotmail.com>
 Date: Sun, 26 Jul 2026 23:48:20 +0100
-Subject: [PATCH 129/385] c++: Avoid access check for dependent lookup result
+Subject: [PATCH] c++: Avoid access check for dependent lookup result
  [PR124983]
 
 strip_using_decl turns a dependent typename USING_DECL into a dependent

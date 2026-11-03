@@ -1,8 +1,7 @@
 From b76a3d07556ae7fbed58aa709b1ba2062ef51fd1 Mon Sep 17 00:00:00 2001
 From: Jeff Law <jeffrey.law@oss.qualcomm.com>
 Date: Sun, 13 Sep 2026 08:49:47 -0600
-Subject: [PATCH 153/385] [RISC-V][PR target/127318] Attach DEF_CFA to correct
- insn
+Subject: [PATCH] [RISC-V][PR target/127318] Attach DEF_CFA to correct insn
 
 As is noted in the PR, the REG_CFA_DEF_DFA note is wrong for the testcase,
 while I get meaningfully different CFA note locations than the author, it is

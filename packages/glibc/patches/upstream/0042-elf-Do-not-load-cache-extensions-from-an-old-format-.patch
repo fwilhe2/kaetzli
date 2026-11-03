@@ -1,7 +1,7 @@
 From b84047b5b792e1f028f4d82acbfa9ee9f6e89069 Mon Sep 17 00:00:00 2001
 From: Shamil Abdulaev <ashamil435@gmail.com>
 Date: Fri, 11 Sep 2026 14:59:48 +0200
-Subject: [PATCH 42/66] elf: Do not load cache extensions from an old-format
+Subject: [PATCH] elf: Do not load cache extensions from an old-format
  ld.so.cache [BZ #34600]
 
 Since b9957a70b8 the cache extensions are loaded in

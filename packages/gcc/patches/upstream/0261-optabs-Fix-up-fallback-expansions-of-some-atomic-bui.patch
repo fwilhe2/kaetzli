@@ -1,8 +1,8 @@
 From a69daf9558da37831e4fe8d4524cca33a78c659b Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 14 Sep 2026 13:29:21 +0200
-Subject: [PATCH 261/385] optabs: Fix up fallback expansions of some atomic
- builtins [PR127336]
+Subject: [PATCH] optabs: Fix up fallback expansions of some atomic builtins
+ [PR127336]
 
 If the val operand due to TER is a MEM (or contains a MEM) which can alias
 with mem (the memory atomically updated), we have various wrong-code

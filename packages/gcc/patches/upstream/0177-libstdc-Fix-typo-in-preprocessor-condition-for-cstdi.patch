@@ -1,8 +1,8 @@
 From ab3b92da31d4c7af1004715381b90c76f347843f Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 16 Sep 2026 11:32:08 +0100
-Subject: [PATCH 177/385] libstdc++: Fix typo in preprocessor condition for
- cstdio=pure [PR127430]
+Subject: [PATCH] libstdc++: Fix typo in preprocessor condition for cstdio=pure
+ [PR127430]
 
 libstdc++-v3/ChangeLog:
 

@@ -1,8 +1,7 @@
 From bb120923cbe548209106264d588c3e74cd882278 Mon Sep 17 00:00:00 2001
 From: Julio Sotoriva De Bastiani <Julio.SotorivaDeBastiani@arm.com>
 Date: Tue, 1 Sep 2026 10:22:05 +0000
-Subject: [PATCH 241/385] aarch64: Fix folding for svwhilel*_c* builtins
- [PR126096]
+Subject: [PATCH] aarch64: Fix folding for svwhilel*_c* builtins [PR126096]
 
 This fixes an ICE that occurred when trying to fold svwhilelt and
 svwhilele predicate-as-counter builtins as if they were

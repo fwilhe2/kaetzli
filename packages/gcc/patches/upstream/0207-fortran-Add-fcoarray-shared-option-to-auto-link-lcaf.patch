@@ -1,8 +1,7 @@
 From 5e127189db82fc344bbb4a78af9f0a16d8e8023e Mon Sep 17 00:00:00 2001
 From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
 Date: Sat, 9 May 2026 11:49:21 -0700
-Subject: [PATCH 207/385] fortran: Add -fcoarray=shared option to auto-link
- -lcaf_shmem
+Subject: [PATCH] fortran: Add -fcoarray=shared option to auto-link -lcaf_shmem
 
 The new -fcoarray=shared option provides a convenient shorthand for
 the common invocation -fcoarray=lib -lcaf_shmem.  The driver transforms

@@ -1,8 +1,8 @@
 From fec2a9c6765b548f9d738e3a1c63a63ad7061d40 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Fri, 21 Mar 2025 14:03:00 +0000
-Subject: [PATCH 09/66] linux: Inline syscall cancellation to keep wrapper
- frames observable (BZ 34338)
+Subject: [PATCH] linux: Inline syscall cancellation to keep wrapper frames
+ observable (BZ 34338)
 
 The cancellable syscall wrappers end with a tail call to __syscall_cancel,
 the wrapper frame is then elided, so when the syscall executes the wrapper

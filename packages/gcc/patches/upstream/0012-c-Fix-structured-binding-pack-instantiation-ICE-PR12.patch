@@ -1,8 +1,7 @@
 From c40ebe81cd414dd691a065fb4273d0e3111b5225 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 11:13:53 +0200
-Subject: [PATCH 012/385] c++: Fix structured binding pack instantiation ICE
- [PR125591]
+Subject: [PATCH] c++: Fix structured binding pack instantiation ICE [PR125591]
 
 The following testcase ICEs in tsubst_pack_expansion, we trigger the
 gcc_assert (DECL_DECOMPOSITION_P (orig_arg));

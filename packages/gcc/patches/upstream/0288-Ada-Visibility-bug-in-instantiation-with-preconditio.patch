@@ -1,8 +1,8 @@
 From 877ce5e4ec4476be2167def58e35b393bd4e5e82 Mon Sep 17 00:00:00 2001
 From: Gary Dismukes <dismukes@adacore.com>
 Date: Wed, 7 Jan 2026 20:23:55 +0000
-Subject: [PATCH 288/385] Ada: Visibility bug in instantiation with
- precondition on formal subprogram
+Subject: [PATCH] Ada: Visibility bug in instantiation with precondition on
+ formal subprogram
 
 The compiler may issue an error saying that a global entity referenced in
 the precondition of a formal subprogram is not visible when the containing

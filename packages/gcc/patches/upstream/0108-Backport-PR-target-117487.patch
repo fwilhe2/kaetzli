@@ -1,7 +1,7 @@
 From 8828492b3eb1f847791a38963e57a5afd77366a0 Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:22:59 -0400
-Subject: [PATCH 108/385] Backport PR target/117487
+Subject: [PATCH] Backport PR target/117487
 
 I was answering an email from a co-worker and I pointed him to work I had done
 for the Power8 era that optimizes the 32-bit float math library in Glibc.  In

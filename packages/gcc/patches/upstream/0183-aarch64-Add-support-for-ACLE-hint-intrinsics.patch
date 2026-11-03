@@ -1,7 +1,7 @@
 From a03833529ad951ca5f95ecc5b566b176f33ebc26 Mon Sep 17 00:00:00 2001
 From: Srinath Parvathaneni <srinath.parvathaneni@arm.com>
 Date: Fri, 18 Sep 2026 09:40:59 +0000
-Subject: [PATCH 183/385] aarch64: Add support for ACLE hint intrinsics
+Subject: [PATCH] aarch64: Add support for ACLE hint intrinsics
 
 This patch adds support for ACLE system hint intrinsics
 __yield(), __wfe(), __wfi(), __sev() and __sevl().

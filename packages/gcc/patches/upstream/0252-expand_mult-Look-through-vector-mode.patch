@@ -1,7 +1,7 @@
 From 5bab614c989403b371d9592b6ac80407a25d24a2 Mon Sep 17 00:00:00 2001
 From: Stefan Schulze Frielinghaus <stefansf@gcc.gnu.org>
 Date: Sun, 20 Sep 2026 09:19:50 +0200
-Subject: [PATCH 252/385] expand_mult: Look through vector mode
+Subject: [PATCH] expand_mult: Look through vector mode
 
 When expand_mult handles a constant vector multiplier where the scalar
 operand is a CONST_WIDE_INT, then also look through the vector mode

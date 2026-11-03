@@ -1,7 +1,7 @@
 From 4e5dbaada9e2cf4798f48dd1bb9d0ec8927a9509 Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Fri, 21 Aug 2026 08:16:29 -0400
-Subject: [PATCH 131/385] c++: add fixed test [PR126472]
+Subject: [PATCH] c++: add fixed test [PR126472]
 
 Fixed by r17-2835 for PR c++/126335.  Unlike that PR's testcase, this
 testcase does not depend on r17-1661 to trigger the latent bug.

@@ -1,7 +1,7 @@
 From 1bd79651065b27c02c6502b9423124e54882058d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Andreas=20K=2E=20H=C3=BCttel?= <dilfridge@gentoo.org>
 Date: Sat, 25 Jul 2026 09:21:33 +0900
-Subject: [PATCH 02/66] NEWS: start 2.44.1 section
+Subject: [PATCH] NEWS: start 2.44.1 section
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

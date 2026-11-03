@@ -1,7 +1,7 @@
 From 980bfacc116703fb994f780a6a6fb7a164fd6fc0 Mon Sep 17 00:00:00 2001
 From: Pietro Monteiro <pietro@sociotechnical.xyz>
 Date: Thu, 20 Aug 2026 11:54:57 -0400
-Subject: [PATCH 069/385] build: Add stdatomic.h to USER_H on OpenBSD
+Subject: [PATCH] build: Add stdatomic.h to USER_H on OpenBSD
 
 Otherwise libatomic build fails with:
 ../../../gcc/libatomic/fence.c:27:10: fatal error: stdatomic.h: No such file or directory

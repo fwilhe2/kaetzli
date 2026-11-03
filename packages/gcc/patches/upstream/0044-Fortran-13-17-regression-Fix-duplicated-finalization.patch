@@ -1,8 +1,8 @@
 From 38b61f4fee1e5ca8ac64dd1c9a077e20b09e09ec Mon Sep 17 00:00:00 2001
 From: Christopher Albert <albert@tugraz.at>
 Date: Sun, 16 Aug 2026 13:34:44 +0100
-Subject: [PATCH 044/385] Fortran: [13-17 regression] Fix duplicated
- finalization [PR110626]
+Subject: [PATCH] Fortran: [13-17 regression] Fix duplicated finalization
+ [PR110626]
 
 For a derived-type intrinsic assignment with a component defined
 assignment, generate_component_assignments emitted a whole-derived-type

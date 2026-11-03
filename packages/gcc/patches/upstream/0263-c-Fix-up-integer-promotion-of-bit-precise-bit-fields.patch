@@ -1,7 +1,7 @@
 From fc69bc3065c57b820eb3e7c4b10bcae2020b953d Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 16 Sep 2026 22:22:20 +0200
-Subject: [PATCH 263/385] c: Fix up integer promotion of bit-precise bit-fields
+Subject: [PATCH] c: Fix up integer promotion of bit-precise bit-fields
  [PR127383]
 
 The following testcases are miscompiled when a bit-precise integer

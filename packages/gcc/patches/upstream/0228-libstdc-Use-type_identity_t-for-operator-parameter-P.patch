@@ -1,8 +1,8 @@
 From 7c4a75a3009ad8c43a191623d736b98bff575f08 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Wed, 13 May 2026 11:51:25 +0200
-Subject: [PATCH 228/385] libstdc++: Use type_identity_t for operator<=>
- parameter [PR114400]
+Subject: [PATCH] libstdc++: Use type_identity_t for operator<=> parameter
+ [PR114400]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

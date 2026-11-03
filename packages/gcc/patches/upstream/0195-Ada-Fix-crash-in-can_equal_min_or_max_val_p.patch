@@ -1,7 +1,7 @@
 From 3f1d2ed150174dea197f8510321d21e3d6d644fa Mon Sep 17 00:00:00 2001
 From: Viljar Indus <indus@adacore.com>
 Date: Tue, 22 Sep 2026 10:55:07 +0200
-Subject: [PATCH 195/385] Ada: Fix crash in can_equal_min_or_max_val_p
+Subject: [PATCH] Ada: Fix crash in can_equal_min_or_max_val_p
 
 This changes can_equal_min_or_max_val_p to update the value only when we
 are dealing with a known integral type, instead of with a pointer type for

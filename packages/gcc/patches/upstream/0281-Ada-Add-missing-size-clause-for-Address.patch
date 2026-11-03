@@ -1,7 +1,7 @@
 From 789754ce7c8eb0b8c3d7bb4bc93b7d6d6d5448f4 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Mon, 12 Oct 2026 09:07:24 +0200
-Subject: [PATCH 281/385] Ada: Add missing size clause for Address
+Subject: [PATCH] Ada: Add missing size clause for Address
 
 gcc/ada/
 	* libgnat/system-linux-loongarch.ads (Address): Add size clause.

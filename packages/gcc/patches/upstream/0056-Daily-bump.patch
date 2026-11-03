@@ -1,7 +1,7 @@
 From eea6b9c3d0783794735e363f83f15d82505ff733 Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Wed, 19 Aug 2026 00:20:53 +0000
-Subject: [PATCH 056/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/ChangeLog           | 10 ++++++++++

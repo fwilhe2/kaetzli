@@ -1,7 +1,7 @@
 From e6217d8b6c6d831d50bd61d471c6017f20d9e78f Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Sun, 18 Oct 2026 00:20:31 +0000
-Subject: [PATCH 307/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/DATESTAMP | 2 +-

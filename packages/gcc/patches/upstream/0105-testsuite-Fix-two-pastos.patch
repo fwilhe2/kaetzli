@@ -1,7 +1,7 @@
 From 57bbde5cba606956c7b6c513ed2bf5e895fdb06d Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 24 Aug 2026 23:48:55 +0200
-Subject: [PATCH 105/385] testsuite: Fix two pastos
+Subject: [PATCH] testsuite: Fix two pastos
 
 As mentioned in
 https://sourceware.org/pipermail/libc-alpha/2026-August/179946.html

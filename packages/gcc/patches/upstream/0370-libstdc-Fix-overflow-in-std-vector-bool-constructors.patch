@@ -1,8 +1,8 @@
 From 2ab9ded76e8714b1654260ac68a815c20567cc09 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 26 Oct 2026 17:21:01 +0000
-Subject: [PATCH 370/385] libstdc++: Fix overflow in std::vector<bool>
- constructors (CVE-2026-114691)
+Subject: [PATCH] libstdc++: Fix overflow in std::vector<bool> constructors
+ (CVE-2026-114691)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

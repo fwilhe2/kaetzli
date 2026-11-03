@@ -1,8 +1,7 @@
 From 268858a01895f7cd184c21a5cb07bd06608e9947 Mon Sep 17 00:00:00 2001
 From: Alexey Lapshin <alexey.lapshin@espressif.com>
 Date: Mon, 28 Sep 2026 23:59:53 +0700
-Subject: [PATCH 227/385] xtensa: Don't index reg_renumber before LRA in
- xt_true_regnum
+Subject: [PATCH] xtensa: Don't index reg_renumber before LRA in xt_true_regnum
 
 xt_true_regnum is used by move expanders and insn conditions, which
 IRA invokes through emit_move_insn and recog_memoized when emitting

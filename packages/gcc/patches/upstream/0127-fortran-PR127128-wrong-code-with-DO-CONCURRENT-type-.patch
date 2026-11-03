@@ -1,8 +1,8 @@
 From 59b8926907f2a1a39493c8d2de881a2a2e242013 Mon Sep 17 00:00:00 2001
 From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
 Date: Sat, 29 Aug 2026 09:52:16 -0700
-Subject: [PATCH 127/385] fortran: [PR127128] wrong code with DO CONCURRENT
- type-spec index-name
+Subject: [PATCH] fortran: [PR127128] wrong code with DO CONCURRENT type-spec
+ index-name
 
 A type-spec in a DO CONCURRENT concurrent-header gives the index-name
 construct scope.  The front end implements this by creating a shadow

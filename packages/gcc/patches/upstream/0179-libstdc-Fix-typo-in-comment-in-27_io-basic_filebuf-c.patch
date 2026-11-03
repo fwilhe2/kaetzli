@@ -1,7 +1,7 @@
 From f308ae230870e3edc5c1fb921ca51368ad5eb1e8 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 16 Sep 2026 11:35:57 +0100
-Subject: [PATCH 179/385] libstdc++: Fix typo in comment in
+Subject: [PATCH] libstdc++: Fix typo in comment in
  27_io/basic_filebuf/close/char/4879.cc
 
 libstdc++-v3/ChangeLog:

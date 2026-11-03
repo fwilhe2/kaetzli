@@ -1,8 +1,8 @@
 From 74474caecb3f9fced3218133d597c7181f0b5606 Mon Sep 17 00:00:00 2001
 From: Haochen Jiang <haochen.jiang@intel.com>
 Date: Mon, 26 Oct 2026 14:08:09 +0800
-Subject: [PATCH 367/385] i386: Do not emit 256 bit vinsert*64x2/32*4 w/o
- AVX512VL [PR127459]
+Subject: [PATCH] i386: Do not emit 256 bit vinsert*64x2/32*4 w/o AVX512VL
+ [PR127459]
 
 avx_vec_concat<mode> wrongly emits 256 bit vinsert instructions when
 there is no AVX512VL after egpr change. Change noavx512f to noavx512vl

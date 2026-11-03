@@ -1,8 +1,8 @@
 From b9a8eb8b88da658c9133f238a2d7cc2493ac28c5 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 17 Sep 2026 18:46:41 +0100
-Subject: [PATCH 185/385] libstdc++: Avoid hardcoded -std=gnu++26 in testsuite
- helper proc
+Subject: [PATCH] libstdc++: Avoid hardcoded -std=gnu++26 in testsuite helper
+ proc
 
 This proc should use -std=gnu++29 but I forgot to update it in
 r17-1905-g70e630b6d29b75 so it's now out of date. Replace the hardcoded

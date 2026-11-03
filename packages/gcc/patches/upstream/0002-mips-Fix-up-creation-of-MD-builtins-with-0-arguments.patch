@@ -1,7 +1,7 @@
 From 046f8f3134c29cb6c760e69cb2eeb3db8a644a62 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 3 Aug 2026 11:26:11 +0200
-Subject: [PATCH 002/385] mips: Fix up creation of MD builtins with 0 arguments
+Subject: [PATCH] mips: Fix up creation of MD builtins with 0 arguments
  [PR126484]
 
 For MIPS_SI_FTYPE_VOID and MIPS_USI_FTYPE_VOID which are meant

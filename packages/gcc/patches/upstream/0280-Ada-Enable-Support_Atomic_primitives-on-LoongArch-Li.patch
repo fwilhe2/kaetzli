@@ -1,8 +1,7 @@
 From 22a91f7173f194e33868400e9cd53f3313cf1876 Mon Sep 17 00:00:00 2001
 From: Yang Yujie <yangyujie@loongson.cn>
 Date: Mon, 12 Oct 2026 08:15:32 +0200
-Subject: [PATCH 280/385] Ada: Enable Support_Atomic_primitives on LoongArch
- Linux
+Subject: [PATCH] Ada: Enable Support_Atomic_primitives on LoongArch Linux
 
 gcc/ada/
 	* libgnat/system-linux-loongarch.ads(Support_Atomic_Primitives):

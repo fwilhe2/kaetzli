@@ -1,8 +1,8 @@
 From edf0b4d6a33e42b2c76cb1cfc5b38707c0de6f32 Mon Sep 17 00:00:00 2001
 From: Vineet Gupta <vineet.gupta@linux.dev>
 Date: Tue, 13 Oct 2026 18:15:49 +0530
-Subject: [PATCH 372/385] forwprop: Only pass the value at zero to .CLZ/.CTZ if
- the target defines it [PR127853]
+Subject: [PATCH] forwprop: Only pass the value at zero to .CLZ/.CTZ if the
+ target defines it [PR127853]
 
 On x86 without BMI, fwprop (simplify_count_zeroes) can build a .CTZ,
 claiming ctx(0) = 32, although target specifies ctz(0) is undefined

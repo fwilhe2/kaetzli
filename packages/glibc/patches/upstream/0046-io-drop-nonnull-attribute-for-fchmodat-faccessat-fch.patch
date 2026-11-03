@@ -1,7 +1,7 @@
 From e58294a5a7e37971ab3827efbd0469ac6a19e4b8 Mon Sep 17 00:00:00 2001
 From: Sam James <sam@gentoo.org>
 Date: Sat, 29 Aug 2026 16:54:46 +0100
-Subject: [PATCH 46/66] io: drop nonnull attribute for fchmodat, faccessat,
+Subject: [PATCH] io: drop nonnull attribute for fchmodat, faccessat,
  fchownat's path argument [BZ #34313]
 
 Since Linux 6.11, AT_EMPTY_PATH can be used for a NULL path argument, so

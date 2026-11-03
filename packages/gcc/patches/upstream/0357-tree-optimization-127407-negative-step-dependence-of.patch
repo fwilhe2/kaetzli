@@ -1,8 +1,8 @@
 From c97c50e1eb4b37d6720492089ebb631ecb8ad4b9 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Thu, 17 Sep 2026 11:24:41 +0200
-Subject: [PATCH 357/385] tree-optimization/127407 - negative step dependence
- of grouped stores
+Subject: [PATCH] tree-optimization/127407 - negative step dependence of
+ grouped stores
 
 The following adds a missed check for preserving scalar oder of
 stores to the negative distance case in the vectorizers dependence

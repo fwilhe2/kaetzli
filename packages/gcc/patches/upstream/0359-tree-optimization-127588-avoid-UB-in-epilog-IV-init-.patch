@@ -1,7 +1,7 @@
 From 387ecb88e60fd276e84b8952e1c2f37ed911c3fa Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 25 Sep 2026 09:36:09 +0200
-Subject: [PATCH 359/385] tree-optimization/127588 - avoid UB in epilog IV init
+Subject: [PATCH] tree-optimization/127588 - avoid UB in epilog IV init
  computation
 
 The following avoids UB when computing the start value of the epilog

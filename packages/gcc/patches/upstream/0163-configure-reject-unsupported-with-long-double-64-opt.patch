@@ -1,8 +1,8 @@
 From 81eff4e45599838612422bd429845ba0117bd7f3 Mon Sep 17 00:00:00 2001
 From: Kishan Parmar <kishan@linux.ibm.com>
 Date: Wed, 2 Sep 2026 12:10:30 +0530
-Subject: [PATCH 163/385] configure: reject unsupported --with-long-double-64
- option [PR122535]
+Subject: [PATCH] configure: reject unsupported --with-long-double-64 option
+ [PR122535]
 
 Configure script previously accepted  unsupported  --with-long-double-64
 option  without  any  warning, leading  to  confusion.  This  option was

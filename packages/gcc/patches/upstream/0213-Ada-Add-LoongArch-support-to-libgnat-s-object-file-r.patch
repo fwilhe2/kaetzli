@@ -1,8 +1,7 @@
 From 0ec1e5ba4855254ce28fc3a0abf2759cc07f09f1 Mon Sep 17 00:00:00 2001
 From: Yang Yujie <yangyujie@loongson.cn>
 Date: Tue, 29 Sep 2026 10:52:33 +0200
-Subject: [PATCH 213/385] Ada: Add LoongArch support to libgnat's object file
- reader
+Subject: [PATCH] Ada: Add LoongArch support to libgnat's object file reader
 
 gcc/ada/
 	* libgnat/s-objrea.ads (Object_Arch): Add LOONGARCH.

@@ -1,7 +1,7 @@
 From 11ac3d78fc5e4f7f2846002e099f773ad8ff82fc Mon Sep 17 00:00:00 2001
 From: Magnus Lindholm <linmag7@gmail.com>
 Date: Wed, 5 Aug 2026 23:14:59 +0200
-Subject: [PATCH 23/66] string: Speed up strcasecmp test data initialization
+Subject: [PATCH] string: Speed up strcasecmp test data initialization
 
 The strcasecmp and strncasecmp tests repeatedly initialize large
 buffers for many combinations of lengths and alignments.  The existing

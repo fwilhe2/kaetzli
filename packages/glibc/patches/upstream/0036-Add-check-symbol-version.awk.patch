@@ -1,7 +1,7 @@
 From 2d5421ffca8893534d5e02ad38c28acd8e778fa3 Mon Sep 17 00:00:00 2001
 From: "H.J. Lu" <hjl.tools@gmail.com>
 Date: Wed, 26 Aug 2026 15:18:35 +0800
-Subject: [PATCH 36/66] Add check-symbol-version.awk
+Subject: [PATCH] Add check-symbol-version.awk
 
 commit 6deadd4eb6ab4f59d116b2d7ad97be0d0848cb7f
 Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>

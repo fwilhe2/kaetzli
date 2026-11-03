@@ -1,7 +1,7 @@
 From a47b076a7ffeffba18cc0f56c59e9d9f12e4e90a Mon Sep 17 00:00:00 2001
 From: Richard Earnshaw <rearnsha@arm.com>
 Date: Tue, 15 Sep 2026 17:58:15 +0100
-Subject: [PATCH 291/385] aarch64: handle subreg operands to negvti3 [PR127393]
+Subject: [PATCH] aarch64: handle subreg operands to negvti3 [PR127393]
 
 gen_highpart will abort if the operand is a subreg; avoid this by
 rejecting SUBREGs.

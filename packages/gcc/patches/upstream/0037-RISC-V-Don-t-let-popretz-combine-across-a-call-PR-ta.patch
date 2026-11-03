@@ -1,7 +1,7 @@
 From 3cdb74f43678a97b01f1de0cfe9eb218d73460f7 Mon Sep 17 00:00:00 2001
 From: Kito Cheng <kito.cheng@sifive.com>
 Date: Tue, 4 Aug 2026 10:43:37 +0800
-Subject: [PATCH 037/385] RISC-V: Don't let popretz combine across a call [PR
+Subject: [PATCH] RISC-V: Don't let popretz combine across a call [PR
  target/126454]
 
 The popretz pass scans backwards from cm.popret for the "li a0, 0" that

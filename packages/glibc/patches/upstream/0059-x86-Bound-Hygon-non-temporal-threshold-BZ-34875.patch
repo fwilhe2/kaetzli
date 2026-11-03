@@ -1,7 +1,7 @@
 From fb9f40898302ac9dd97c4ab48cd2d8fce3469465 Mon Sep 17 00:00:00 2001
 From: Wang Lei <wangleiwave@gmail.com>
 Date: Sun, 25 Oct 2026 14:46:37 +0800
-Subject: [PATCH 59/66] x86: Bound Hygon non-temporal threshold [BZ #34875]
+Subject: [PATCH] x86: Bound Hygon non-temporal threshold [BZ #34875]
 
 When a hypervisor exposes a Hygon CPUID vendor but omits cache topology,
 shared_per_thread is zero.  The generic cache initialization detects the

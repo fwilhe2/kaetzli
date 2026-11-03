@@ -1,7 +1,7 @@
 From 58da792d8a2d8f2fe711318836e853fcddfd7cd8 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Tue, 4 Aug 2026 14:25:48 +0000
-Subject: [PATCH 08/66] hurd: Fix build after the ftw kernel_stat.h inclusion
+Subject: [PATCH] hurd: Fix build after the ftw kernel_stat.h inclusion
 
 Commit 6758def7171 changed the generic ftw{64}.c to include
 kernel_stat.h, which is Linux specific.

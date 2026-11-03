@@ -1,7 +1,7 @@
 From f91449daed2c83ef4c0d69430216dc6bfddd56bc Mon Sep 17 00:00:00 2001
 From: Georg-Johann Lay <avr@gjlay.de>
 Date: Fri, 4 Sep 2026 13:14:10 +0200
-Subject: [PATCH 133/385] AVR: target/127188 - Fix -fcompare-debug fail
+Subject: [PATCH] AVR: target/127188 - Fix -fcompare-debug fail
 
 The transformations performed by the avr-2moves pass might depend
 on the presence of debug insns, which is fixed by this patch.

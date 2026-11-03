@@ -1,8 +1,8 @@
 From 95cc24b98066e7b021ae8562defc384ddeb26b57 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 20 Oct 2026 12:05:03 +0200
-Subject: [PATCH 377/385] bitintlower: Fix up the single use SSA_NAME
- optimization [PR127905]
+Subject: [PATCH] bitintlower: Fix up the single use SSA_NAME optimization
+ [PR127905]
 
 The _BitInt lowering contains an optimization, if a SSA_NAME has a single
 use and if its partition is reused for other SSA_NAMEs, we try to emit

@@ -1,8 +1,8 @@
 From 3659136d5a21a23381c0c5effada9a02cf14ea58 Mon Sep 17 00:00:00 2001
 From: Uros Bizjak <ubizjak@gmail.com>
 Date: Tue, 29 Sep 2026 11:24:01 +0200
-Subject: [PATCH 251/385] i386: Do not over-align va_arg access to an
- over-aligned stack argument [PR127650]
+Subject: [PATCH] i386: Do not over-align va_arg access to an over-aligned
+ stack argument [PR127650]
 
 ix86_function_arg_boundary computes the stack slot alignment from
 TYPE_MAIN_VARIANT, so for a typedef with attribute aligned the slot

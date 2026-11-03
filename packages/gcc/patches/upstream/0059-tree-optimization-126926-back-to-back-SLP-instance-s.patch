@@ -1,7 +1,7 @@
 From df724d7f92e60cc8c21cda11d0958f4ec69504ee Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 18 Aug 2026 11:02:12 +0200
-Subject: [PATCH 059/385] tree-optimization/126926 - back-to-back SLP instance
+Subject: [PATCH] tree-optimization/126926 - back-to-back SLP instance
  scheduling
 
 When we have two SLP instances interacting at the

@@ -1,8 +1,8 @@
 From 4520a26b9ba46a7f7c59265c8d26f9d2ed761ecd Mon Sep 17 00:00:00 2001
 From: Jeff Law <jeffreyalaw@gmail.com>
 Date: Sun, 27 Sep 2026 08:54:33 -0600
-Subject: [PATCH 304/385] [PATCH][PR tree-optimization/126462] Fix
- reassociation exposing rotate+xor to work correctly for int128 and BitInt
+Subject: [PATCH] [PATCH][PR tree-optimization/126462] Fix reassociation
+ exposing rotate+xor to work correctly for int128 and BitInt
 
 This has been pending in my queue for a while.   Just keeps getting pushed
 down.

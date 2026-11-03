@@ -1,7 +1,7 @@
 From 3723bab816971351f3ba34b89c803f89d01bcbc4 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 1 Oct 2026 22:50:13 +0100
-Subject: [PATCH 293/385] libstdc++: Fix stack corruption in std::bitset stream
+Subject: [PATCH] libstdc++: Fix stack corruption in std::bitset stream
  extraction [PR124370]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

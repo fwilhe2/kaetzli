@@ -1,7 +1,7 @@
 From d3ee0199d95ecea85c6116a9e10a9728506f419e Mon Sep 17 00:00:00 2001
 From: Uros Bizjak <ubizjak@gmail.com>
 Date: Wed, 12 Aug 2026 21:13:15 +0200
-Subject: [PATCH 034/385] i386: Fix some minor issues with BT patterns
+Subject: [PATCH] i386: Fix some minor issues with BT patterns
 
 Relax register constraint on operand 1 of *bt<mode> from "q" to "r"
 so it is no longer restricted to the legacy byte-addressable register

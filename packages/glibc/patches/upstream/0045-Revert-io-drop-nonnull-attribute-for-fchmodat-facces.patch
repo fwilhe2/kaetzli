@@ -1,8 +1,8 @@
 From d7179269b79eb7394e980cb8ebd810629c686f0f Mon Sep 17 00:00:00 2001
 From: Sam James <sam@gentoo.org>
 Date: Thu, 17 Sep 2026 02:04:11 +0100
-Subject: [PATCH 45/66] Revert "io: drop nonnull attribute for fchmodat,
- faccessat, fchownat's path argument [BZ #34313]"
+Subject: [PATCH] Revert "io: drop nonnull attribute for fchmodat, faccessat,
+ fchownat's path argument [BZ #34313]"
 
 This reverts commit b14c4b0bc95c25f9718807be07ad9a13442d2b6f.
 ---

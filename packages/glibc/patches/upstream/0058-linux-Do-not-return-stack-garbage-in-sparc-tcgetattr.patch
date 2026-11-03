@@ -1,8 +1,8 @@
 From 045c51476c7abf6144815a4db44f51a118b4cb3e Mon Sep 17 00:00:00 2001
 From: Stian Halseth <stian@itx.no>
 Date: Sun, 11 Oct 2026 18:32:49 +0200
-Subject: [PATCH 58/66] linux: Do not return stack garbage in sparc tcgetattr
- c_cc [BZ #34734]
+Subject: [PATCH] linux: Do not return stack garbage in sparc tcgetattr c_cc
+ [BZ #34734]
 
 The sparc kernel's struct termios2 declares 19 c_cc entries, but
 TCGETS2 only writes the first 17 and TCSETS2 only reads them.  Since

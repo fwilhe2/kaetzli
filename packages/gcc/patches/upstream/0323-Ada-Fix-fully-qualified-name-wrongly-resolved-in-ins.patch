@@ -1,8 +1,8 @@
 From a697c8115b8b5d7c7bf3bc066a38765ee18e76c9 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Thu, 22 Oct 2026 19:12:57 +0200
-Subject: [PATCH 323/385] Ada: Fix fully qualified name wrongly resolved in
- instance of generic child
+Subject: [PATCH] Ada: Fix fully qualified name wrongly resolved in instance of
+ generic child
 
 This is a regression present on the mainline and 16 branch, introduced by
 the recent removal of an old kludge from Sem_Ch8.Premature_Usage that was

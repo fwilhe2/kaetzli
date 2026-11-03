@@ -1,7 +1,7 @@
 From bf47c9d07f4c4364c48b093acf30fe98a296a00f Mon Sep 17 00:00:00 2001
 From: Stefan Schulze Frielinghaus <stefansf@gcc.gnu.org>
 Date: Tue, 6 Oct 2026 08:10:44 +0200
-Subject: [PATCH 325/385] s390: Fix bswap:HI reg-reg splitter [PR127692]
+Subject: [PATCH] s390: Fix bswap:HI reg-reg splitter [PR127692]
 
 The splitter could fire before register allocation for which the
 attached test ICEs.  There we end up for operands[1] with (subreg:HI

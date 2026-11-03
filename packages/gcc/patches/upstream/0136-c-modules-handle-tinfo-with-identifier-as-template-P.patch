@@ -1,7 +1,7 @@
 From 5f11a4625a875fd297e34b8d8587e2a8781d024d Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Fri, 4 Sep 2026 23:00:29 -0400
-Subject: [PATCH 136/385] c++/modules: handle tinfo with identifier as template
+Subject: [PATCH] c++/modules: handle tinfo with identifier as template
  [PR127207]
 
 A couple of sanity checks need to be made robust to TEMPLATE_INFO that

@@ -1,7 +1,7 @@
 From 243d2c691bc17a7b42d67969b0ce510749940559 Mon Sep 17 00:00:00 2001
 From: Joseph Myers <josmyers@redhat.com>
 Date: Mon, 10 Aug 2026 19:43:33 +0000
-Subject: [PATCH 024/385] Update gcc .po files
+Subject: [PATCH] Update gcc .po files
 
 	* be.po, da.po, de.po, el.po, es.po, fi.po, fr.po, hr.po, id.po,
 	ja.po, ka.po, nl.po, ru.po, sr.po, sv.po, tr.po, uk.po, vi.po,

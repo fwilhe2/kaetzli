@@ -1,8 +1,7 @@
 From 9e1b1ef77c7b1cc58f625500e9ea74fb3cafdf12 Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Sun, 26 Jul 2026 00:27:37 -0400
-Subject: [PATCH 18/66] ldbl-opt: Fix -mlong-double-128 configure test for
- Clang
+Subject: [PATCH] ldbl-opt: Fix -mlong-double-128 configure test for Clang
 
 The check for -mlong-double-128 support wrapped its test code in
 AC_LANG_PROGRAM, which places the body inside main().  The body defines

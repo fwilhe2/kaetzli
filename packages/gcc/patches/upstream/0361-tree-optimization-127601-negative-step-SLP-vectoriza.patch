@@ -1,8 +1,8 @@
 From e47c84926bfd72fbd8b680b3b6663913e083ed8a Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 25 Sep 2026 10:45:00 +0200
-Subject: [PATCH 361/385] tree-optimization/127601 - negative step SLP
- vectorization with gap
+Subject: [PATCH] tree-optimization/127601 - negative step SLP vectorization
+ with gap
 
 The following disables negative step SLP (with a group size bigger
 than one) vectorization with gaps since the VMAT_STRIDED_SLP path

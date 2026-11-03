@@ -1,7 +1,7 @@
 From 9ade000c36f761b1968e78501ebf2c40fad4054b Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 7 Oct 2026 21:34:28 +0200
-Subject: [PATCH 247/385] Ada: Fix bogus warning on use clause for package
+Subject: [PATCH] Ada: Fix bogus warning on use clause for package
 
 This occurs when an overloaded subprogram of the package is locally renamed,
 because this renaming is not recorded as a reference to the package.

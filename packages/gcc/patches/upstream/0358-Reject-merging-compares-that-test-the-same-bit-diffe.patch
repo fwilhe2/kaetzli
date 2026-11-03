@@ -1,8 +1,7 @@
 From 407d7d0061c6651a7460e8669cf12df18fa54c9b Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 9 Oct 2026 12:05:41 +0200
-Subject: [PATCH 358/385] Reject merging compares that test the same bit
- differently
+Subject: [PATCH] Reject merging compares that test the same bit differently
 
 In fold_truth_andor_for_ifcombine, when combining comparisons between
 two non-constant variables or fields, each compare tests, for every bit

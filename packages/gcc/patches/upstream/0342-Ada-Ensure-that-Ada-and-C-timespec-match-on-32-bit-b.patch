@@ -1,7 +1,7 @@
 From c5510ceb4ff3c866ecee6989cdc5fae02d843cc3 Mon Sep 17 00:00:00 2001
 From: Nicolas Boulenguez <nicolas@debian.org>
 Date: Mon, 26 Oct 2026 09:56:11 +0100
-Subject: [PATCH 342/385] Ada: Ensure that Ada and C timespec match on 32-bit
+Subject: [PATCH] Ada: Ensure that Ada and C timespec match on 32-bit
  big-endian
 
 gcc/ada/

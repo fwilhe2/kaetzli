@@ -1,7 +1,7 @@
 From 5e7fa6dbae546cdc07857be19cf3aa2375e9edad Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 18 Aug 2026 20:15:45 +0200
-Subject: [PATCH 055/385] c++: Fix ICE during explanation of failed
+Subject: [PATCH] c++: Fix ICE during explanation of failed
  __has_unique_object_representation [PR126867]
 
 The following testcase ICEs since r16-5520 added explain

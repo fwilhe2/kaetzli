@@ -1,8 +1,8 @@
 From 35b680a36f403f4fe568305fc967d745351c33cf Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 1 Oct 2026 21:20:36 +0100
-Subject: [PATCH 232/385] libstdc++: Add
- enable_borrowed_range<as_input_view<V>> [PR125785]
+Subject: [PATCH] libstdc++: Add enable_borrowed_range<as_input_view<V>>
+ [PR125785]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

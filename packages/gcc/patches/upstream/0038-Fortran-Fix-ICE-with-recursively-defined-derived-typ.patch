@@ -1,8 +1,8 @@
 From 08d27169190cd6ac183bf1d67478b69c456bbf13 Mon Sep 17 00:00:00 2001
 From: Paul Thomas <pault@gcc.gnu.org>
 Date: Wed, 12 Aug 2026 17:24:12 +0100
-Subject: [PATCH 038/385] Fortran: Fix ICE with recursively defined derived
- type [PR104048]
+Subject: [PATCH] Fortran: Fix ICE with recursively defined derived type
+ [PR104048]
 
 2026-08-14  Paul Thomas  <pault@gcc.gnu.org>
 

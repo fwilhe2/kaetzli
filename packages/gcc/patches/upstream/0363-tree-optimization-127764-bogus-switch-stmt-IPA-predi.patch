@@ -1,8 +1,7 @@
 From 1643b2c8dcbe3d6861d31ef68a96289a10229925 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Thu, 8 Oct 2026 11:26:09 +0200
-Subject: [PATCH 363/385] tree-optimization/127764 - bogus switch stmt IPA
- predicates
+Subject: [PATCH] tree-optimization/127764 - bogus switch stmt IPA predicates
 
 set_switch_stmt_execution_predicate does
 wide_int_to_tree (type, wi::to_wide (min)) to extend min, but that

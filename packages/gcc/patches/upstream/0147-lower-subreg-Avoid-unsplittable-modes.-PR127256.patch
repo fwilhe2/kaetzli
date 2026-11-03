@@ -1,7 +1,7 @@
 From a88df55edc15ebfa61cc348c604205ce508d6473 Mon Sep 17 00:00:00 2001
 From: Robin Dapp <robin.dapp@oss.qualcomm.com>
 Date: Wed, 9 Sep 2026 09:12:07 +0200
-Subject: [PATCH 147/385] lower-subreg: Avoid unsplittable modes. [PR127256]
+Subject: [PATCH] lower-subreg: Avoid unsplittable modes. [PR127256]
 
 This is split off of r17-3907-gec58d736cd572b.  The patch mainly avoids
 splitting subregs whose outer mode can be split but the inner cannot

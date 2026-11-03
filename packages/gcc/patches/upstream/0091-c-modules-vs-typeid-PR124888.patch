@@ -1,7 +1,7 @@
 From 9b8da2a0d40191f1b51dcff6aeec046f48593f35 Mon Sep 17 00:00:00 2001
 From: Jason Merrill <jason@redhat.com>
 Date: Mon, 24 Aug 2026 11:00:21 -0700
-Subject: [PATCH 091/385] c++: modules vs typeid [PR124888]
+Subject: [PATCH] c++: modules vs typeid [PR124888]
 
 Instantiating a template from a TU which included <typeinfo> in an importing
 TU which didn't should still work.  Instead of messing with lookup in the

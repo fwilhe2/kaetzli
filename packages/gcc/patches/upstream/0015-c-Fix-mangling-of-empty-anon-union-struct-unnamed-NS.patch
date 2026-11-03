@@ -1,8 +1,8 @@
 From fac66e827216a5593fdf501929babf01338a4e79 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 13:24:08 +0200
-Subject: [PATCH 015/385] c++: Fix mangling of empty anon union/struct unnamed
- NSDMs [PR125541]
+Subject: [PATCH] c++: Fix mangling of empty anon union/struct unnamed NSDMs
+ [PR125541]
 
 Non-static data members are currently mangled as
 dm <prefix> <unqualified-name>

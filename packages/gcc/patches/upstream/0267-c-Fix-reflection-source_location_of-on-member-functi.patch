@@ -1,8 +1,8 @@
 From 7edd52d111a547c57b74bcbe0b310bd35b72b17f Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 21 Sep 2026 09:16:21 +0200
-Subject: [PATCH 267/385] c++: Fix reflection source_location_of on member
- function reflections [PR127493]
+Subject: [PATCH] c++: Fix reflection source_location_of on member function
+ reflections [PR127493]
 
 We don't call maybe_get_first_fn in eval_source_location_of and so don't
 get to the DECL_SOURCE_LOCATION we otherwise could/should.

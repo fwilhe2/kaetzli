@@ -1,8 +1,8 @@
 From 49685699c863a3eb81573995bac9c770c5cbe952 Mon Sep 17 00:00:00 2001
 From: Uros Bizjak <ubizjak@gmail.com>
 Date: Mon, 21 Sep 2026 10:09:59 +0200
-Subject: [PATCH 196/385] i386: Fix enabled attribute for V2QI negate/plusminus
- insns [PR127461]
+Subject: [PATCH] i386: Fix enabled attribute for V2QI negate/plusminus insns
+ [PR127461]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

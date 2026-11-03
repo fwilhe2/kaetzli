@@ -1,8 +1,8 @@
 From 6f9b2bfa500bf5d1cff5d990adfff4b71298dadd Mon Sep 17 00:00:00 2001
 From: Florian Weimer <fweimer@redhat.com>
 Date: Fri, 28 Aug 2026 10:26:07 +0200
-Subject: [PATCH 30/66] iconvdata: SHIFT_JISX0213 decoding lacks pending
- character reset (CVE-2026-77117)
+Subject: [PATCH] iconvdata: SHIFT_JISX0213 decoding lacks pending character
+ reset (CVE-2026-77117)
 
 This fixes bug 34556.
 

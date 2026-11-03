@@ -1,8 +1,8 @@
 From f69969225a091c2dc6c70f0cf2a43cca1ec25318 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 1 Oct 2026 17:39:33 +0100
-Subject: [PATCH 231/385] libstdc++: Fix std::from_chars to not read past end
- of input [PR127666]
+Subject: [PATCH] libstdc++: Fix std::from_chars to not read past end of input
+ [PR127666]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

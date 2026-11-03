@@ -1,7 +1,7 @@
 From d2abcdc5727d0d4e31d6d9d5809aed25818d16a8 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 11:01:15 +0200
-Subject: [PATCH 010/385] libcpp: Fix up ICE with __VA_OPT__ [PR125048]
+Subject: [PATCH] libcpp: Fix up ICE with __VA_OPT__ [PR125048]
 
 The following testcase ICEs, because we call linemap_enter_macro
 and remember what it returned and then in a loop sometimes call

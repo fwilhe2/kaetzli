@@ -1,8 +1,7 @@
 From 73156e58cb62955b95a8ce4efe092ae9da70ba7d Mon Sep 17 00:00:00 2001
 From: Anlai Lu <agicy@qq.com>
 Date: Thu, 16 Jul 2026 12:03:45 +0000
-Subject: [PATCH 239/385] libstdc++: Add tests for format_to with
- ostreambuf_iterator
+Subject: [PATCH] libstdc++: Add tests for format_to with ostreambuf_iterator
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

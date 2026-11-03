@@ -1,7 +1,7 @@
 From 69f0ab9e2875d064afc52ab5e5e66a8357085905 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Thu, 30 Jul 2026 15:18:14 -0400
-Subject: [PATCH 076/385] c++: fix array initialization wrong code [PR126335]
+Subject: [PATCH] c++: fix array initialization wrong code [PR126335]
 
 This is a wrong-code problem starting with the recent check_initializer
 simplification (r17-1661).  I thought the fix would be to bring some of

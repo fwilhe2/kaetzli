@@ -1,7 +1,7 @@
 From 63b53df549451a5d69fcba6d7612ea99f517e8e3 Mon Sep 17 00:00:00 2001
 From: Florian Weimer <fweimer@redhat.com>
 Date: Thu, 27 Aug 2026 13:34:54 +0200
-Subject: [PATCH 29/66] stdlib: Fix right-justification in strfmon (bug 34510,
+Subject: [PATCH] stdlib: Fix right-justification in strfmon (bug 34510,
  CVE-2026-19499)
 
 The memmove call did not take into account that __printf_buffer_pad

@@ -1,7 +1,7 @@
 From fc3157e5064c4e55ee427a0524d9bbbb6fd8b89c Mon Sep 17 00:00:00 2001
 From: Nicolas Boulenguez <nicolas@debian.org>
 Date: Mon, 26 Oct 2026 09:48:23 +0100
-Subject: [PATCH 340/385] Ada: Remove the Makefile recipe for cal.c
+Subject: [PATCH] Ada: Remove the Makefile recipe for cal.c
 
 The cal.c source file was removed some time ago.
 

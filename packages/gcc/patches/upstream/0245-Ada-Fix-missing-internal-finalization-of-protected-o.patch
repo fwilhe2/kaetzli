@@ -1,8 +1,7 @@
 From a9587fcb5512fb3b0bf4d4ae52f4012b3bdcdaa7 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 7 Oct 2026 13:05:14 +0200
-Subject: [PATCH 245/385] Ada: Fix missing internal finalization of protected
- object
+Subject: [PATCH] Ada: Fix missing internal finalization of protected object
 
 This occurs when the type of the protected object is a constrained subtype
 of an unconstrained protected type, and comes from an obsolete kludge.

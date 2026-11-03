@@ -1,8 +1,7 @@
 From 95bfcca9d250d1a72d7be7de96ee8350f37539e2 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 16 Sep 2026 11:35:02 +0100
-Subject: [PATCH 178/385] libstdc++: Fix typo in comment in
- <bits/atomic_wait.h>
+Subject: [PATCH] libstdc++: Fix typo in comment in <bits/atomic_wait.h>
 
 libstdc++-v3/ChangeLog:
 

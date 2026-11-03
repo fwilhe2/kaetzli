@@ -1,8 +1,8 @@
 From e09a7c60149a818f43623834c7b427dbf0ec966e Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 7 Oct 2026 10:20:58 +0200
-Subject: [PATCH 274/385] c++: Suppress -Walloc-size warnings for allocations
- from new expressions
+Subject: [PATCH] c++: Suppress -Walloc-size warnings for allocations from new
+ expressions
 
 The new expression lowering should always ensure that the allocation
 size corresponds properly to the allocated object (or throws/returns null

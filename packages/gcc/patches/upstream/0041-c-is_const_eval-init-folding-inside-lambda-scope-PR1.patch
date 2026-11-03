@@ -1,7 +1,7 @@
 From 62b3305d69025d25a5b8cbc531b14a6adb3d1cbc Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Fri, 14 Aug 2026 15:53:12 -0400
-Subject: [PATCH 041/385] c++: is_const_eval init folding inside lambda scope
+Subject: [PATCH] c++: is_const_eval init folding inside lambda scope
  [PR126483]
 
 Here when processing a's copy-initialization we overeagerly fold its

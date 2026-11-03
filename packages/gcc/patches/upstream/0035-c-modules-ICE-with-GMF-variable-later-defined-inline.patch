@@ -1,8 +1,8 @@
 From 61f16b5960e4a53d7ac5881f4db74ccfb7cb6df7 Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Thu, 13 Aug 2026 18:07:25 -0400
-Subject: [PATCH 035/385] c++/modules: ICE with GMF variable later defined
- inline [PR126783]
+Subject: [PATCH] c++/modules: ICE with GMF variable later defined inline
+ [PR126783]
 
 Here transfer_defining_module (added in r16-5213) assumes that if
 a redeclaration has DECL_LANG_SPECIFIC allocated, then so must the

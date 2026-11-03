@@ -1,8 +1,7 @@
 From 5b3ff4e500a8b5850465e2a6713664d63ad40293 Mon Sep 17 00:00:00 2001
 From: Pietro Monteiro <pietro@sociotechnical.xyz>
 Date: Thu, 20 Aug 2026 11:54:58 -0400
-Subject: [PATCH 071/385] libstdc++: Use static_cast on OpenBSD ctype_base
- masks
+Subject: [PATCH] libstdc++: Use static_cast on OpenBSD ctype_base masks
 
 Commit r17-3313-g15419a00a29342 fixed the build on newer OpenBSD
 versions.  However, on platforms where char is signed, the mask

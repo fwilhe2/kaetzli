@@ -1,8 +1,7 @@
 From ce9e59eb8cfd8740885614e7129970bcb040f7fd Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 3 Aug 2026 11:50:20 +0200
-Subject: [PATCH 003/385] testsuite: Add testcase for already fixed PR
- [PR126576]
+Subject: [PATCH] testsuite: Add testcase for already fixed PR [PR126576]
 
 This testcase got fixed with r17-2843, but the testcase is sufficiently
 different from the other one that it is worth having both.

@@ -1,8 +1,8 @@
 From 13a6f9865aa6d938389a8361159b32a715d072f1 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 4 Aug 2026 10:37:09 +0200
-Subject: [PATCH 007/385] widening_mul: Fix up ICE in
- maybe_optimize_guarding_check [PR126601]
+Subject: [PATCH] widening_mul: Fix up ICE in maybe_optimize_guarding_check
+ [PR126601]
 
 The following testcase ICEs, because we try to quick_push into an already
 full vector.

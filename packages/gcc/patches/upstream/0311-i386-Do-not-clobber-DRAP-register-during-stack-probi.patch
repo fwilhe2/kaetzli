@@ -1,8 +1,7 @@
 From 32374baf23f8ee1ecf5174bd068ebe28dd60679d Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Mon, 19 Oct 2026 19:08:07 +0200
-Subject: [PATCH 311/385] i386: Do not clobber DRAP register during stack
- probing
+Subject: [PATCH] i386: Do not clobber DRAP register during stack probing
 
 Some cases in get_scratch_register_on_entry are guarded against clobbering
 the DRAP register but not all of them, and we're observing such a clobbering

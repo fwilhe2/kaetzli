@@ -1,7 +1,7 @@
 From 9bcb85688e58847191deb42bfc68d60802078df4 Mon Sep 17 00:00:00 2001
 From: Xi Ruoyao <xry111@xry111.site>
 Date: Wed, 22 Jul 2026 19:26:10 +0800
-Subject: [PATCH 07/66] io: fix ftw ABI on MIPS n64
+Subject: [PATCH] io: fix ftw ABI on MIPS n64
 
 On MIPS n64 off_t is same as off64_t, but struct stat is not same as
 struct stat64 (very peculiar but see the "as tempting as it..." comment

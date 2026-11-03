@@ -1,7 +1,7 @@
 From 7866d2f8e06ed73dbca75f01d409a2c32028bb09 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 28 Aug 2026 14:54:01 +0200
-Subject: [PATCH 115/385] tree-optimization/127105 - ICE with empty reduction
+Subject: [PATCH] tree-optimization/127105 - ICE with empty reduction
 
 When we try to analyze a reduction chain we ICE when we access
 the single stmt we want to use after verifying that single stmt

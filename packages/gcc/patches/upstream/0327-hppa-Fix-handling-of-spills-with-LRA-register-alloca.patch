@@ -1,8 +1,7 @@
 From 11f73d0bd28f538151b711d63974f39d0cfd28ba Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Wed, 9 Sep 2026 12:31:51 -0400
-Subject: [PATCH 327/385] hppa: Fix handling of spills with LRA register
- allocator
+Subject: [PATCH] hppa: Fix handling of spills with LRA register allocator
 
 GCC 16 was the first gcc version to use LRA as the default
 register allocator on the PA-RISC backend.  Reload issues

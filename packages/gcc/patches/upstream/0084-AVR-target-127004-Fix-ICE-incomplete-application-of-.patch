@@ -1,8 +1,7 @@
 From b2c3bc6920553e39648353fd21aac90e03e40853 Mon Sep 17 00:00:00 2001
 From: Georg-Johann Lay <avr@gjlay.de>
 Date: Sun, 23 Aug 2026 20:52:57 +0200
-Subject: [PATCH 084/385] AVR: target/127004 - Fix ICE "incomplete application
- of insn"
+Subject: [PATCH] AVR: target/127004 - Fix ICE "incomplete application of insn"
 
 This ICE occurs when RTL pass avr-fuse-move finds an optimization,
 and then finds a difference between the outcomes of the new insn

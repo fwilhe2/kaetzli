@@ -1,7 +1,7 @@
 From 6cc92865896b5cfd4aff2afe5cee221454e2872f Mon Sep 17 00:00:00 2001
 From: Tamar Christina <tamar.christina@arm.com>
 Date: Thu, 24 Sep 2026 10:03:51 +0100
-Subject: [PATCH 229/385] vect: fix emulated vector costing [PR127579]
+Subject: [PATCH] vect: fix emulated vector costing [PR127579]
 
 The testcase
 

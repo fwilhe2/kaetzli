@@ -1,8 +1,8 @@
 From 804e4f5c3aac4ad676bfd2cba52db6fcbea410b5 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Thu, 1 Oct 2026 12:32:41 +0100
-Subject: [PATCH 353/385] libstdc++: Fix debug mode for pb_ds ordered-vector
- trees [PR127675]
+Subject: [PATCH] libstdc++: Fix debug mode for pb_ds ordered-vector trees
+ [PR127675]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

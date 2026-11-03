@@ -1,8 +1,8 @@
 From 7799a75054edd195627f794b4766f80566f5d368 Mon Sep 17 00:00:00 2001
 From: Zhongyao Chen <chenzhongyao.hit@gmail.com>
 Date: Tue, 8 Sep 2026 09:10:52 -0600
-Subject: [PATCH 149/385] [PATCH] RISC-V: Rewrite vector FMA patterns using fma
- rtxes [PR126932].
+Subject: [PATCH] [PATCH] RISC-V: Rewrite vector FMA patterns using fma rtxes
+ [PR126932].
 
 The vector FMA patterns currently match multiply/add trees, which lets
 combine fuse operations into FMA instructions even with -ffp-contract=off.

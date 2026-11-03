@@ -1,8 +1,7 @@
 From d564253eb6c859e266d3cae18e82fb4db9a88316 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
 Date: Sun, 26 Jul 2026 23:25:50 +0200
-Subject: [PATCH 023/385] c++: ICE on on systems without mmap support
- [PR124806]
+Subject: [PATCH] c++: ICE on on systems without mmap support [PR124806]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

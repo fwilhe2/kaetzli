@@ -1,7 +1,7 @@
 From 11579170e3e6ea59a712aa8b9910bb0f4fd5b753 Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Tue, 20 Oct 2026 00:21:05 +0000
-Subject: [PATCH 316/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  contrib/ChangeLog       |  8 ++++++++

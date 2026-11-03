@@ -1,7 +1,7 @@
 From 0b0209ca1aff9f7cd28150b5714cb6dd7514b313 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 4 Aug 2026 21:42:49 +0200
-Subject: [PATCH 009/385] testsuite: Fix up gcc.dg/pr126464.c test [PR126464]
+Subject: [PATCH] testsuite: Fix up gcc.dg/pr126464.c test [PR126464]
 
 On Tue, Aug 04, 2026 at 02:13:19PM +0200, Torbjorn SVENSSON wrote:
 > This causes regression on most (all?) arm-none-eabi targets.

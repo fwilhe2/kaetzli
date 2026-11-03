@@ -1,8 +1,7 @@
 From 6068870174e6cd102e5c0e6c3df9ce58caa4b47b Mon Sep 17 00:00:00 2001
 From: feedable <feedabl3@gmail.com>
 Date: Wed, 3 Jun 2026 08:40:53 -0400
-Subject: [PATCH 030/385] c++/reflection: member function template splicing
- [PR124794]
+Subject: [PATCH] c++/reflection: member function template splicing [PR124794]
 
 cp_parser_splice_expression is stripping BASELINKs before resolving the
 expr; checks if the result is a BASELINK after that (by which point it never

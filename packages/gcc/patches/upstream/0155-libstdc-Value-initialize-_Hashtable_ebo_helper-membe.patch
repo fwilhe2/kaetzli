@@ -1,8 +1,8 @@
 From ced804111c255bbe7f7f97de06ae37bd5f7dea56 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Thu, 10 Sep 2026 11:20:45 +0200
-Subject: [PATCH 155/385] libstdc++: Value-initialize _Hashtable_ebo_helper
- members [PR126949]
+Subject: [PATCH] libstdc++: Value-initialize _Hashtable_ebo_helper members
+ [PR126949]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

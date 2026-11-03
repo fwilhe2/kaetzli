@@ -1,8 +1,8 @@
 From 550de9ba02593e487e9921aea43a70f21fca0544 Mon Sep 17 00:00:00 2001
 From: Nathan Myers <ncm@cantrip.org>
 Date: Thu, 3 Sep 2026 14:14:00 -0400
-Subject: [PATCH 128/385] libstdc++: fix unordered_map heterogeneous insertion
- copying [PR126800]
+Subject: [PATCH] libstdc++: fix unordered_map heterogeneous insertion copying
+ [PR126800]
 
 PR126800 reports that heterogeneous insertions fail to avoid
 copying the key when no insertion occurs. They call an existing

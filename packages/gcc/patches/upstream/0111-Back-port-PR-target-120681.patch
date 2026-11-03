@@ -1,7 +1,7 @@
 From 6fdff4d4d8a83a02cb29c6f7db5446a788a43502 Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:33:30 -0400
-Subject: [PATCH 111/385] Back port PR target/120681
+Subject: [PATCH] Back port PR target/120681
 
 When I implemented the pc-relative support for power10 in GCC, I
 disabled using pc-relative support for -mcmodel=large.  At the time, I

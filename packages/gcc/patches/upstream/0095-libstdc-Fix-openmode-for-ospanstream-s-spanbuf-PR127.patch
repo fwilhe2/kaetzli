@@ -1,8 +1,7 @@
 From 70b2c1aa40cb026ac6711543716d095fc1e362eb Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 24 Aug 2026 11:21:49 +0100
-Subject: [PATCH 095/385] libstdc++: Fix openmode for ospanstream's spanbuf
- [PR127006]
+Subject: [PATCH] libstdc++: Fix openmode for ospanstream's spanbuf [PR127006]
 
 The basic_ospanstream constructor is supposed to ensure that the
 basic_spanbuf is opened for output. I made a copy & paste error from the

@@ -1,8 +1,8 @@
 From 1fe23226498c2a8f78fae304cac20277cefba618 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Tue, 6 Oct 2026 12:20:13 -0400
-Subject: [PATCH 243/385] c++/reflection: using typename [:ns:]::X; should
- declare a type [PR127707]
+Subject: [PATCH] c++/reflection: using typename [:ns:]::X; should declare a
+ type [PR127707]
 
 This fixes a bogus error for
 

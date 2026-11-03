@@ -1,7 +1,7 @@
 From 31c151da46e71a35e3ee6e0ad6abd21a45f06022 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 6 Aug 2026 11:26:42 +0200
-Subject: [PATCH 013/385] c++: Fix up constexpr handling of break in expansion
+Subject: [PATCH] c++: Fix up constexpr handling of break in expansion
  statements [PR125601]
 
 As the following testcase shows, we mishandle break statements in expansion

@@ -1,8 +1,7 @@
 From c36b1ae7c9fc98ea76b9ce51336bfb9c0b514a7d Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 9 Oct 2026 12:35:52 +0200
-Subject: [PATCH 355/385] Do not strip conversions on bit test masks in
- ifcombine
+Subject: [PATCH] Do not strip conversions on bit test masks in ifcombine
 
 In recognize_bits_test, get_name_for_bit_test was unconditionally called
 on gimple_assign_rhs1 of the BIT_AND_EXPR.  Because bitwise AND is

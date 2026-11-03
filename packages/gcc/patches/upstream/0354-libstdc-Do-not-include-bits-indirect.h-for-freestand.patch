@@ -1,8 +1,8 @@
 From cf2c0ec35f59a76a7d0fd3d9e8dc7e377c240fae Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 19 Oct 2026 21:59:46 +0100
-Subject: [PATCH 354/385] libstdc++: Do not include <bits/indirect.h> for
- freestanding [PR127476]
+Subject: [PATCH] libstdc++: Do not include <bits/indirect.h> for freestanding
+ [PR127476]
 
 This header is not installed for freestanding builds, so we should not
 try to include it.

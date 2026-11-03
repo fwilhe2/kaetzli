@@ -1,7 +1,7 @@
 From 8c04a7768f77c534a98d24c8eb109e9a1d8f04ed Mon Sep 17 00:00:00 2001
 From: Harald Anlauf <anlauf@gmx.de>
 Date: Sun, 18 Oct 2026 23:09:16 +0200
-Subject: [PATCH 344/385] fortran: Fix CHARACTER(c_char),VALUE dummy of BIND(C)
+Subject: [PATCH] fortran: Fix CHARACTER(c_char),VALUE dummy of BIND(C)
  interface [PR127881]
 
 For a procedure declared with a BIND(C) interface, a scalar character dummy

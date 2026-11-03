@@ -1,8 +1,7 @@
 From c6a3791ccb1b46bfd6a353b8750ab57ab6f0a169 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Mon, 24 Aug 2026 13:54:44 +0200
-Subject: [PATCH 169/385] tree-optimization/127000 - ICE with bogus match
- pattern
+Subject: [PATCH] tree-optimization/127000 - ICE with bogus match pattern
 
 The following fixes up the (T *)(ptr - ptr_cst) pattern to not
 rely on build_fold_addr_expr_with_type which can add unwanted

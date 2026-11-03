@@ -1,8 +1,8 @@
 From 144566226a88f8e165b7a8ede186ac39129b2bdf Mon Sep 17 00:00:00 2001
 From: Vineet Gupta <vineet.gupta@linux.dev>
 Date: Tue, 13 Oct 2026 18:15:49 +0530
-Subject: [PATCH 371/385] simplify-rtx: Don't merge equal operands with side
- effects [PR127852]
+Subject: [PATCH] simplify-rtx: Don't merge equal operands with side effects
+ [PR127852]
 
 With -ffuse-ops-with-volatile-access combine can hand
 simplify_binary_operation_1 two copies of the same volatile MEM, e.g.

@@ -1,8 +1,7 @@
 From b476cba88c4d56f7fbd5cb3a6045b45ecb900b83 Mon Sep 17 00:00:00 2001
 From: Jin Ma <jinma@linux.alibaba.com>
 Date: Tue, 18 Aug 2026 23:31:24 +0800
-Subject: [PATCH 090/385] RISC-V: Fix sub-Pmode index in vec_set/vec_extract
- [PR126873]
+Subject: [PATCH] RISC-V: Fix sub-Pmode index in vec_set/vec_extract [PR126873]
 
 When gimple-isel lowers a variable-index element access on a
 fixed-length vector into .VEC_SET or .VEC_EXTRACT, the index may be

@@ -1,7 +1,7 @@
 From 095f83f56a7a48dfc0e5c75e75c8485508fb0362 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Mon, 19 Oct 2026 16:03:52 +0200
-Subject: [PATCH 312/385] Ada: Replace uses of Sem_Util.Within_Init_Proc by
+Subject: [PATCH] Ada: Replace uses of Sem_Util.Within_Init_Proc by
  Exp_Util.Inside_Init_Proc
 
 The two functions implement the same predicate.

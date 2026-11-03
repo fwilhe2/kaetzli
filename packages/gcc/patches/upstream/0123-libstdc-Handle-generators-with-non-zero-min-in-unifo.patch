@@ -1,7 +1,7 @@
 From 04c3e1efd4917e9cc32f7e413e8ffdce65b5aa44 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Mon, 27 Jul 2026 16:39:46 +0200
-Subject: [PATCH 123/385] libstdc++: Handle generators with non-zero min in
+Subject: [PATCH] libstdc++: Handle generators with non-zero min in
  uniform_int_distribution [PR118665]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

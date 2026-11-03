@@ -1,8 +1,7 @@
 From 53f44e2c5fccf31bd0b4e356d5f09a0e0919579d Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 4 Aug 2026 21:41:16 +0200
-Subject: [PATCH 008/385] testsuite: Fix up gcc.dg/torture/bitint-100.c test
- [PR124948]
+Subject: [PATCH] testsuite: Fix up gcc.dg/torture/bitint-100.c test [PR124948]
 
 On Mon, Aug 03, 2026 at 01:56:35PM +0200, Torbjorn SVENSSON wrote:
 > On 2026-08-03 13:54, Jakub Jelinek wrote:

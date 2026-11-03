@@ -1,8 +1,8 @@
 From 93606c5c1d2a571abf5d2e8af66e4f0aee9c67ba Mon Sep 17 00:00:00 2001
 From: Florian Weimer <fweimer@redhat.com>
 Date: Tue, 18 Aug 2026 21:48:34 +0200
-Subject: [PATCH 37/66] powerpc: Fix non-atomic stack pointer update in
- fortified longjmp (bug 34530)
+Subject: [PATCH] powerpc: Fix non-atomic stack pointer update in fortified
+ longjmp (bug 34530)
 
 After commit 78f1f0e39cd41d28ae771eb3498bc33780c85cfd ("Consolidate
 the C pointer guard and align the assembly implementations"),

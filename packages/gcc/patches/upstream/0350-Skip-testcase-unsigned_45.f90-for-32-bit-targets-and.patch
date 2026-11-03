@@ -1,8 +1,8 @@
 From bf06a07ff1b26bcaabaff0098e237cdca6985dec Mon Sep 17 00:00:00 2001
 From: Thomas Koenig <tkoenig@gcc.gnu.org>
 Date: Mon, 26 Oct 2026 18:08:23 +0100
-Subject: [PATCH 350/385] Skip testcase unsigned_45.f90 for 32-bit targets and
- add a new one.
+Subject: [PATCH] Skip testcase unsigned_45.f90 for 32-bit targets and add a
+ new one.
 
 The test unsigned_45.f90 failed on 32-bit targets. Fixed this by
 skipping the test there and add a new one which only goes up to

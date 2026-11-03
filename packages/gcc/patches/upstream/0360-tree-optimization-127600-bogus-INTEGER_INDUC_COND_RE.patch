@@ -1,8 +1,8 @@
 From 4e93efa0c3a894e5fa83b5d86d9332fc0b50735b Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Fri, 25 Sep 2026 10:36:12 +0200
-Subject: [PATCH 360/385] tree-optimization/127600 - bogus
- INTEGER_INDUC_COND_REDUCTION detection
+Subject: [PATCH] tree-optimization/127600 - bogus INTEGER_INDUC_COND_REDUCTION
+ detection
 
 After we introduced additional induction kinds we failed to make sure
 integer cond reductions are unaffected.

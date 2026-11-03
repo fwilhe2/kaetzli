@@ -1,8 +1,8 @@
 From 004b053c4b60bdbf946168773d15f5971a28cd1b Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Mon, 24 Aug 2026 15:28:42 +0200
-Subject: [PATCH 170/385] tree-optimization/127000 - revise (T *)(ptr -
- ptr_cst) pattern
+Subject: [PATCH] tree-optimization/127000 - revise (T *)(ptr - ptr_cst)
+ pattern
 
 The following revises the earlier fix which was avoiding
 build_fold_addr_expr_with_type.  Instead the following applies

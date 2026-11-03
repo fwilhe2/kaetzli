@@ -1,8 +1,8 @@
 From 38ba2d9b7faf02ed3ffab9be5fd458b1b94d3cb2 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Tue, 22 Sep 2026 10:26:33 +0200
-Subject: [PATCH 194/385] Ada: Fix run-time crash for imported C array declared
- without size
+Subject: [PATCH] Ada: Fix run-time crash for imported C array declared without
+ size
 
 This is a regression introduced by a couple of recent unrelated changes,
 which shows that adding an implicit indirection for large objects that

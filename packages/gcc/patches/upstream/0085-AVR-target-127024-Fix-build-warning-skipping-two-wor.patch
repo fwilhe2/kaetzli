@@ -1,8 +1,8 @@
 From 0bd3073f463141e920db6c7eaeb763c223c37bac Mon Sep 17 00:00:00 2001
 From: Georg-Johann Lay <avr@gjlay.de>
 Date: Mon, 24 Aug 2026 09:15:40 +0200
-Subject: [PATCH 085/385] AVR: target/127024 - Fix build warning: skipping
- two-word instruction
+Subject: [PATCH] AVR: target/127024 - Fix build warning: skipping two-word
+ instruction
 
 When __AVR_ERRATA_SKIP_JMP_CALL__ is defined, then XJMP and XCALL
 instructions should not be skipped due to a core erratum.

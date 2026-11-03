@@ -1,7 +1,7 @@
 From 95b5eb7776b15342b957865bf6dc3317af4b8b10 Mon Sep 17 00:00:00 2001
 From: Harald Anlauf <anlauf@gmx.de>
 Date: Fri, 2 Oct 2026 23:37:46 +0200
-Subject: [PATCH 298/385] fortran: Fix error recovery on invalid inquiry refs
+Subject: [PATCH] fortran: Fix error recovery on invalid inquiry refs
  [PR127683]
 
 Commit r14-9489 added an assert that could trigger while parsing an inquiry

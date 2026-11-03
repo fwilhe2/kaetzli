@@ -1,7 +1,7 @@
 From 492151d7e3617161d09ff6053391b5f35a623b86 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Wed, 23 Sep 2026 15:46:30 +0200
-Subject: [PATCH 203/385] tree-optimization/127571 - fix association of offset
+Subject: [PATCH] tree-optimization/127571 - fix association of offset
  computation
 
 The expression was flagged by UBSAN, the following should match

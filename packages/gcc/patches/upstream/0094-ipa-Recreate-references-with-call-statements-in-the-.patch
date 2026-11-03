@@ -1,8 +1,8 @@
 From b9fd7202c05aa2c1e69cf373183b476b90854e73 Mon Sep 17 00:00:00 2001
 From: Josef Melcr <josef.melcr@suse.com>
 Date: Mon, 24 Aug 2026 12:20:41 +0200
-Subject: [PATCH 094/385] ipa: Recreate references with call statements in the
- target clone pass [PR127023]
+Subject: [PATCH] ipa: Recreate references with call statements in the target
+ clone pass [PR127023]
 
 References are recreated when redirecting edges in the target clone
 pass. However, the references are not created with their corresponding

@@ -1,7 +1,7 @@
 From 28bb548c8b87b4cf80c7df18c8de1950bed53222 Mon Sep 17 00:00:00 2001
 From: Dipesh Sharma <Dipesh.Sharma@amd.com>
 Date: Tue, 25 Aug 2026 13:54:55 +0530
-Subject: [PATCH 101/385] Fix zen6 AVX512BMM cpuid check.
+Subject: [PATCH] Fix zen6 AVX512BMM cpuid check.
 
 - Moved bit_AVX512BMM to extended features section.
 - Added test for __builtin_cpu_supports ("avx512bmm") compile and runtime tests.

@@ -1,7 +1,7 @@
 From 80a778c167632cb21a4614e893bb68812f135b70 Mon Sep 17 00:00:00 2001
 From: Manjunath Matti <mmatti@linux.ibm.com>
 Date: Thu, 20 Aug 2026 08:51:55 +0200
-Subject: [PATCH 068/385] bitintlower: Fix memmove source operand in
+Subject: [PATCH] bitintlower: Fix memmove source operand in
  finish_arith_overflow [PR126939]
 
 finish_arith_overflow builds a memmove call to shift the result of a

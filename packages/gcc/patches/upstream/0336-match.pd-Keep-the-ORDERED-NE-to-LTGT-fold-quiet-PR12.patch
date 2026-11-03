@@ -1,8 +1,7 @@
 From 9954ab48cfdfd4accb54885ea6bfdf8709a97579 Mon Sep 17 00:00:00 2001
 From: Igor Shevlyakov <igor@tachyum.com>
 Date: Thu, 22 Oct 2026 20:16:36 -0700
-Subject: [PATCH 336/385] match.pd: Keep the ORDERED & NE to LTGT fold quiet
- [PR127785]
+Subject: [PATCH] match.pd: Keep the ORDERED & NE to LTGT fold quiet [PR127785]
 
 ORDERED and NE do not raise an invalid operation exception for a quiet
 NaN, but LTGT does.  The (ordered & ne) -> ltgt rule added with

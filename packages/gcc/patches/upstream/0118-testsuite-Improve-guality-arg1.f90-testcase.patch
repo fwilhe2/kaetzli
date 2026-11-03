@@ -1,7 +1,7 @@
 From 52db3adefd3e50d7f391a6dd77832cb9cfec71e1 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Sat, 29 Aug 2026 14:19:29 +0200
-Subject: [PATCH 118/385] testsuite: Improve guality/arg1.f90 testcase
+Subject: [PATCH] testsuite: Improve guality/arg1.f90 testcase
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

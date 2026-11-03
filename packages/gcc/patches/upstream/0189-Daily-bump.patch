@@ -1,7 +1,7 @@
 From 8fa6aec6d3e9a9032657baf77f1d9f8a05dbc143 Mon Sep 17 00:00:00 2001
 From: GCC Administrator <gccadmin@gcc.gnu.org>
 Date: Sun, 20 Sep 2026 00:20:22 +0000
-Subject: [PATCH 189/385] Daily bump.
+Subject: [PATCH] Daily bump.
 
 ---
  gcc/DATESTAMP | 2 +-

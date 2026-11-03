@@ -1,8 +1,7 @@
 From 7c4d19cf7df66dbd5d15b89fdc5c1a61f04d247b Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Wed, 30 Sep 2026 16:46:47 +0200
-Subject: [PATCH 222/385] Ada: Fix propagation of GNATMAKE_FOR_BUILD Makefile
- variable
+Subject: [PATCH] Ada: Fix propagation of GNATMAKE_FOR_BUILD Makefile variable
 
 The variable needs to be passed directly to sub-makes instead of being
 exported for sub-configures.

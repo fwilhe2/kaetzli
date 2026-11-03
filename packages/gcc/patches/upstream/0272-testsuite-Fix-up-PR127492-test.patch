@@ -1,7 +1,7 @@
 From 75840de1c13e8a30a9f6e14dc43a4dd731a96dc9 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 30 Sep 2026 12:38:35 +0200
-Subject: [PATCH 272/385] testsuite: Fix up PR127492 test
+Subject: [PATCH] testsuite: Fix up PR127492 test
 
 As I wrote earlier, I couldn't make
 On Tue, Sep 29, 2026 at 09:08:28AM +0200, Jakub Jelinek wrote:

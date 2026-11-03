@@ -1,7 +1,7 @@
 From 2ee4e25c971eedb25a9413e17f38a88e2f5b43c3 Mon Sep 17 00:00:00 2001
 From: mengqinggang <mengqinggang@loongson.cn>
 Date: Mon, 10 Aug 2026 16:44:53 +0800
-Subject: [PATCH 53/66] LoongArch: Support pointer guard on LoongArch32
+Subject: [PATCH] LoongArch: Support pointer guard on LoongArch32
 
 LoongArch32 Reduced has no rotri.d/rotri.w instructions.
 Use slli.w/srli.w/or to synthesize the rotation on LoongArch32

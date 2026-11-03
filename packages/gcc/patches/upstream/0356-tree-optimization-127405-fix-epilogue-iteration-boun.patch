@@ -1,8 +1,8 @@
 From 9f3b7c6f11ed479e5c34a20b1a212c3dcdaa4a18 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Thu, 17 Sep 2026 13:14:04 +0200
-Subject: [PATCH 356/385] tree-optimization/127405 fix epilogue iteration bound
- when the control IV wraps
+Subject: [PATCH] tree-optimization/127405 fix epilogue iteration bound when
+ the control IV wraps
 
 tree_transform_and_unroll_loop records an upper bound of FACTOR - 1
 latch iterations on the epilogue loop it creates.  That is justified by

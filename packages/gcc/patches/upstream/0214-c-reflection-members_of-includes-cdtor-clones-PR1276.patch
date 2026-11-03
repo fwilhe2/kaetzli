@@ -1,8 +1,7 @@
 From 0eb7cf727763327fb19a0d4bdaf34ba4f7619484 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Mon, 28 Sep 2026 16:56:47 -0400
-Subject: [PATCH 214/385] c++/reflection: members_of includes cdtor clones
- [PR127643]
+Subject: [PATCH] c++/reflection: members_of includes cdtor clones [PR127643]
 
 Given
 

@@ -1,8 +1,8 @@
 From cbcaa8343590f3aa59db36f23e17f2957f0069c8 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 21 Sep 2026 12:41:35 -0600
-Subject: [PATCH 275/385] libcpp: Fix up parsing __has_include outside
- directive [PR121508]
+Subject: [PATCH] libcpp: Fix up parsing __has_include outside directive
+ [PR121508]
 
 The r17-4537 change broke several tests especially by introducing
 non-determinism into the preprocessor.  The builtin_has_include_1

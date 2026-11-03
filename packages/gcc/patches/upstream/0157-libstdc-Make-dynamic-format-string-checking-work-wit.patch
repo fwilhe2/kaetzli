@@ -1,8 +1,8 @@
 From 1385a4b6a9ec00d170c2279e88a60c347f8661e9 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 9 Sep 2026 16:06:40 +0100
-Subject: [PATCH 157/385] libstdc++: Make dynamic format string checking work
- with Clang [PR127220]
+Subject: [PATCH] libstdc++: Make dynamic format string checking work with
+ Clang [PR127220]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

@@ -1,8 +1,8 @@
 From 214756153531eca553c617a58a1e015d7386754c Mon Sep 17 00:00:00 2001
 From: liuhongt <hongtao.liu@intel.com>
 Date: Sun, 20 Sep 2026 23:09:00 -0700
-Subject: [PATCH 200/385] i386: Don't split V2DF load when the adjusted address
- is invalid [PR127500]
+Subject: [PATCH] i386: Don't split V2DF load when the adjusted address is
+ invalid [PR127500]
 
 ix86_split_stlf_stall_load splits a V2DF load from a PARM_DECL into
 movlpd + movhpd, which needs the load address offset by 8.  When the

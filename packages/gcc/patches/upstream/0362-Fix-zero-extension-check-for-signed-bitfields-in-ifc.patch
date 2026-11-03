@@ -1,8 +1,7 @@
 From 096324c2ac68ec08ac32a8641382da3c08d50e05 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Thu, 8 Oct 2026 14:26:04 +0200
-Subject: [PATCH 362/385] Fix zero-extension check for signed bitfields in
- ifcombine
+Subject: [PATCH] Fix zero-extension check for signed bitfields in ifcombine
 
 In fold_truth_andor_for_ifcombine, when checking if a constant compared
 against a widened bitfield operand needs to be zero-extended rather than

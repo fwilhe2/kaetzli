@@ -1,8 +1,7 @@
 From 64ba23ad183255e509c5635144e8e7355fc4dcfc Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 22 Sep 2026 14:58:22 +0200
-Subject: [PATCH 268/385] builtins: Fix further fallback of atomic builtins
- [PR127492]
+Subject: [PATCH] builtins: Fix further fallback of atomic builtins [PR127492]
 
 This is a continuation of the PR127336 problem, just in a different file.
 If TER results in val being expanded as a MEM, we need to force it into

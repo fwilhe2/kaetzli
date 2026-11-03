@@ -1,8 +1,8 @@
 From cafd139767627981b675daff29933edcdd210230 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 31 Aug 2026 09:38:43 +0200
-Subject: [PATCH 257/385] c++: Fix mangling of aggregates containing
- std::meta::info [PR126922]
+Subject: [PATCH] c++: Fix mangling of aggregates containing std::meta::info
+ [PR126922]
 
 We ICE during mangling on the following testcase.
 There are two problems on it.

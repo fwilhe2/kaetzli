@@ -1,8 +1,8 @@
 From 840156409887113881f19625a9e2de94f0428df2 Mon Sep 17 00:00:00 2001
 From: Paul Thomas <pault@gcc.gnu.org>
 Date: Wed, 3 Jun 2026 12:02:03 +0100
-Subject: [PATCH 087/385] Fortran: Wuse-without-only bogus warning for
- submodules [PR105594]
+Subject: [PATCH] Fortran: Wuse-without-only bogus warning for submodules
+ [PR105594]
 
 2026-06-03  Steven G. Kargl  <kargl@gcc.gnu.org>
 

@@ -1,7 +1,7 @@
 From 5fabd422db500a046b063c2075ef65b382d8f7d7 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Tue, 22 Sep 2026 21:31:08 +0200
-Subject: [PATCH 198/385] Ada: Fix bogus validity failure for reverse SSO array
+Subject: [PATCH] Ada: Fix bogus validity failure for reverse SSO array
  converted to FP
 
 The expander already knows that special care must be taken for 'Valid in

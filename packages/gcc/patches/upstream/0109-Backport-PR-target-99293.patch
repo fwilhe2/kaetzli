@@ -1,7 +1,7 @@
 From 997aaa14a9500bfdbe28ec114f953f62e9c1c89e Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:25:47 -0400
-Subject: [PATCH 109/385] Backport PR target/99293
+Subject: [PATCH] Backport PR target/99293
 
 We had optimizations for splat of a vector extract for the other vector
 types, but we missed having one for V2DI and V2DF.  This patch adds a

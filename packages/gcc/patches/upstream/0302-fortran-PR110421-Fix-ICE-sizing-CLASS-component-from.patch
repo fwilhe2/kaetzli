@@ -1,8 +1,8 @@
 From 8d06be85e7b25e32eb98613f3dc52ce8cd6efd72 Mon Sep 17 00:00:00 2001
 From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
 Date: Sun, 12 Jul 2026 15:51:13 -0700
-Subject: [PATCH 302/385] fortran: [PR110421] Fix ICE sizing CLASS component
- from derived value
+Subject: [PATCH] fortran: [PR110421] Fix ICE sizing CLASS component from
+ derived value
 
 Allocating a CLASS component of a structure constructor from a
 non-polymorphic derived-type value ICEd, because

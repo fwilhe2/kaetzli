@@ -1,8 +1,7 @@
 From 486173ff2eef5c6fb61c5c62c2d1f1e3339bd3cb Mon Sep 17 00:00:00 2001
 From: Jeff Law <jeffreyalaw@gmail.com>
 Date: Sun, 13 Sep 2026 13:50:44 -0600
-Subject: [PATCH 159/385] [RISC-V] Fix problems with bclr variable bit
- optimization
+Subject: [PATCH] [RISC-V] Fix problems with bclr variable bit optimization
 
 A patch from Sun Yuechi as well as a recent PR prompted me to look at this code
 fairly closely.  The issue raised by Sun Yuechi is still there and needs to be

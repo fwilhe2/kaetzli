@@ -1,7 +1,7 @@
 From cfdf43334b32d4251e2aae49a3a3c309c914c7e3 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 18 Sep 2026 11:36:43 +0200
-Subject: [PATCH 265/385] testsuite: Fix up gcc.dg/bitint-142.c test
+Subject: [PATCH] testsuite: Fix up gcc.dg/bitint-142.c test
 
 The whole excersise here is to set the padding bits (if any) of the x
 elements and keep the non-padding bits as is.

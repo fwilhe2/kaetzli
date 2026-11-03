@@ -1,7 +1,7 @@
 From 7ed28af4fcad61780d5f4b38b5a99fdfcc2e6b03 Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Fri, 14 Aug 2026 15:53:10 -0400
-Subject: [PATCH 040/385] c++: testsuite: Add some opt/is_constant_evaluated3.C
+Subject: [PATCH] c++: testsuite: Add some opt/is_constant_evaluated3.C
  variants
 
 r13-6422 added opt/is_constant_evaluated3.C to verify that we constant

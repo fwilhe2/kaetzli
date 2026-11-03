@@ -1,7 +1,7 @@
 From e03e414c5893bdba3c16cb616d191cce9fab4c55 Mon Sep 17 00:00:00 2001
 From: Alfie Richards <alfie.richards@arm.com>
 Date: Wed, 2 Sep 2026 09:41:07 +0000
-Subject: [PATCH 218/385] AArch64: Fix for FFR CSE bug [PR126629]
+Subject: [PATCH] AArch64: Fix for FFR CSE bug [PR126629]
 
 Fixes invalid CSE on read FFR's.
 

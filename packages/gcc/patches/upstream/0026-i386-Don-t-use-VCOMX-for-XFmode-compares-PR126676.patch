@@ -1,7 +1,7 @@
 From ff20c357b3f62d4ffa76a74ce21fc49b640d61e6 Mon Sep 17 00:00:00 2001
 From: "Hu, Lin1" <lin1.hu@intel.com>
 Date: Fri, 7 Aug 2026 16:07:45 +0800
-Subject: [PATCH 026/385] i386: Don't use VCOMX for XFmode compares [PR126676]
+Subject: [PATCH] i386: Don't use VCOMX for XFmode compares [PR126676]
 
 gcc/ChangeLog:
 

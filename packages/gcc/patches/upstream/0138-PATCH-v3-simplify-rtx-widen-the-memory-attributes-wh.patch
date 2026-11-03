@@ -1,8 +1,8 @@
 From 91b8af1769ec459569479087d2017b0fb94d3b88 Mon Sep 17 00:00:00 2001
 From: Rohith Kapelli <kapellirohith@gmail.com>
 Date: Wed, 12 Aug 2026 22:05:23 -0600
-Subject: [PATCH 138/385] [PATCH v3] simplify-rtx: widen the memory attributes
- when folding "c ? a : a" [PR125683]
+Subject: [PATCH] [PATCH v3] simplify-rtx: widen the memory attributes when
+ folding "c ? a : a" [PR125683]
 
 simplify_ternary_operation folds IF_THEN_ELSE (cond, a, a) to a using
 rtx_equal_p, which ignores the memory attributes.  Two loads from the

@@ -1,8 +1,7 @@
 From 1ef50505862d6702e95e76b3ce2c5ed3a93610cb Mon Sep 17 00:00:00 2001
 From: Jason Merrill <jason@redhat.com>
 Date: Fri, 14 Aug 2026 09:37:39 -0400
-Subject: [PATCH 039/385] c++: constexpr class access in generic lambda
- [PR126754]
+Subject: [PATCH] c++: constexpr class access in generic lambda [PR126754]
 
 We don't want to see TARGET_EXPR in template trees because it's an
 implementation detail, not a representation of the source.  But constant

@@ -1,7 +1,7 @@
 From f1b362d4927ba5fe91e27bb49183644e0ac3d1ca Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Thu, 24 Sep 2026 12:28:48 +0200
-Subject: [PATCH 270/385] libgomp: Check for overflows in some cases
+Subject: [PATCH] libgomp: Check for overflows in some cases
 
 Given the https://gcc.gnu.org/pipermail/libstdc++/2026-September/067867.html
 changes, I had a brief look at gomp_aligned_alloc and omp_aligned_{,c}alloc.

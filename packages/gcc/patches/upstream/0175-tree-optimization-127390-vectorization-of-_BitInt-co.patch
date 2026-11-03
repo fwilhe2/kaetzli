@@ -1,7 +1,7 @@
 From 157af9d1ea36bbece6f871bdbd7758471dfb4e8f Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 15 Sep 2026 10:52:22 +0200
-Subject: [PATCH 175/385] tree-optimization/127390 - vectorization of _BitInt
+Subject: [PATCH] tree-optimization/127390 - vectorization of _BitInt
  comparisons
 
 We fail to reject vectorizing of comparisons of non-mode precision

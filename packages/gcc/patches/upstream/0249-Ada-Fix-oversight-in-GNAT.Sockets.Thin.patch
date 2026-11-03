@@ -1,7 +1,7 @@
 From 484bd2e2b5d1c44211f7bf7c2aa5d711ede9d22b Mon Sep 17 00:00:00 2001
 From: Hodong Kim <hodong@nimfsoft.com>
 Date: Wed, 7 Oct 2026 23:41:24 +0200
-Subject: [PATCH 249/385] Ada: Fix oversight in GNAT.Sockets.Thin
+Subject: [PATCH] Ada: Fix oversight in GNAT.Sockets.Thin
 
 As reported in the PR, both C_Accept and C_Socket call Disable_SIGPIPE
 unconditionally, in other words even though the descriptor is invalid.

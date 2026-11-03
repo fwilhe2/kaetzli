@@ -1,7 +1,7 @@
 From 6e81c9629eed29aa26cac6d0dddee3cf73f7cb91 Mon Sep 17 00:00:00 2001
 From: Jeff Law <jeffrey.law@oss.qualcomm.com>
 Date: Thu, 13 Aug 2026 18:34:48 -0600
-Subject: [PATCH 089/385] [PR rtl-optimization/126426] Handle vector mode uses
+Subject: [PATCH] [PR rtl-optimization/126426] Handle vector mode uses
  conservatively in ext-dce
 
 So ext-dce isn't terribly vector aware, it mostly tries to stay out of the way

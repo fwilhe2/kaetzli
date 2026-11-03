@@ -1,7 +1,7 @@
 From fb2f8283e771f7fc14ffbd59e6be9a2f53cf2f54 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 19 Aug 2026 09:03:41 +0200
-Subject: [PATCH 057/385] c++: Fix up constexpr catching of pointer-to-members
+Subject: [PATCH] c++: Fix up constexpr catching of pointer-to-members
  [PR126918]
 
 The following patch fixes various problems with constexpr EH related to

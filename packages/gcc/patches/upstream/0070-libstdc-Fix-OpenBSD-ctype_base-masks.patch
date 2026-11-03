@@ -1,7 +1,7 @@
 From 5dbcb7cad056a409206393554ba98fae4fa99d81 Mon Sep 17 00:00:00 2001
 From: Pietro Monteiro <pietro@sociotechnical.xyz>
 Date: Thu, 20 Aug 2026 11:54:58 -0400
-Subject: [PATCH 070/385] libstdc++: Fix OpenBSD ctype_base masks
+Subject: [PATCH] libstdc++: Fix OpenBSD ctype_base masks
 
 Building on recent OpenBSD fails because the mask macros have been
 redefined.  Use the new macros if available.

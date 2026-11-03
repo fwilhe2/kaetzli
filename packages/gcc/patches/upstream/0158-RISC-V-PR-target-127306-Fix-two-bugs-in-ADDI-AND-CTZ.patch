@@ -1,8 +1,8 @@
 From cbd45683904c8ec6858afec78daf46375ae3f52f Mon Sep 17 00:00:00 2001
 From: Jeff Law <jeffrey.law@oss.qualcomm.com>
 Date: Fri, 11 Sep 2026 16:25:27 -0600
-Subject: [PATCH 158/385] [RISC-V][PR target/127306] Fix two bugs in
- ADDI+AND+CTZ -> CTZ+BCLR optimization for RISC-V
+Subject: [PATCH] [RISC-V][PR target/127306] Fix two bugs in ADDI+AND+CTZ ->
+ CTZ+BCLR optimization for RISC-V
 
 So this BZ exposed two problems.
 

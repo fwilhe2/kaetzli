@@ -1,8 +1,8 @@
 From ad7082fb5a1b49d2fd9adc714fab8a3f9a1e19cc Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 3 Aug 2026 13:01:22 +0200
-Subject: [PATCH 004/385] testsuite: Add yet another testcase for float range
- inverse ops [PR126547]
+Subject: [PATCH] testsuite: Add yet another testcase for float range inverse
+ ops [PR126547]
 
 This got also fixed with r17-2843.
 

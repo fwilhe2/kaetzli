@@ -1,7 +1,7 @@
 From b96b7700184c080d3a72a608e0e7115108b14ac1 Mon Sep 17 00:00:00 2001
 From: Peter Bergner <bergner@tenstorrent.com>
 Date: Wed, 12 Aug 2026 17:53:53 +0000
-Subject: [PATCH 092/385] RISC-V: Add Ascalon XG cpu support
+Subject: [PATCH] RISC-V: Add Ascalon XG cpu support
 
 This adds support for the global version of Ascalon X (tt-ascalon-xg)
 to the list of known cores.  The difference between Ascalon X & XG is XG

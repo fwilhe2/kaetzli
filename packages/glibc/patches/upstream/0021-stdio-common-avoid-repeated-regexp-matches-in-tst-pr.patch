@@ -1,7 +1,7 @@
 From 7cc7a3a4fbf15c8a7d61a69452f754f9c352cd62 Mon Sep 17 00:00:00 2001
 From: Matt Turner <mattst88@gmail.com>
 Date: Mon, 3 Aug 2026 21:59:44 -0400
-Subject: [PATCH 21/66] stdio-common: avoid repeated regexp matches in
+Subject: [PATCH] stdio-common: avoid repeated regexp matches in
  tst-printf-format.awk
 
 Whether the value is an infinity, a NaN or zero does not change between

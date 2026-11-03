@@ -1,8 +1,8 @@
 From 0ae655f455a253be1af00728e1d5097a931640d8 Mon Sep 17 00:00:00 2001
 From: Zhongyao Chen <chenzhongyao.hit@gmail.com>
 Date: Fri, 18 Sep 2026 15:57:01 -0600
-Subject: [PATCH 201/385] [PATCH] ext-dce: Mark all spanned hard registers live
- for multi-reg references [PR127367]
+Subject: [PATCH] [PATCH] ext-dce: Mark all spanned hard registers live for
+ multi-reg references [PR127367]
 
 In pr127367, ext-dce sees multi-reg hard regs like (reg:TI a0) in call
 fusage on riscv64.  It fails to record a1 in livenow, so the preceding

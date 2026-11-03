@@ -1,7 +1,7 @@
 From c6eb6873e4faea511d1d346c7d9ef48c2f6f3c8e Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 5 Oct 2026 09:18:23 +0100
-Subject: [PATCH 240/385] doc: Remove stray period in middle of sentence
+Subject: [PATCH] doc: Remove stray period in middle of sentence
 
 gcc/ChangeLog:
 

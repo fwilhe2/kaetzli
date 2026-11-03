@@ -1,8 +1,7 @@
 From 01c7083b70a6bbf620d2cb2ce887baf501fe2f1f Mon Sep 17 00:00:00 2001
 From: "H.J. Lu" <hjl.tools@gmail.com>
 Date: Sat, 1 Aug 2026 06:07:43 +0800
-Subject: [PATCH 022/385] x86: Check DECL_INCOMING_RTL for argument passing
- check
+Subject: [PATCH] x86: Check DECL_INCOMING_RTL for argument passing check
 
 For argument declaration, its DECL_INCOMING_RTL holds an RTL for the
 stack slot or register where the data was actually passed.  If an

@@ -1,7 +1,7 @@
 From 4a459598063f4a7867aa142e9e1bf49479b91c13 Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Fri, 31 Jul 2026 11:57:14 -0400
-Subject: [PATCH 075/385] c++/reflection: ICE with &template [:members_of():]
+Subject: [PATCH] c++/reflection: ICE with &template [:members_of():]
  [PR124794]
 
 Given

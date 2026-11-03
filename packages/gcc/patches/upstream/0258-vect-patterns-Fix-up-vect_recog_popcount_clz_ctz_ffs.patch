@@ -1,9 +1,8 @@
 From 6f1fb60ebcd551ca46d947909ec46db4cbdee696 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 2 Sep 2026 11:27:11 +0200
-Subject: [PATCH 258/385] vect-patterns: Fix up
- vect_recog_popcount_clz_ctz_ffs_pattern for non-mode precision types
- [PR127149]
+Subject: [PATCH] vect-patterns: Fix up vect_recog_popcount_clz_ctz_ffs_pattern
+ for non-mode precision types [PR127149]
 
 The following testcase is miscompiled on aarch64-linux.  The problem is that
 vect_recog_popcount_clz_ctz_ffs_pattern for builtins other than clz

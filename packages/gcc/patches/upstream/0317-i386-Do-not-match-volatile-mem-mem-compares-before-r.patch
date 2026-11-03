@@ -1,8 +1,8 @@
 From cce25db4b9117ef02dcd9b48116185b223c1b5a0 Mon Sep 17 00:00:00 2001
 From: Uros Bizjak <ubizjak@gmail.com>
 Date: Mon, 19 Oct 2026 08:54:30 +0200
-Subject: [PATCH 317/385] i386: Do not match volatile mem/mem compares before
- reload [PR127851]
+Subject: [PATCH] i386: Do not match volatile mem/mem compares before reload
+ [PR127851]
 
 The combine pass can merge two volatile loads into a single compare
 insn of the form (compare (mem/v x) (mem/v y)).  The compare patterns

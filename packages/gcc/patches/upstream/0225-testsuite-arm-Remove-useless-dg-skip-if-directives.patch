@@ -1,8 +1,7 @@
 From 3bfe0866b640a3e06ba180fb6b328d25fb3942e0 Mon Sep 17 00:00:00 2001
 From: Christophe Lyon <christophe.lyon@arm.com>
 Date: Mon, 28 Sep 2026 13:19:23 +0000
-Subject: [PATCH 225/385] [testsuite, arm]: Remove useless dg-skip-if
- directives
+Subject: [PATCH] [testsuite, arm]: Remove useless dg-skip-if directives
 
 These tests have useless dg-skip-if directives which can be replaced
 with the appropriate dg-require-effective-target and dg-add-options

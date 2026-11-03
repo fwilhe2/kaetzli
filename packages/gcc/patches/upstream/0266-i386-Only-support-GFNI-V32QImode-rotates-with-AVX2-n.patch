@@ -1,8 +1,8 @@
 From 44f6d5cb9be83c5a8c2b0d84a34ab6dd1092fc36 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Mon, 21 Sep 2026 09:13:34 +0200
-Subject: [PATCH 266/385] i386: Only support GFNI V32QImode rotates with AVX2,
- not just AVX [PR127498]
+Subject: [PATCH] i386: Only support GFNI V32QImode rotates with AVX2, not just
+ AVX [PR127498]
 
 The following testcase ICEs, because the middle-end doesn't like a target
 to announce rot{l,r}v32qi3 optab availability only with const_int_operand

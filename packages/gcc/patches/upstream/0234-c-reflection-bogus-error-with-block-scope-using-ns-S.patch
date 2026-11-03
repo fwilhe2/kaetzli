@@ -1,8 +1,8 @@
 From 7e02198ec7ce453e8de8d6ec333883d375d46e5a Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Fri, 2 Oct 2026 16:53:46 -0400
-Subject: [PATCH 234/385] c++/reflection: bogus error with block-scope using
- [:ns:]::S [PR126654]
+Subject: [PATCH] c++/reflection: bogus error with block-scope using [:ns:]::S
+ [PR126654]
 
 Here we emit error "'::' is not a class, namespace, or
 enumeration" for

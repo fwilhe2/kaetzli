@@ -1,8 +1,8 @@
 From f2bfefe0f67d0d5f06f69812e5419637f117d4b6 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 17 Aug 2026 14:09:16 +0100
-Subject: [PATCH 047/385] libstdc++: Fix preprocessor check for bfloat16_t in
- <numbers> [PR126849]
+Subject: [PATCH] libstdc++: Fix preprocessor check for bfloat16_t in <numbers>
+ [PR126849]
 
 libstdc++-v3/ChangeLog:
 

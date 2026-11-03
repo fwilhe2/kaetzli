@@ -1,8 +1,7 @@
 From 185294cfd210ee33948fc2999c3602bacc26cd46 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Hugo=20Beauz=C3=A9e-Luyssen?= <hugo.beauzee@datadoghq.com>
 Date: Tue, 13 Oct 2026 10:14:12 +0000
-Subject: [PATCH 297/385] libstdc++: fix __cpp_lib_chrono for old-ABI-only
- builds
+Subject: [PATCH] libstdc++: fix __cpp_lib_chrono for old-ABI-only builds
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

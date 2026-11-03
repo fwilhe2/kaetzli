@@ -1,8 +1,8 @@
 From ca57ad11199ea822a5e72131b3f154de93853fe6 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Wed, 21 Oct 2026 09:04:21 +0200
-Subject: [PATCH 380/385] c++: Call check_trait_type for
- CPTK_STRUCTURED_BINDING_SIZE [PR127766]
+Subject: [PATCH] c++: Call check_trait_type for CPTK_STRUCTURED_BINDING_SIZE
+ [PR127766]
 
 The following testcase is rejected because we don't even try to complete
 the type, so if it wasn't instantiated with those arguments before, we

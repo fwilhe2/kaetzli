@@ -1,8 +1,7 @@
 From 49711a94ef6e7ec95be3c45df02b51c9ddd443ed Mon Sep 17 00:00:00 2001
 From: Vineet Gupta <vineet.gupta@linux.dev>
 Date: Wed, 24 Jun 2026 09:19:46 -0700
-Subject: [PATCH 134/385] dwarf: fix inconsistency in type chains traversal
- [PR125421]
+Subject: [PATCH] dwarf: fix inconsistency in type chains traversal [PR125421]
 
 typedef chain traversal could sometimes skip an intermediate type.
 This could happen when two DIEs have a common underlying type but diverge

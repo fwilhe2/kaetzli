@@ -1,7 +1,7 @@
 From 216efbce02bc2a8960a79cd22f2729a7e7fdfabe Mon Sep 17 00:00:00 2001
 From: John David Anglin <danglin@gcc.gnu.org>
 Date: Sat, 24 Oct 2026 09:45:51 -0400
-Subject: [PATCH 335/385] Update baseline symbols for gcc-16 on hppa-linux.
+Subject: [PATCH] Update baseline symbols for gcc-16 on hppa-linux.
 
 2026-10-24  John David Anglin  <danglin@gcc.gnu.org>
 

@@ -1,8 +1,8 @@
 From 35566ac03c5f25f3f876a1ccbc93bef3f9757ad5 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Mon, 17 Aug 2026 19:04:34 +0100
-Subject: [PATCH 184/385] libstdc++: Do not overwrite module definition files
- during build [PR126786]
+Subject: [PATCH] libstdc++: Do not overwrite module definition files during
+ build [PR126786]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

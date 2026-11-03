@@ -1,8 +1,8 @@
 From 96d5e25082f4178f043e001613b2759e4e3cda9e Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Mon, 24 Aug 2026 16:38:40 +0200
-Subject: [PATCH 088/385] Ada: Fix missing sliding for assignment of aggregate
- to unconstrained formal
+Subject: [PATCH] Ada: Fix missing sliding for assignment of aggregate to
+ unconstrained formal
 
 This is a recent regression present on the mainline, 16 and 15 branches.
 The compiler fails to implement the needed sliding when an array aggregate

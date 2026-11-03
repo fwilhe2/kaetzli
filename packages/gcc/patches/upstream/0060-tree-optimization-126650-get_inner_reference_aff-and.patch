@@ -1,8 +1,8 @@
 From 4e9903e714e49f4cb51ff2b687d73beb296e6f55 Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Wed, 5 Aug 2026 10:31:47 +0200
-Subject: [PATCH 060/385] tree-optimization/126650 - get_inner_reference_aff
- and bitfields
+Subject: [PATCH] tree-optimization/126650 - get_inner_reference_aff and
+ bitfields
 
 get_inner_reference_aff tries to compensate for bit precision
 offsets and sizes by rounding down and up, but fails to do this

@@ -1,8 +1,8 @@
 From 01f0a097dc3376dae8cb6cda45e4a7e58965891f Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Fri, 7 Aug 2026 21:20:35 +0200
-Subject: [PATCH 052/385] gimple-range-op: Use widen method even for sqrt
- reverse op [PR126534]
+Subject: [PATCH] gimple-range-op: Use widen method even for sqrt reverse op
+ [PR126534]
 
 For glibc the target hook returns 0 for sqrt precision (i.e. 0.5ulp
 precise), but we didn't apply the +-0.5ulp widening when doing

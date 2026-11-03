@@ -1,8 +1,8 @@
 From 4fb564f729db138c5f5a9b2551651281e8095be1 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Tue, 7 Jul 2026 10:27:33 +0200
-Subject: [PATCH 343/385] libstdc++: Assert that produced
- layout_stride::mapping is unique.
+Subject: [PATCH] libstdc++: Assert that produced layout_stride::mapping is
+ unique.
 
 This patch add an assertions checking if the combination of strides and
 extents passed to layout_stride::mapping is unique. The implementation

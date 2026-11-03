@@ -1,7 +1,7 @@
 From 91bfbe9389b0783eaabaea682b10cd85b4dd2002 Mon Sep 17 00:00:00 2001
 From: Eric Botcazou <ebotcazou@adacore.com>
 Date: Tue, 29 Sep 2026 20:46:24 +0200
-Subject: [PATCH 215/385] Fix pasto in optimize_agr_copyprop_1
+Subject: [PATCH] Fix pasto in optimize_agr_copyprop_1
 
 The STMT parameter of optimize_agr_copyprop_1 in tree-ssa-forwprop.cc is
 only used for the dump file:

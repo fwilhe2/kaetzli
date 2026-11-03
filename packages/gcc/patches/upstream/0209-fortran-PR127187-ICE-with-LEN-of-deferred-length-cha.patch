@@ -1,7 +1,7 @@
 From f5850210f2752aa6b81b885fa6e21eddecedec35 Mon Sep 17 00:00:00 2001
 From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
 Date: Wed, 23 Sep 2026 10:26:50 -0700
-Subject: [PATCH 209/385] fortran: [PR127187] ICE with %LEN of deferred-length
+Subject: [PATCH] fortran: [PR127187] ICE with %LEN of deferred-length
  character in ASSOCIATE
 
 A %LEN or %KIND inquiry of a deferred-length character variable gives

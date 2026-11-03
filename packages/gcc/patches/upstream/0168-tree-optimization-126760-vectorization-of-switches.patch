@@ -1,7 +1,7 @@
 From 7ffe5cc45541bcb74c3ea5b043a6d0c8d159e1cd Mon Sep 17 00:00:00 2001
 From: Richard Biener <rguenther@suse.de>
 Date: Tue, 15 Sep 2026 11:34:30 +0200
-Subject: [PATCH 168/385] tree-optimization/126760 - vectorization of switches
+Subject: [PATCH] tree-optimization/126760 - vectorization of switches
 
 When if-conversion converts a switch statement it requires a certain
 shape of the CFG.  This is verified via if_convertible_switch_p

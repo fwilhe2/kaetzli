@@ -1,8 +1,7 @@
 From a971455d8f2b672d87297226f68e3a4f2019ec28 Mon Sep 17 00:00:00 2001
 From: Jonathan Wakely <jwakely@redhat.com>
 Date: Wed, 7 Oct 2026 17:54:54 +0100
-Subject: [PATCH 296/385] libstdc++: Fix missed atomic notifying operations
- [PR127757]
+Subject: [PATCH] libstdc++: Fix missed atomic notifying operations [PR127757]
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

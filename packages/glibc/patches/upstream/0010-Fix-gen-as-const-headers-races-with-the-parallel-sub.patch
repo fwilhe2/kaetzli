@@ -1,7 +1,7 @@
 From 5d1e923ed79185668ac62d19fc37e7e23a3642b6 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Thu, 6 Aug 2026 14:07:55 -0300
-Subject: [PATCH 10/66] Fix gen-as-const-headers races with the parallel subdir
+Subject: [PATCH] Fix gen-as-const-headers races with the parallel subdir
  recursion (BZ 34438)
 
 The parallel subdirectory recursion (commit 7cac99621e96) only orders

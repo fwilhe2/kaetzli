@@ -1,8 +1,7 @@
 From 4662c4675d7f3ba87637c61730f06071f305c5cb Mon Sep 17 00:00:00 2001
 From: Xi Ruoyao <xry111@xry111.site>
 Date: Sun, 26 Jul 2026 00:11:44 +0800
-Subject: [PATCH 17/66] elf: test: handle different rootsbindir in
- tst-ldconfig-cache
+Subject: [PATCH] elf: test: handle different rootsbindir in tst-ldconfig-cache
 
 When compiling a glibc for a merged-/usr distro people may set
 rootsbindir=/usr/sbin.  But tst-ldconfig-cache has hard-coded

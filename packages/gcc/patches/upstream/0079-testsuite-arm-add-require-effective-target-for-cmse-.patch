@@ -1,8 +1,7 @@
 From e0983afb0e3ad3620d4d4daa47e49bf3ccf08284 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
 Date: Fri, 7 Aug 2026 18:03:32 +0200
-Subject: [PATCH 079/385] testsuite: arm: add require effective target for cmse
- tests
+Subject: [PATCH] testsuite: arm: add require effective target for cmse tests
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

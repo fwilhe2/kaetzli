@@ -1,7 +1,7 @@
 From d042b0db4bcdafe2362a86cd958dc8f2645b10e9 Mon Sep 17 00:00:00 2001
 From: Avinash Jayakar <avinashd@linux.ibm.com>
 Date: Tue, 4 Aug 2026 10:07:18 +0530
-Subject: [PATCH 066/385] rs6000: Fix type size checks for
+Subject: [PATCH] rs6000: Fix type size checks for
  __builtin_ppc_atomic_cas_local
 
 Type checks for the first 3 operands of the

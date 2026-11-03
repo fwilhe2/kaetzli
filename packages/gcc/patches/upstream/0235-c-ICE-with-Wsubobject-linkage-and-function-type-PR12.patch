@@ -1,7 +1,7 @@
 From cb095f94da491f4d5e4df92abbc5d55792849e7d Mon Sep 17 00:00:00 2001
 From: Marek Polacek <polacek@redhat.com>
 Date: Wed, 30 Sep 2026 14:02:21 -0400
-Subject: [PATCH 235/385] c++: ICE with -Wsubobject-linkage and function type
+Subject: [PATCH] c++: ICE with -Wsubobject-linkage and function type
  [PR127672]
 
 Here we crash in decl_namespace_context because function types

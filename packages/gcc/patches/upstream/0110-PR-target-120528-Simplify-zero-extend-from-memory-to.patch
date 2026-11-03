@@ -1,8 +1,8 @@
 From bae48b6fce6a574618ded8cfc1dd4006c2e94879 Mon Sep 17 00:00:00 2001
 From: Michael Meissner <meissner@linux.ibm.com>
 Date: Thu, 27 Aug 2026 12:29:37 -0400
-Subject: [PATCH 110/385] PR target/120528 -- Simplify zero extend from memory
- to VSX register on power10
+Subject: [PATCH] PR target/120528 -- Simplify zero extend from memory to VSX
+ register on power10
 
 Previously GCC would zero extend a DImode value in memory to a TImode
 target in a vector register by firt zero extending the DImode value

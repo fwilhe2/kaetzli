@@ -1,7 +1,7 @@
 From 24699eedf51ad307dd9463fa6c0a10222fdd56a2 Mon Sep 17 00:00:00 2001
 From: Jakub Jelinek <jakub@redhat.com>
 Date: Tue, 4 Aug 2026 10:35:19 +0200
-Subject: [PATCH 006/385] phiopt: Fix up spaceship_replacement [PR126564]
+Subject: [PATCH] phiopt: Fix up spaceship_replacement [PR126564]
 
 spaceship_replacement is for optimization of code like
     <bb 2> :  // cond3_bb

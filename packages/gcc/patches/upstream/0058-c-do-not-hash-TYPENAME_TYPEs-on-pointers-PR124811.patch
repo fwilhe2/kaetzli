@@ -1,8 +1,7 @@
 From 5e8bef95e4b4e3fc3fbf180405e26f9b3bdfe738 Mon Sep 17 00:00:00 2001
 From: Patrick Palka <ppalka@redhat.com>
 Date: Wed, 12 Aug 2026 15:58:39 -0400
-Subject: [PATCH 058/385] c++: do not hash TYPENAME_TYPEs on pointers
- [PR124811]
+Subject: [PATCH] c++: do not hash TYPENAME_TYPEs on pointers [PR124811]
 
 typename_htab is written to a precompiled header.  A hash table is
 streamed out slot array and all: gt_pch_nx() relocates the pointers

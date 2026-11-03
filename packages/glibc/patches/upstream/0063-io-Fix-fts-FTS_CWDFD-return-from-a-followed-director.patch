@@ -1,8 +1,8 @@
 From eb288d8ceff42d7b87ea33a2fa55fc8bc1a11496 Mon Sep 17 00:00:00 2001
 From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
 Date: Thu, 22 Oct 2026 15:19:07 -0300
-Subject: [PATCH 63/66] io: Fix fts FTS_CWDFD return from a followed directory
- (BZ 34781)
+Subject: [PATCH] io: Fix fts FTS_CWDFD return from a followed directory (BZ
+ 34781)
 
 When fts_read leaves a directory that the application asked it to
 follow with fts_set (FTS_FOLLOW), it goes back through fts_symfd, a

@@ -1,7 +1,7 @@
 From f693411bc2eb2e03bac32e1df5a8d661a468234f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Tomasz=20Kami=C5=84ski?= <tkaminsk@redhat.com>
 Date: Wed, 7 Oct 2026 12:03:45 +0200
-Subject: [PATCH 253/385] libstdc++: Update tzdata to 2026e
+Subject: [PATCH] libstdc++: Update tzdata to 2026e
 
 Import the new 2026e tzdata.zi file and new leapseconds expiry date.
 
