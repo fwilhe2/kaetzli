@@ -21,3 +21,9 @@ gcc $CPPFLAGS $CFLAGS $LDFLAGS \
     -std=gnu11 -O2 -Wall -Wextra \
     -o $ROOTFS/usr/bin/fetch \
     fetch.c
+
+# The names people type out of habit. Relative, so they resolve inside any root the tree
+# is mounted at; the program does not look at argv[0], so all three behave the same.
+for alias in neofetch fastfetch; do
+    ln -s fetch $ROOTFS/usr/bin/$alias
+done

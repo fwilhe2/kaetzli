@@ -1,0 +1,5 @@
+# fetch, and the names of the tools it stands in for, linked to it
+# (packages/fetch/build.sh), in both flavours.
+present usr/bin/fetch
+present usr/bin/neofetch
+present usr/bin/fastfetch
