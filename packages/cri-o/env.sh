@@ -6,11 +6,11 @@
 #
 # CRI-O's minor tracks Kubernetes': 1.37 serves kubelet 1.37, and packages/kubernetes
 # has to be bumped with it.
-VERSION="1.37.2"
+VERSION="1.37.3"
 PACKAGE="cri-o-${VERSION}"
 TARBALL="$PACKAGE.tar.gz"
 URL="https://github.com/cri-o/cri-o/archive/refs/tags/v${VERSION}.tar.gz"
-SHA256="21569cbd5c50cc16d78d788761588c95c2d80ad2b03d14e0c0afd347f83eb6a6"
+SHA256="4cf343f8080772be4a51d5ccf397d76690b7ad4c0988d92e1588807ad59bfbb7"
 LICENSE="Apache-2.0"
 CPE="cpe:2.3:a:kubernetes:cri-o:${VERSION}:*:*:*:*:*:*:*"
 EXTENSION=kubernetes
