@@ -54,7 +54,9 @@ case "${1:-}" in
                          digest=$(patches_digest "$PKG")
                          [ -z "$digest" ] || printf '%s patches %s\n' "$PKG" "$digest"
                      fi )
-               done | sort | sha256sum)
+               # LC_ALL=C: under en_US.UTF-8 sort orders these lines differently, and a
+               # local tree named a tag CI never pushed, so prep.sh rebuilt the image.
+               done | LC_ALL=C sort | sha256sum)
         ;;
     *)
         echo "usage: $0 builder|sources|assembler" >&2
