@@ -1,5 +1,5 @@
 /*
- * kaetzlifetch - the summary neofetch prints, for a system that will never have neofetch.
+ * fetch - the summary neofetch prints, for a system that will never have neofetch.
  *
  * Everything here comes from uname(2), getifaddrs(3), the environment, /proc, /sys and
  * a few files systemd leaves in /run and /usr (resolved's servers, merged extensions).
@@ -642,7 +642,7 @@ static void print_swatch(int pad)
 
 static void usage(void)
 {
-	puts("usage: kaetzlifetch [--no-color] [--help]");
+	puts("usage: fetch [--no-color] [--help]");
 	puts("");
 	puts("Print a short summary of this system. Colour is used when stdout is a");
 	puts("terminal and NO_COLOR is unset.");
@@ -661,7 +661,7 @@ int main(int argc, char **argv)
 			usage();
 			return 0;
 		} else {
-			fprintf(stderr, "kaetzlifetch: unknown option: %s\n", argv[i]);
+			fprintf(stderr, "fetch: unknown option: %s\n", argv[i]);
 			return 2;
 		}
 	}

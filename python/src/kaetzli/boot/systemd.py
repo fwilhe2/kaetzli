@@ -15,7 +15,7 @@ blocks until startup has settled, which keeps this from racing a unit that is me
 slow; the deadline is what catches one that hangs. More checks ride along on the same
 shell, because a login over a serial console is the expensive part and one more command
 on it is free: systemd's Tainted property, writes to the read-only root, the journal's
-errors, the image's sysctls, a credential through fw_cfg, and kaetzlifetch, the only
+errors, the image's sysctls, a credential through fw_cfg, and fetch, the only
 binary in usr/bin that anything in test/ runs for its own sake.
 
 This is deliberately separate from test/boot.py and test/network.py: test/boot.py proves
@@ -101,7 +101,7 @@ FWCFG_CREDENTIAL = "kaetzli.fwcfg-probe=delivered"
 FWCFG_CHECK = "echo SYSTEMD'-FWCFG':[$(< /run/credentials/@system/kaetzli.fwcfg-probe)]"
 
 # --no-color: the transcript is read as text.
-FETCH_RUN = "kaetzlifetch --no-color; echo KAETZLIFETCH'-DONE'"
+FETCH_RUN = "fetch --no-color; echo FETCH'-DONE'"
 
 DIAGNOSE = "systemctl --failed --no-pager --plain; journalctl -p err -b --no-pager -o short"
 
@@ -223,29 +223,29 @@ def check(guest: Guest, fwcfg: bool) -> None:
             )
         _out(">> systemd OK: a credential arrived through fw_cfg")
 
-    # Partly for the pleasure of seeing it in a CI log, and partly because kaetzlifetch is
+    # Partly for the pleasure of seeing it in a CI log, and partly because fetch is
     # a fair canary: it links nothing but glibc and reads /etc/os-release, /proc and /sys,
     # so "it printed its own OS name" means the loader, the libc and the shipped /etc all
     # did their jobs. A hard failure: a binary in the image that cannot run is what this
     # directory exists to catch.
     guest.mark()
     guest.send(FETCH_RUN)
-    if not guest.wait("KAETZLIFETCH-DONE", 30):
-        guest.fail("kaetzlifetch did not run (is /usr/bin/kaetzlifetch in the image?)")
+    if not guest.wait("FETCH-DONE", 30):
+        guest.fail("fetch did not run (is /usr/bin/fetch in the image?)")
     said = guest.before
-    _out(">> kaetzlifetch says:")
+    _out(">> fetch says:")
     _indented(said.removesuffix("\n").split("\n") if said else [])
 
-    # The OS field exists only if /etc/os-release was found and parsed: kaetzlifetch omits
+    # The OS field exists only if /etc/os-release was found and parsed: fetch omits
     # a field it cannot fill. The field's name, not its value, so a rename is not a failure.
     if "OS: " not in said:
-        guest.fail("kaetzlifetch ran but printed no OS field — /etc/os-release unreadable?")
+        guest.fail("fetch ran but printed no OS field — /etc/os-release unreadable?")
     # No /var disk and a verity root: the setup fields have one right answer each, and
     # they are what a user goes by to judge whether what they install survives a reboot.
     for want in ("Root: erofs, read-only, dm-verity", "State: in memory", "Image: "):
         if want not in said:
-            guest.fail(f"kaetzlifetch did not print '{want}'")
-    _out(">> kaetzlifetch OK")
+            guest.fail(f"fetch did not print '{want}'")
+    _out(">> fetch OK")
 
 
 def main(argv: list[str]) -> int:

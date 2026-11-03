@@ -19,5 +19,5 @@ install -d $ROOTFS/usr/bin
 
 gcc $CPPFLAGS $CFLAGS $LDFLAGS \
     -std=gnu11 -O2 -Wall -Wextra \
-    -o $ROOTFS/usr/bin/kaetzlifetch \
-    kaetzlifetch.c
+    -o $ROOTFS/usr/bin/fetch \
+    fetch.c

@@ -361,10 +361,10 @@ linux-tools' libtraceevent) is checked by `check-updates.py` as `<pkg>/<VENDOR_N
 `VENDOR_UPSTREAM_*`, and moved by `bump-version.sh --vendor`. Without it the vendor tarball
 follows `VERSION` (netavark's crates).
 
-**`LOCAL_SOURCE=1`**: the source is `packages/<pkg>/src/` in git (`packages/kaetzlifetch`), with
+**`LOCAL_SOURCE=1`**: the source is `packages/<pkg>/src/` in git (`packages/fetch`), with
 no `TARBALL`, `URL` or `SHA256`. `build.sh` mounts it **read-only**, so the build must
 compile straight to `DESTDIR` or under `/tmp`. The CI cache key hashes `src/` because the
-source can change with `env.sh` untouched. fetch, prep, image-tags and check-updates all
+source can change with `env.sh` untouched. fetch-sources, prep, image-tags and check-updates all
 skip it.
 
 **`packages/gcc`** builds gcc and ships only `libgcc_s.so.1` (glibc dlopens it — no `NEEDED`
@@ -467,7 +467,7 @@ file plus its SONAME symlink).
 `build-package.sh` copies each package's upstream texts (top level, `doc/`, any `LICENSES/`
 or `licenses/` directory, `debian/copyright`, and every `vendor/` dependency's) into
 `usr/share/licenses/<pkg>/`, hardlinking duplicates, and fails a package that has none;
-`packages/<pkg>/licenses/` stands in for a source with no text (`iana-etc`, `kaetzlifetch`).
+`packages/<pkg>/licenses/` stands in for a source with no text (`iana-etc`, `fetch`).
 `build-rootfs.sh` hashes that tree before the first step and fails if any step changed it,
 and `check-sbom.py` requires one for every package the SBOM names. A `LicenseRef-` carries
 those texts in the SBOM's `hasExtractedLicensingInfos`, without which it means nothing.

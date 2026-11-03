@@ -46,7 +46,7 @@ def test_every_broken_case_fails_and_names_something():
 def test_a_license_text_is_a_file_under_the_packages_directory(tmp_path):
     doc = json.loads((CHECK / "good" / "sbom-erofs.json").read_text())
     (tmp_path / "sbom-erofs.json").write_text(json.dumps(doc))
-    names = ["gawk", "glibc", "kaetzlifetch", "netavark", "podman", "tzdata"]
+    names = ["gawk", "glibc", "fetch", "netavark", "podman", "tzdata"]
     # A directory alone, or a file of another name with the same prefix, is not one.
     lines = [f"usr/share/licenses/{n}/COPYING" for n in names[1:]]
     lines += ["usr/share/licenses/gawk", "usr/share/licenses/gawk/", "usr/share/licenses/gawkx/C"]

@@ -152,7 +152,7 @@ versions and 3,000 random strings; a candidate's URL is still env.sh evaluated b
 Run live over every package, side by side with the bash versions, `--json` was
 byte-identical, the text identical but for glib and glibc (the bash glob's locale), and
 `upstream.py` gave every package and vendor tarball the same answer, and a plain error
-for `kaetzlifetch`, whose local source crashed the bash version. Packages are checked
+for `fetch`, whose local source crashed the bash version. Packages are checked
 eight at a time: four minutes became forty seconds. `check-snapshot.py` (Docker Hub's
 dated sid tags against the pin) moved with them, and was identical live.
 
@@ -218,7 +218,7 @@ shell, a deaf console, a panic, a getty that drops what is typed at first.
 `test/systemd.sh` is `test/systemd.py` (`kaetzli.boot.systemd`), the first user of
 `login`. Its golden is the bash version against the fake qemu, one guest per way the
 test can fail (degraded, tainted, writes to the read-only root, journal errors, a sysctl,
-fw_cfg, kaetzlifetch), console tail included, and the Python reproduces all eleven byte
+fw_cfg, fetch), console tail included, and the Python reproduces all eleven byte
 for byte. On CI's image the two agree, in eight seconds where bash took 25. Two
 deliberate changes in the harness came with it: `mark()` lets the console settle for a
 quarter second first, so a prompt still on its way is not read as the next command's

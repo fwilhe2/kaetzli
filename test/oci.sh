@@ -111,7 +111,7 @@ check "and it runs, and it is bash"          test "$(sh -c "echo \$BASH_VERSION"
 # Not an assertion — it is the one binary of ours that exists to be looked at, and this
 # is the cheapest place in CI that runs a shipped binary at all.
 echo
-kaetzlifetch || echo "(kaetzlifetch is not in this image)"
+fetch || echo "(fetch is not in this image)"
 
 exit $fail
 '

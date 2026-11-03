@@ -24,8 +24,8 @@
   "SYSTEMD-FWCFG:[delivered]\n"
  ],
  [
-  "kaetzlifetch",
-  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     Host: q\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nKAETZLIFETCH-DONE\n"
+  "fetch",
+  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     Host: q\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nFETCH-DONE\n"
  ],
  [
   "systemctl --failed",
