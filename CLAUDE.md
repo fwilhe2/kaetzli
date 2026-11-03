@@ -264,6 +264,7 @@ the library checks and the policy checks are done.
 ./tools/boot-vz.sh                # the same, in Virtualization.framework via vfkit (macOS)
 ./tools/ssh.sh [--root] [cmd...]  # passwordless ssh into the guest any of those started, as `user` or root
 ./tools/k8s-demo.sh up|ps|kubectl|ssh|down  # a 3-node kubeadm cluster on the image and its kubernetes extension, this checkout's build if there is one (docs/guides/sysext.md)
+./tools/release.py name|publish [--dry-run]  # the snapshot name; a green main build as a GitHub release (CI's release job)
 ./tools/clean.sh [-n] [--downloads|--images|--all|--vms]  # delete build state, tarballs, stale images; vm.sh's machines only with --vms
 ./tools/build-extension.sh sysext|confext <name> <dir>  # a directory tree → output/extensions|confexts/<name>.raw
 ./tools/build-node-e2e.sh         # e2e_node.test + ginkgo for the pinned Kubernetes, in a golang container
@@ -678,7 +679,7 @@ touching assembly:
 ## CI
 
 `.github/workflows/ci.yml`: `changes` → `builder`/`sources` → `glibc` (and `kernel`) →
-`build` matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, with `k8s` and
+`build` matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, `release`, with `k8s` and
 `node-conformance` beside them gating nothing. **Every push runs it**: `changes` skips the
 build when every changed file is `docs/**` or a root `*.md` (anything it cannot tell
 builds), `docs` (`test/check-doc-links.sh`) always runs, and **`result` is the one check
@@ -700,12 +701,18 @@ no rebase onto the current main and no rebuild, so two bumps are never tested to
 before they land. CI then runs on main, and a red main does not release. `hold` keeps a
 pull request out.
 
-`publish-oci` is the only job that writes anything public, and only on `main`, so a pull
-request cannot exercise it — verify changes to it or `tools/publish-oci.sh` by hand
-(`REGISTRY=` points it at a local registry). It also attests (`actions/attest`, Sigstore)
-every image digest it pushed (`DIGESTS=`), the OCI SBOMs against their images, and every
-file each `bundle.txt` lists, by its checksum; `tools/fetch-image.sh` verifies the
-bundle's attestation. It pushes `kaetzli:<commit>-<arch>`, then a
+`publish-oci` and `release` are the only jobs that write anything public, and only on
+`main`. A pull request cannot exercise `publish-oci` — verify changes to it or
+`tools/publish-oci.sh` by hand (`REGISTRY=` points it at a local registry). It also
+attests (`actions/attest`, Sigstore) every image digest it pushed (`DIGESTS=`), the OCI
+SBOMs against their images, and every file each `bundle.txt` lists, by its checksum;
+`tools/fetch-image.sh` verifies the bundle's attestation. `release`
+runs everywhere else as `tools/release.py publish --dry-run` (every read and the whole
+collection, no write) and is in `result`'s `needs`, so a branch that drops or renames an
+asset it needs fails before `main` does; a new artifact a release should carry is a
+change to `collect` in `kaetzli.release`. The image is assembled with the snapshot name
+(`IMAGE_VERSION`) on `main` only, by the rootfs and reproducible jobs alike.
+`publish-oci` pushes `kaetzli:<commit>-<arch>`, then a
 manifest list at `kaetzli:<commit>` and `kaetzli:latest`, after `boot` (the OCI image is the same
 userspace as the disk). Both archives `podman load` as `localhost/kaetzli:latest`, so the
 script tags and pushes each before loading the next.

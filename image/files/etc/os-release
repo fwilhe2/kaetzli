@@ -8,17 +8,18 @@ ID=kaetzli
 PRETTY_NAME="Kaetzli"
 HOME_URL="https://github.com/fwilhe2/kaetzli"
 ANSI_COLOR="0;36"
-# Deliberately no VERSION, VERSION_ID or BUILD_ID *here*: they are not properties of the
-# repository, they are properties of a build, and os-release(5) treats all three as
-# optional. An invented value would be worse than an absent one — consumers can tell "not
-# versioned" from "version 1", but not from a number that means nothing.
+# Deliberately no IMAGE_VERSION or BUILD_ID *here*: they are not properties of the
+# repository, they are properties of a build, and os-release(5) treats both as optional.
+# An invented value would be worse than an absent one — consumers can tell "not
+# versioned" from "version 1", but not from a number that means nothing. Never VERSION or
+# VERSION_ID: those describe a distribution release, and a rolling snapshot is not one.
 #
-# image/build-rootfs.sh appends them when a build actually has them, from KAETZLI_VERSION (a
-# release, i.e. a CalVer date cut by the release workflow) and KAETZLI_BUILD (the commit,
-# which every CI build has). It also folds the version into PRETTY_NAME, which is the
-# field the paragraph above says everything displays. A build with neither — a local
-# `podman run`, or a PR — produces this file unchanged, which is the honest answer for
-# something that is not a release of anything.
+# image/build-rootfs.sh appends them when a build actually has them, from KAETZLI_VERSION
+# (the snapshot name, YYYYMMDD.HHMMSS-<run>, on main: tools/release.py name) and
+# KAETZLI_BUILD (the commit, which every CI build has). It also folds the name into
+# PRETTY_NAME, which is the field the paragraph above says everything displays. A build
+# with neither — a local `podman run`, or a PR — produces this file unchanged, which is
+# the honest answer for something that is not a release of anything.
 #
 # What a system or configuration extension built for this image may rely on
 # (docs/guides/sysext.md). systemd-sysext merges an extension only if its extension-release

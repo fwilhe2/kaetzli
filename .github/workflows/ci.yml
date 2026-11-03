@@ -1,3 +1,6 @@
+# Keep this file's name and identity: snapshot releases are named after its run number
+# (tools/release.py), which GitHub resets when a workflow is renamed or recreated, and a
+# reset would reuse names that once existed (docs/proposals/release.md).
 name: CI
 on:
   # Every push runs this workflow, so every commit gets the same checks to require: the
@@ -10,6 +13,10 @@ on:
     inputs:
       fresh:
         description: "Build everything from scratch: rebuild the builder and sources images and ignore the package cache"
+        type: boolean
+        default: false
+      release_dry_run:
+        description: "On main: run the release job with --dry-run, publishing nothing"
         type: boolean
         default: false
   # A clean build of main every two weeks. Every input here is pinned and every result
@@ -394,8 +401,17 @@ jobs:
               rm -rf "$merged"
           done
 
+      # On main, the image carries the name it may be released under, as IMAGE_VERSION
+      # (tools/release.py name); a branch's image is not a release of anything. The
+      # reproducible job assembles with the same name.
       - name: Create disk and OCI images
-        run: ./tools/build-image.sh --image-only
+        run: |
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+              KAETZLI_VERSION=$(./tools/release.py name)
+              export KAETZLI_VERSION
+              echo "snapshot name: $KAETZLI_VERSION"
+          fi
+          ./tools/build-image.sh --image-only
 
       # What must and must not be in each image (test/image-files/), from the manifests the
       # assembly writes: a trim line or a disabled feature that quietly stopped applying.
@@ -578,11 +594,18 @@ jobs:
 
       - *unpack-packages
 
+      - *setup-python
+
       - name: Check the images are reproducible
         run: |
           outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
           outputs+=" $(ls output/extensions/*.raw output/confexts/*.raw)"
           sha256sum $outputs > first.sha256
+          # The same name the rootfs job assembled with: it is in os-release.
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+              KAETZLI_VERSION=$(./tools/release.py name)
+              export KAETZLI_VERSION
+          fi
           ./tools/build-image.sh --image-only > second-build.log 2>&1 || { tail -50 second-build.log; exit 1; }
           sha256sum --check first.sha256
 
@@ -956,15 +979,19 @@ jobs:
       - rootfs
       - reproducible
       - boot
+      - release
     permissions: {}
     steps:
+      # release is here for its dry run: a branch that breaks what main's release job
+      # needs fails here, not on main. Its cancellation is not a failure: on main a newer
+      # run's release replaces a pending one (its concurrency group), which is the design.
       - name: Sum up the jobs this push needed
         env:
           RESULTS: ${{ toJSON(needs) }}
           BUILD: ${{ needs.changes.outputs.build }}
         run: |
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          bad=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          bad=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or (.value.result == "cancelled" and .key != "release")) | .key')
           if [ -n "$bad" ]; then
             echo "failed: $(echo $bad)" >&2
             exit 1
@@ -1051,3 +1078,71 @@ jobs:
           subject-name: ${{ steps.subjects.outputs.image }}
           subject-digest: ${{ steps.subjects.outputs.arm64 }}
           sbom-path: artifacts/sbom-arm64/sbom-oci.json
+
+  # A green build of main as a GitHub release (tools/release.py; docs/proposals/release.md):
+  # the boot assets, extensions, SBOMs, VEX and CVE workbook of both arches under the
+  # stable releases/latest/download/ URLs. The script decides whether this run publishes
+  # at all — its commit still what main builds, newer than the latest snapshot — since a
+  # run can finish after a later push. Not `on: push` alone: auto-merge's commits arrive
+  # by workflow_dispatch (pushes with GITHUB_TOKEN start no workflow).
+  #
+  # Everywhere but main, and on main when dispatched with release_dry_run, the same job
+  # with --dry-run: every read and the whole collection, no write. That is how a branch
+  # finds out it broke the release before main does, and why `result` needs this job.
+  #
+  # One release at a time on main (the group), and never a branch's dry run in that
+  # group. GitHub keeps one pending job per group and cancels the one it replaces; that
+  # one's commit is older than the replacement's, so it would have skipped anyway.
+  release:
+    runs-on: ubuntu-26.04
+    needs:
+      - boot
+      - reproducible
+      # Waited for, for its workbook, not required: it gates nothing, and the notes say
+      # when the workbook is missing.
+      - cve-scan
+    if: ${{ !cancelled() && needs.boot.result == 'success' && needs.reproducible.result == 'success' }}
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/main' && 'release' || format('release-dry-run-{0}', github.run_id) }}
+      cancel-in-progress: false
+    permissions:
+      contents: write # the release, and listing drafts (a retry replaces its own)
+      packages: read # the builder and sources images' digests, for the notes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - *setup-python
+
+      # Each artifact into artifacts/<name>/, as `gh run download -D artifacts` leaves them.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: rootfs.erofs-*
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: package-kernel-*
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: extensions-*
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sbom-*
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: cve-*
+          path: artifacts
+
+      - name: Publish the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ (github.ref != 'refs/heads/main' || inputs.release_dry_run == true) && '--dry-run' || '' }}
+        run: ./tools/release.py publish $DRY_RUN

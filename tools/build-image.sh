@@ -131,6 +131,7 @@ for f in $flavours; do
     echo "==> image: $f"
     podman run --rm --security-opt label=disable \
         -e KAETZLI_BUILD="$build" \
+        -e KAETZLI_VERSION="${KAETZLI_VERSION:-}" \
         -e SOURCE_DATE_EPOCH="$KAETZLI_SOURCE_DATE_EPOCH" \
         --volume "$PWD/rootfs":/usr/local/src:ro \
         "${extra_mount[@]}" \

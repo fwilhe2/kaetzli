@@ -31,6 +31,10 @@ temporary filesystems by default. `/home` and `/root` point into `/var`; attach 
 `/var` disk when state must survive reboot. The `vm.sh` workflow creates and manages one
 for each VM.
 
+Green builds of `main` are published as [releases](https://github.com/fwilhe2/kaetzli/releases):
+rolling snapshots of these files for both architectures, with SBOMs and `SHA256SUMS`,
+kept for at least 37 days. Each release's notes show how to boot it with QEMU.
+
 System extensions are EROFS images merged by systemd-sysext at boot; configuration
 extensions use systemd-confext. Extensions attached by the VM tools are read-only and
 dm-verity verified. Extensions installed under `/var` are not verified.

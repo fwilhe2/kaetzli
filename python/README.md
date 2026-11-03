@@ -33,6 +33,9 @@ src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the 
 src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py), systemd,
                      network, listeners; their goldens are tests/fixtures/<test>/;
                      timing, the boot time systemd records (boot-time-history)
+src/kaetzli/release.py
+                     tools/release.py: a green main build as a GitHub release, or
+                     --dry-run, and the snapshot name the image is assembled with
 src/kaetzli/licenses.py
                      test/check-licenses.py: every package's LICENSE, against
                      test/dfsg-licenses.txt

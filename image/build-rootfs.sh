@@ -84,12 +84,18 @@ cp -r /files/* .
 install -D -m 644 etc/os-release usr/lib/os-release
 ln -sfn ../usr/lib/os-release etc/os-release
 
-# The fields only a build knows. KAETZLI_VERSION is for a release (docs/proposals/release.md; nothing
-# sets it yet), KAETZLI_BUILD is the commit. Unset, the file is exactly as it is in git.
-# PRETTY_NAME is rewritten in place: not every parser takes the last of two assignments.
+# The fields only a build knows. KAETZLI_VERSION is the snapshot name on main
+# (tools/release.py name; docs/proposals/release.md), KAETZLI_BUILD is the commit. Unset,
+# the file is exactly as it is in git. The name is IMAGE_VERSION, os-release(5)'s field
+# for an image-based system, not VERSION/VERSION_ID, which describe a distribution
+# release with a support promise a rolling snapshot does not make. PRETTY_NAME is
+# rewritten in place: not every parser takes the last of two assignments.
 if [ -n "${KAETZLI_VERSION:-}" ]; then
+    case "$KAETZLI_VERSION" in
+        *[!0-9.-]*) echo "error: KAETZLI_VERSION=$KAETZLI_VERSION is not a snapshot name" >&2; exit 1 ;;
+    esac
     sed -i "s/^PRETTY_NAME=\"\(.*\)\"\$/PRETTY_NAME=\"\1 $KAETZLI_VERSION\"/" usr/lib/os-release
-    printf 'VERSION="%s"\nVERSION_ID="%s"\n' "$KAETZLI_VERSION" "$KAETZLI_VERSION" >> usr/lib/os-release
+    printf 'IMAGE_VERSION="%s"\n' "$KAETZLI_VERSION" >> usr/lib/os-release
 fi
 
 if [ -n "${KAETZLI_BUILD:-}" ]; then
