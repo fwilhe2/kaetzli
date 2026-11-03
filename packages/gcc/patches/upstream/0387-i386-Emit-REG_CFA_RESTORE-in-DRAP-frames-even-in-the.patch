@@ -1,0 +1,172 @@
+From dfbdf68136c634165bc9236a663260fe3fca3640 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Fri, 30 Oct 2026 08:29:04 +0100
+Subject: [PATCH] i386: Emit REG_CFA_RESTORE in DRAP frames even in the red
+ zone [PR128270]
+
+In a DRAP-realigned frame, the caller's frame pointer is described by
+a DW_CFA_expression rule relative to the frame pointer itself (Rule 18
+in dwarf2out_frame_debug_expr).  Registers saved by moves are described
+the same way, see ix86_emit_save_reg_using_mov.  Once %rbp is restored
+by "leave" or "pop %rbp", these rules are stale and point at the wrong
+address.  Unwinders and gdb then read garbage: the backtrace is
+truncated when stopping between "leave" and "ret", and the recovered
+values of the mov-saved registers are wrong.
+
+ix86_add_cfa_restore_note skips the note when the saved slot is within
+the red zone, on the assumption that unwinders can find the same value
+in the register and on the stack.  That holds for CFA-relative
+DW_CFA_offset rules, but not for the frame-pointer-relative expression
+rules used in DRAP frames.  Don't take the shortcut when
+stack_realign_drap.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128270
+
+gcc/ChangeLog:
+
+	* config/i386/i386.cc (ix86_add_cfa_restore_note): Do not skip
+	the note when stack_realign_drap.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128270-1.c: New test.
+	* gcc.target/i386/pr128270-2.c: Ditto.
+	* gcc.target/i386/pr128270-3.c: Ditto.
+	* gcc.target/i386/pr128270-4.c: Ditto.
+
+(cherry picked from commit b7e3114e8174f4076e6a0b136d2b65c76a301941)
+---
+ gcc/config/i386/i386.cc                    |  5 ++++-
+ gcc/testsuite/gcc.target/i386/pr128270-1.c | 18 ++++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128270-2.c | 17 +++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128270-3.c | 21 +++++++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128270-4.c | 20 ++++++++++++++++++++
+ 5 files changed, 80 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128270-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128270-2.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128270-3.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128270-4.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index 561c49421f54..b66be5227e85 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -7798,12 +7798,15 @@ static GTY(()) rtx queued_cfa_restores;
+    manipulation insn.  The value is on the stack at CFA - CFA_OFFSET.
+    Don't add the note if the previously saved value will be left untouched
+    within stack red-zone till return, as unwinders can find the same value
+-   in the register and on the stack.  */
++   in the register and on the stack.  This doesn't apply to DRAP frames,
++   where registers are saved using frame-pointer-relative expression rules
++   that become invalid once the frame pointer is restored.  */
+ 
+ static void
+ ix86_add_cfa_restore_note (rtx_insn *insn, rtx reg, HOST_WIDE_INT cfa_offset)
+ {
+   if (!crtl->shrink_wrapped
++      && !stack_realign_drap
+       && cfa_offset <= cfun->machine->fs.red_zone_offset)
+     return;
+ 
+diff --git a/gcc/testsuite/gcc.target/i386/pr128270-1.c b/gcc/testsuite/gcc.target/i386/pr128270-1.c
+new file mode 100644
+index 000000000000..d42ca1ae9969
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128270-1.c
+@@ -0,0 +1,18 @@
++/* PR target/128270 */
++/* { dg-do compile { target { *-*-linux* && { ! ia32 } } } } */
++/* { dg-options "-O2 -mforce-drap -mtune-ctrl=use_leave -fasynchronous-unwind-tables" } */
++
++void use (void *);
++
++int
++f (void)
++{
++  char buf[64] __attribute__ ((aligned (32)));
++  use (buf);
++  return buf[0];
++}
++
++/* { dg-final { scan-assembler "\[ \t\]leave" } } */
++/* The DRAP prologue saves %rbp with an FP-relative DW_CFA_expression
++   rule, so the epilogue must restore it even within the red zone.  */
++/* { dg-final { scan-assembler "\\.cfi_restore 6" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128270-2.c b/gcc/testsuite/gcc.target/i386/pr128270-2.c
+new file mode 100644
+index 000000000000..9000cd46d028
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128270-2.c
+@@ -0,0 +1,17 @@
++/* PR target/128270 */
++/* { dg-do compile { target { *-*-linux* && { ! ia32 } } } } */
++/* { dg-options "-O2 -mforce-drap -mtune-ctrl=^use_leave -fasynchronous-unwind-tables -masm=att" } */
++
++void use (void *);
++
++int
++f (void)
++{
++  char buf[64] __attribute__ ((aligned (32)));
++  use (buf);
++  return buf[0];
++}
++
++/* { dg-final { scan-assembler "\[ \t\]popq\t%rbp" } } */
++/* Same as pr128270-1.c, but exercising the "pop %rbp" epilogue path.  */
++/* { dg-final { scan-assembler "\\.cfi_restore 6" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128270-3.c b/gcc/testsuite/gcc.target/i386/pr128270-3.c
+new file mode 100644
+index 000000000000..528f3cef3b16
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128270-3.c
+@@ -0,0 +1,21 @@
++/* PR target/128270 */
++/* { dg-do compile { target { *-*-linux* && { ! ia32 } } } } */
++/* { dg-options "-O2 -mforce-drap -mtune-ctrl=use_leave,prologue_using_move,epilogue_using_move -fasynchronous-unwind-tables" } */
++
++void use (void *);
++
++int
++f (void)
++{
++  char buf[64] __attribute__ ((aligned (32)));
++  asm volatile ("" ::: "rbx", "r12");
++  use (buf);
++  return buf[0];
++}
++
++/* { dg-final { scan-assembler "\[ \t\]leave" } } */
++/* Registers saved by moves in a DRAP frame use FP-relative expression
++   rules, so they must be restored after "leave" as well.  */
++/* { dg-final { scan-assembler "\\.cfi_restore 3" } } */
++/* { dg-final { scan-assembler "\\.cfi_restore 12" } } */
++/* { dg-final { scan-assembler "\\.cfi_restore 6" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128270-4.c b/gcc/testsuite/gcc.target/i386/pr128270-4.c
+new file mode 100644
+index 000000000000..fa82f4130d51
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128270-4.c
+@@ -0,0 +1,20 @@
++/* PR target/128270 */
++/* { dg-do compile { target { *-*-linux* && { ! ia32 } } } } */
++/* { dg-options "-O2 -mforce-drap -mtune-ctrl=^use_leave,prologue_using_move,epilogue_using_move -fasynchronous-unwind-tables -masm=att" } */
++
++void use (void *);
++
++int
++f (void)
++{
++  char buf[64] __attribute__ ((aligned (32)));
++  asm volatile ("" ::: "rbx", "r12");
++  use (buf);
++  return buf[0];
++}
++
++/* { dg-final { scan-assembler "\[ \t\]popq\t%rbp" } } */
++/* Same as pr128270-3.c, but exercising the "pop %rbp" epilogue path.  */
++/* { dg-final { scan-assembler "\\.cfi_restore 3" } } */
++/* { dg-final { scan-assembler "\\.cfi_restore 12" } } */
++/* { dg-final { scan-assembler "\\.cfi_restore 6" } } */

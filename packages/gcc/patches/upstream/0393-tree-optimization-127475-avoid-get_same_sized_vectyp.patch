@@ -1,0 +1,81 @@
+From 5d45fb6987fa55bb9dee3fcaa4fb1aa8cefacde7 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Mon, 21 Sep 2026 09:53:41 +0200
+Subject: [PATCH] tree-optimization/127475 - avoid get_same_sized_vectype
+
+This avoids using get_same_sized_vectype in vectorizable_induction
+where we only want a signed/unsigned variant of vectype.  This
+avoids the oddball scalar boolean type handling in that function.
+
+	PR tree-optimization/127475
+	* tree-vect-loop.cc (vectorizable_induction): Use
+	signed_or_unsigned_type_for to get the step vectype.
+
+	* gcc.dg/vect/vect-pr127475.c: New testcase.
+---
+ gcc/testsuite/gcc.dg/vect/vect-pr127475.c | 40 +++++++++++++++++++++++
+ gcc/tree-vect-loop.cc                     |  4 ++-
+ 2 files changed, 43 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/vect-pr127475.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/vect-pr127475.c b/gcc/testsuite/gcc.dg/vect/vect-pr127475.c
+new file mode 100644
+index 000000000000..5d7aef1b5af1
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/vect-pr127475.c
+@@ -0,0 +1,40 @@
++/* { dg-do compile } */
++/* { dg-additional-options "-fgimple" } */
++
++typedef _Bool bool8 __attribute__((signed_bool_precision(8)));
++
++void __GIMPLE (ssa)
++f (unsigned char * restrict a, int n)
++{
++  int i;
++  bool8 j;
++  unsigned char _31;
++  unsigned long _32;
++  unsigned char * _33;
++
++  __BB(2):
++  if (n_2(D) > 0)
++    goto __BB3;
++  else
++    goto __BB5;
++
++  __BB(3):
++  i_10 = __PHI (__BB2: 0, __BB4: i_11);
++  j_20 = __PHI (__BB2: _Literal (bool8) 0, __BB4: j_21);
++  _31 = (unsigned char) j_20;
++  _32 = (unsigned long) i_10;
++  _33 = a_1(D) + _32;
++  __MEM <unsigned char> (_33) = _31;
++  j_21 = j_20 + _Literal (bool8) 1;
++  i_11 = i_10 + 1;
++  if (i_11 < n_2(D))
++    goto __BB4;
++  else
++    goto __BB5;
++
++  __BB(4):
++  goto __BB3;
++
++  __BB(5):
++  return;
++}
+diff --git a/gcc/tree-vect-loop.cc b/gcc/tree-vect-loop.cc
+index ad954a35f79d..a09e78a574dc 100644
+--- a/gcc/tree-vect-loop.cc
++++ b/gcc/tree-vect-loop.cc
+@@ -9684,7 +9684,9 @@ vectorizable_induction (loop_vec_info loop_vinfo,
+       return false;
+     }
+   tree stept = TREE_TYPE (step_expr);
+-  tree step_vectype = get_same_sized_vectype (stept, vectype);
++  tree step_vectype
++    = (!INTEGRAL_TYPE_P (stept) ? vectype
++       : signed_or_unsigned_type_for (TYPE_UNSIGNED (stept), vectype));
+   stept = TREE_TYPE (step_vectype);
+ 
+   /* Check for target support of the vectorized arithmetic used here.  */

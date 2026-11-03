@@ -1,0 +1,157 @@
+From 5e0500229682b560fb45b8291c2acc01a846cf93 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Thu, 29 Oct 2026 14:53:39 +0100
+Subject: [PATCH] i386: Model memory and flags effects of CET shadow stack
+ insns [PR128271]
+
+The rstorssp, wrss, wruss and clrssbsy patterns described their memory
+operand as an input of an UNSPEC_VOLATILE, although all four modify it.
+UNSPEC_VOLATILE does not prevent passes such as cse1 from reusing a
+memory value loaded before the insn, so a load after wrssq could be
+CSE'd with an earlier one and return a stale value.
+
+Describe the memory operand as set by the insn: wrss and wruss only
+store, while rstorssp and clrssbsy read and modify the token, so use
+a "+m" operand with match_dup.
+
+Additionally, clrssbsy clobbers the flags, but the pattern did not say
+so, so compare-elim could reuse flags computed before the insn.  Add
+a clobber of FLAGS_REG.
+
+Also use the "* return" output template form for nop_endbr.
+
+	PR target/128271
+
+gcc/ChangeLog:
+
+	* config/i386/i386.md (rstorssp): Model
+	the memory operand as read and modified by the insn.
+	(clrssbsy): Ditto.  Clobber FLAGS_REG.
+	(@wrss<mode>, @wruss<mode>): Model
+	the memory operand as set by the insn.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128271-1.c: New test.
+	* gcc.target/i386/pr128271-2.c: Ditto.
+
+(cherry picked from commit a8b927a09c79314624a8c594a5ed0ad12d7f7513)
+---
+ gcc/config/i386/i386.md                    | 25 +++++++++++-----------
+ gcc/testsuite/gcc.target/i386/pr128271-1.c | 19 ++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128271-2.c | 18 ++++++++++++++++
+ 3 files changed, 49 insertions(+), 13 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128271-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128271-2.c
+
+diff --git a/gcc/config/i386/i386.md b/gcc/config/i386/i386.md
+index 8da13e866944..80703a095345 100644
+--- a/gcc/config/i386/i386.md
++++ b/gcc/config/i386/i386.md
+@@ -30356,26 +30356,26 @@
+    (set_attr "type" "other")])
+ 
+ (define_insn "rstorssp"
+-  [(unspec_volatile [(match_operand:DI 0 "memory_operand" "m")]
+-		    UNSPECV_RSTORSSP)]
++  [(set (match_operand:DI 0 "memory_operand" "+m")
++	(unspec_volatile:DI [(match_dup 0)] UNSPECV_RSTORSSP))]
+   "TARGET_SHSTK"
+   "rstorssp\t%0"
+   [(set_attr "length" "5")
+    (set_attr "type" "other")])
+ 
+ (define_insn "@wrss<mode>"
+-  [(unspec_volatile [(match_operand:SWI48 0 "register_operand" "r")
+-		     (match_operand:SWI48 1 "memory_operand" "m")]
+-		    UNSPECV_WRSS)]
++  [(set (match_operand:SWI48 1 "memory_operand" "=m")
++	(unspec_volatile:SWI48 [(match_operand:SWI48 0 "register_operand" "r")]
++			       UNSPECV_WRSS))]
+   "TARGET_SHSTK"
+   "wrss<mskmodesuffix>\t{%0, %1|%1, %0}"
+   [(set_attr "length" "3")
+    (set_attr "type" "other")])
+ 
+ (define_insn "@wruss<mode>"
+-  [(unspec_volatile [(match_operand:SWI48 0 "register_operand" "r")
+-		     (match_operand:SWI48 1 "memory_operand" "m")]
+-		    UNSPECV_WRUSS)]
++  [(set (match_operand:SWI48 1 "memory_operand" "=m")
++	(unspec_volatile:SWI48 [(match_operand:SWI48 0 "register_operand" "r")]
++			       UNSPECV_WRUSS))]
+   "TARGET_SHSTK"
+   "wruss<mskmodesuffix>\t{%0, %1|%1, %0}"
+   [(set_attr "length" "4")
+@@ -30389,8 +30389,9 @@
+    (set_attr "type" "other")])
+ 
+ (define_insn "clrssbsy"
+-  [(unspec_volatile [(match_operand:DI 0 "memory_operand" "m")]
+-		    UNSPECV_CLRSSBSY)]
++  [(set (match_operand:DI 0 "memory_operand" "+m")
++	(unspec_volatile:DI [(match_dup 0)] UNSPECV_CLRSSBSY))
++   (clobber (reg:CC FLAGS_REG))]
+   "TARGET_SHSTK"
+   "clrssbsy\t%0"
+   [(set_attr "length" "4")
+@@ -30399,9 +30400,7 @@
+ (define_insn "nop_endbr"
+   [(unspec_volatile [(const_int 0)] UNSPECV_NOP_ENDBR)]
+   "(flag_cf_protection & CF_BRANCH)"
+-{
+-  return TARGET_64BIT ? "endbr64" : "endbr32";
+-}
++  "* return TARGET_64BIT ? \"endbr64\" : \"endbr32\";"
+   [(set_attr "length" "4")
+    (set_attr "length_immediate" "0")
+    (set_attr "modrm" "0")])
+diff --git a/gcc/testsuite/gcc.target/i386/pr128271-1.c b/gcc/testsuite/gcc.target/i386/pr128271-1.c
+new file mode 100644
+index 000000000000..b32a97b51a2a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128271-1.c
+@@ -0,0 +1,19 @@
++/* { dg-do compile } */
++/* { dg-options "-O2 -mshstk -masm=att" } */
++
++#include <immintrin.h>
++
++void on_zero (void);
++
++void
++foo (long *counter, void *tok)
++{
++  long v = *counter - 1;
++  *counter = v;
++  _clrssbsy (tok);
++  if (v == 0)
++    on_zero ();
++}
++
++/* clrssbsy clobbers flags, so the comparison must not be eliminated.  */
++/* { dg-final { scan-assembler "\[ \t\]test\[lq\]" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128271-2.c b/gcc/testsuite/gcc.target/i386/pr128271-2.c
+new file mode 100644
+index 000000000000..ded3dd2f035e
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128271-2.c
+@@ -0,0 +1,18 @@
++/* { dg-do compile { target { ! ia32 } } } */
++/* { dg-options "-O2 -mshstk -masm=att" } */
++
++#include <immintrin.h>
++#include <stdint.h>
++
++int
++foo (uint64_t *ss_slot, uint64_t val)
++{
++  if (*ss_slot == val)
++    return 1;
++  _wrssq (val, ss_slot);
++  return (*ss_slot == val);
++}
++
++/* The load after wrssq must not be CSE'd with the one before it,
++   so the comparison must be emitted twice.  */
++/* { dg-final { scan-assembler-times "\[ \t\]cmpq" 2 } } */
