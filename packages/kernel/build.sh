@@ -101,6 +101,14 @@ make container.config
 #                  node without them (it reads /usr/lib/modules/<release>/config, below)
 #   DUMMY          dummy interfaces: kube-proxy's IPVS mode (kube-ipvs0), NodeLocal
 #                  DNSCache, and node conformance's privileged-pod test, which makes one
+#   IP_SET         Calico's Felix lists the kernel's IP sets to clean them up even with its
+#                  nftables dataplane, which keeps its own sets in nftables, and panics when
+#                  it cannot ("Failed to update IP sets after multiple retries"), so
+#                  calico-node never becomes ready
+#   NETFILTER_XT_TARGET_NETMAP, NETFILTER_XT_MATCH_OWNER  Gardener's VPN between a
+#                  shoot and its seed: vpn-shoot and vpn-seed-server map the shoot's networks
+#                  into ranges of their own with -j NETMAP, and the seed side matches its own
+#                  traffic with -m owner --gid-owner
 cat > kernel/configs/k8s.config <<'EOF'
 CONFIG_NFT_NUMGEN=y
 CONFIG_NFT_REJECT=y
@@ -111,6 +119,9 @@ CONFIG_NF_TABLES_NETDEV=y
 CONFIG_NETFILTER_XT_TARGET_REDIRECT=y
 CONFIG_NETFILTER_XT_MATCH_COMMENT=y
 CONFIG_DUMMY=y
+CONFIG_IP_SET=y
+CONFIG_NETFILTER_XT_TARGET_NETMAP=y
+CONFIG_NETFILTER_XT_MATCH_OWNER=y
 EOF
 make k8s.config
 
