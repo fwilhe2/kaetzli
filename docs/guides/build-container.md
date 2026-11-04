@@ -28,6 +28,11 @@ snapshot.debian.org. `tools/prep.sh` pulls the content-addressed images when ava
 building them from their pinned inputs on a cache miss. It extracts source archives into
 `downloads/` for local builds.
 
+A miss is usually one bumped package, so before downloading anything `prep.sh` takes the
+archives the last pushed sources image (`sources:latest`) already has. They are matched by
+SHA256 against the pins, not by name, and verified again; only the rest come from upstream.
+`FRESH=1` skips this, to prove every upstream still serves the pinned bytes.
+
 ## Use
 
 `./build.sh <package>` prepares the required inputs if needed, then builds the package

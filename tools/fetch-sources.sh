@@ -23,7 +23,10 @@ mkdir -p downloads
 # A transfer that dies at 80% is the normal failure of a bad link, so resume rather than
 # start over — restarting the 150 MB kernel tarball is how a flaky connection turns into
 # an infinite loop.
-CURL=("${CURL_DOWNLOAD[@]}" --continue-at -)
+# A host that is down answers no SYN, and the kernel gives up only after two minutes —
+# per attempt, six attempts per URL: an unreachable savannah once cost 27 minutes before
+# the mirror was tried. Twenty seconds is far more than any live server needs.
+CURL=("${CURL_DOWNLOAD[@]}" --continue-at - --connect-timeout 20)
 
 # Run in a subshell (see the loop below), so one package's env.sh cannot leak into the
 # next — an unset list kept by hand here used to be what prevented that.

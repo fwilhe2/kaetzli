@@ -38,11 +38,12 @@ pull() { [ -z "${FRESH:-}" ] && podman pull --quiet "$1" >/dev/null 2>&1; }
 # under a given name is not a thing to assume: the sources image is *built* as a list,
 # but `podman pull` of a list gives you only the entry matching this host, so the same
 # tag is a list here and an image there. Ask instead.
+# push_image <image> [destination] — the destination defaults to the image's own name.
 push_image() {
     if podman manifest inspect "$1" >/dev/null 2>&1; then
-        podman manifest push --all "$1"
+        podman manifest push --all "$1" ${2:+"$2"}
     else
-        podman push "$1"
+        podman push "$1" ${2:+"$2"}
     fi
 }
 
@@ -101,6 +102,50 @@ extract_sources() {
     rm -rf downloads/patches
 }
 
+# The last sources image pushed, whatever its pins: a bump changes one or two tarballs,
+# so the rest are already in it. It is a cache and never trusted: a file in it is used
+# only where its SHA256 is the one an env.sh pins, wherever and under whatever name it
+# is, and fetch-sources.sh verifies everything again.
+sources_latest="${sources%:*}:latest"
+
+# pinned_tarballs — "<tarball> <sha256>" per line, for every pinned source archive.
+pinned_tarballs() {
+    for pkg in $(all_packages); do
+        ( load_env "$pkg"
+          [ -n "${LOCAL_SOURCE:-}" ] && exit 0
+          echo "$TARBALL $SHA256"
+          [ -z "${VENDOR_TARBALL:-}" ] || echo "$VENDOR_TARBALL $VENDOR_SHA256" )
+    done
+}
+
+# seed_downloads — before fetching, put into downloads/ every pinned tarball the last
+# sources image has, so only the new ones come from upstream. Not with FRESH=1, whose
+# point is that every upstream still serves the pinned bytes.
+seed_downloads() {
+    [ -z "${FRESH:-}" ] || return 0
+    if ! podman pull --quiet "$sources_latest" >/dev/null 2>&1; then
+        echo ">> sources: no $sources_latest to seed from, fetching everything"
+        return 0
+    fi
+    local seed ctr sha path tarball n=0
+    seed=$(mktemp -d)
+    ctr=$(podman create "$sources_latest" /nonexistent)
+    podman cp "$ctr:/sources/." "$seed/"
+    podman rm "$ctr" >/dev/null
+    rm -rf "$seed/patches"
+    declare -A by_sha=()
+    while read -r sha path; do by_sha[$sha]=$path; done \
+        < <(find "$seed" -type f -print0 | xargs -0 -r sha256sum)
+    mkdir -p downloads
+    while read -r tarball sha; do
+        [ -n "${by_sha[$sha]:-}" ] || continue
+        cp "${by_sha[$sha]}" "downloads/$tarball"
+        n=$((n + 1))
+    done < <(pinned_tarballs)
+    rm -rf "$seed"
+    echo ">> sources: $n of $(pinned_tarballs | wc -l) tarballs from $sources_latest"
+}
+
 if [ "$want" = builder ]; then
     :
 elif have "$sources"; then
@@ -112,6 +157,7 @@ elif pull "$sources"; then
     extract_sources
 else
     echo ">> sources: $sources (building)"
+    seed_downloads
     ./tools/fetch-sources.sh
     # Only the pinned tarballs go in. downloads/ is cumulative and keeps whatever an
     # earlier checkout fetched — three kernel releases, say — and none of that belongs
@@ -163,6 +209,7 @@ if [ -n "$push" ]; then
     fi
     if [ "$want" != builder ] && [ -z "$sources_pulled" ]; then
         push_image "$sources"
+        push_image "$sources" "$sources_latest"
     fi
 fi
 
