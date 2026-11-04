@@ -1,0 +1,182 @@
+// Package qemu builds the launcher's qemu command line: the pc profile of
+// test/qemu-lib.sh and python/src/kaetzli/qemu/machine.py, a third copy that
+// python/tests/test_launcher.py holds equal to the Python one for the same machine.
+package qemu
+
+import (
+	"encoding/base64"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+const letters = "bcdefghijklmnopqrstuvwxyz"
+
+// Machine is what one boot needs. Paths are as given; the caller makes them absolute.
+type Machine struct {
+	Arch     string // amd64 or arm64
+	KVM      bool
+	Mem      string
+	CPUs     string
+	Kernel   string
+	Rootfs   string
+	Cmdline  string // rootfs.cmdline, the kernel arguments that carry the root hash
+	Init     string
+	VarDisk  string // the raw /var disk; its machine ID is VarDisk + ".machine-id"
+	Sysexts  []string
+	ExtDir   string // where extensions/ and confexts/ are
+	SSHPort  int
+	PubKey   []byte // the login key, as ssh-keygen wrote it
+	Hostname string
+	// Replace -nographic: the launcher's console is a socket, not its terminal.
+	Display []string
+	Reboot  bool // a guest's reboot restarts qemu in place rather than ending it
+}
+
+// Binary is the qemu for the machine's architecture.
+func (m Machine) Binary() string {
+	if m.Arch == "arm64" {
+		return "qemu-system-aarch64"
+	}
+	return "qemu-system-x86_64"
+}
+
+func (m Machine) console() string {
+	if m.Arch == "arm64" {
+		return "ttyAMA0"
+	}
+	return "ttyS0"
+}
+
+func (m Machine) accel() []string {
+	if m.Arch == "arm64" {
+		if m.KVM {
+			return []string{"-machine", "virt,accel=kvm", "-cpu", "host"}
+		}
+		return []string{"-machine", "virt", "-cpu", "max"}
+	}
+	if m.KVM {
+		return []string{"-enable-kvm", "-cpu", "host"}
+	}
+	return []string{"-cpu", "max"}
+}
+
+func (m Machine) varDisk() ([]string, string, error) {
+	if m.VarDisk == "" {
+		return nil, "", nil
+	}
+	id, err := os.ReadFile(m.VarDisk + ".machine-id")
+	if err != nil {
+		return nil, "", err
+	}
+	drive := []string{
+		"-drive", "id=var,file=" + m.VarDisk + ",format=raw,if=none",
+		"-device", "virtio-blk-pci,drive=var",
+	}
+	appendArgs := " systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs" +
+		" systemd.machine_id=" + string(id)
+	return drive, appendArgs, nil
+}
+
+func (m Machine) sysexts() (drives []string, appendArgs, tables, waitfor string, err error) {
+	next := 0
+	if m.VarDisk != "" {
+		next = 1
+	}
+	for _, name := range m.Sysexts {
+		if _, e := os.Stat(filepath.Join(m.ExtDir, "extensions", name+".raw")); e != nil {
+			return nil, "", "", "", fmt.Errorf("no extension %q in %s", name, m.ExtDir)
+		}
+		for _, kind := range [][2]string{{"ext", "extensions"}, {"conf", "confexts"}} {
+			file := m.ExtDir + "/" + kind[1] + "/" + name + ".raw"
+			if _, e := os.Stat(file); e != nil {
+				continue
+			}
+			verity := strings.TrimSuffix(file, ".raw") + ".dm-verity"
+			t, e := os.ReadFile(verity)
+			if e != nil {
+				return nil, "", "", "", fmt.Errorf("%s has no %s beside it", file, verity)
+			}
+			ident := kind[0] + "-" + name
+			dev := "/dev/vd" + string(letters[next])
+			next++
+			table := strings.ReplaceAll(strings.TrimSuffix(string(t), "\n"), "@DEV@", dev)
+			drives = append(drives,
+				"-drive", "file="+file+",format=raw,if=none,readonly=on,id="+ident,
+				"-device", "virtio-blk-pci,drive="+ident)
+			tables += ";" + ident + ",,,ro," + table
+			waitfor += "," + dev
+			appendArgs += " systemd.mount-extra=/dev/mapper/" + ident + ":/run/" + kind[1] + "/" + name + ":erofs:ro"
+		}
+	}
+	return drives, appendArgs, tables, waitfor, nil
+}
+
+var (
+	lastQuote = regexp.MustCompile(`"$`)
+	waitFor   = regexp.MustCompile(`dm-mod\.waitfor=([^ ]*)`)
+)
+
+// Argv is the command line after the binary.
+func (m Machine) Argv() ([]string, error) {
+	raw, err := os.ReadFile(m.Cmdline)
+	if err != nil {
+		return nil, err
+	}
+	root := strings.TrimRight(string(raw), "\n")
+	varDrive, varAppend, err := m.varDisk()
+	if err != nil {
+		return nil, err
+	}
+	extDrives, extAppend, tables, wait, err := m.sysexts()
+	if err != nil {
+		return nil, err
+	}
+	if tables != "" {
+		lines := strings.Split(root, "\n")
+		for i, line := range lines {
+			if loc := lastQuote.FindStringIndex(line); loc != nil {
+				line = line[:loc[0]] + tables + `"`
+			}
+			if loc := waitFor.FindStringSubmatchIndex(line); loc != nil {
+				line = line[:loc[1]] + wait + line[loc[1]:]
+			}
+			lines[i] = line
+		}
+		root = strings.Join(lines, "\n")
+	}
+
+	extra := ""
+	if len(m.PubKey) > 0 {
+		extra += " systemd.set_credential_binary=ssh.authorized_keys.root:" +
+			base64.StdEncoding.EncodeToString(m.PubKey)
+	}
+	if m.Hostname != "" {
+		extra += " systemd.hostname=" + m.Hostname
+	}
+	nic := "user,model=virtio-net-pci"
+	if m.SSHPort != 0 {
+		nic += fmt.Sprintf(",hostfwd=tcp:127.0.0.1:%d-:22", m.SSHPort)
+	}
+
+	argv := append([]string{}, m.accel()...)
+	argv = append(argv, "-m", m.Mem, "-smp", m.CPUs, "-kernel", m.Kernel,
+		"-drive", "id=root,file="+m.Rootfs+",format=raw,if=none,readonly=on",
+		"-device", "virtio-blk-pci,drive=root")
+	argv = append(argv, varDrive...)
+	argv = append(argv, extDrives...)
+	argv = append(argv, "-nic", nic,
+		"-append", root+" console="+m.console()+" init="+m.Init+
+			" systemd.set_credential=login.noauth:yes"+extra+varAppend+extAppend)
+	if len(m.Display) > 0 {
+		argv = append(argv, m.Display...)
+	} else {
+		argv = append(argv, "-nographic")
+	}
+	if !m.Reboot {
+		argv = append(argv, "-no-reboot")
+	}
+	return argv, nil
+}

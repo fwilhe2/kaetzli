@@ -1142,6 +1142,11 @@ jobs:
           pattern: cve-*
           path: artifacts
 
+      # The launcher (go/cmd/kaetzli), stamped with the snapshot it is released with; in a
+      # dry run too, so a pull request's CI builds it as main's would.
+      - name: Build the launcher
+        run: ./tools/build-launcher.sh artifacts/launcher "$(./tools/release.py name)"
+
       - name: Publish the snapshot
         env:
           GH_TOKEN: ${{ github.token }}

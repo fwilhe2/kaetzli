@@ -41,8 +41,21 @@ dm-verity verified. Extensions installed under `/var` are not verified.
 
 ## Quick start
 
-On Linux, with QEMU and `curl`, fetch the latest snapshot and start the default VM with
-Podman:
+On Linux, with QEMU installed, the launcher is one file and needs no checkout:
+
+```sh
+curl -fLo ~/.local/bin/kaetzli \
+  https://github.com/fwilhe2/kaetzli/releases/latest/download/kaetzli-$(uname -s | tr A-Z a-z)-$(uname -m)
+chmod +x ~/.local/bin/kaetzli
+kaetzli start --ext podman
+kaetzli ssh
+```
+
+It downloads and verifies the latest snapshot, keeps each machine's `/var`, and has
+`vm.sh`'s commands (`start`, `ssh`, `console`, `stop`, `list`, `info`, `update`, `rm`).
+
+From a checkout, `tools/vm.sh` does the same and more. Fetch the latest snapshot and start
+the default VM with Podman:
 
 ```sh
 ./tools/vm.sh update

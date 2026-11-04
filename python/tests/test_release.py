@@ -285,6 +285,11 @@ def test_digest_is_none_when_the_registry_does_not_answer():
 # --- the notes --------------------------------------------------------------------------
 
 
+def test_the_notes_show_how_to_install_the_launcher():
+    text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
+    assert "releases/latest/download/kaetzli-$(uname -s" in text
+
+
 def test_notes_carry_the_notice_provenance_and_boot_instructions():
     text = release.notes(
         name="20261103.141205-42",
@@ -361,10 +366,34 @@ def writes(calls):
     return [c for c in calls if ("-X" in c) or (c[:2] == ["gh", "release"] and c[2] in WRITES)]
 
 
+def launchers(root: Path) -> Path:
+    """What tools/build-launcher.sh leaves, where the release job puts it."""
+    d = root / "launcher"
+    d.mkdir(parents=True, exist_ok=True)
+    for name in release.LAUNCHERS:
+        (d / name).write_bytes(b"\x7fELF " + name.encode())
+    return d
+
+
+def test_collect_launcher_takes_every_binary_executable(tmp_path):
+    launchers(tmp_path / "artifacts")
+    got = release.collect_launcher(tmp_path / "artifacts", tmp_path / "out")
+    assert got.problems == []
+    assert sorted(a.name for a in got.assets) == sorted(release.LAUNCHERS)
+    assert all((tmp_path / "out" / n).stat().st_mode & 0o111 for n in release.LAUNCHERS)
+
+
+def test_a_missing_launcher_binary_is_a_problem(tmp_path):
+    (launchers(tmp_path / "artifacts") / "kaetzli-linux-aarch64").unlink()
+    got = release.collect_launcher(tmp_path / "artifacts", tmp_path / "out")
+    assert any("kaetzli-linux-aarch64" in p for p in got.problems)
+
+
 @pytest.fixture
 def both_arches(tmp_path):
     for arch in release.ARCHES:
         artifacts(tmp_path / "artifacts", arch)
+    launchers(tmp_path / "artifacts")
     return tmp_path
 
 

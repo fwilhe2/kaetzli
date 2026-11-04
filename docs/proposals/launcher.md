@@ -1,7 +1,12 @@
 # A launcher without a checkout
 
-**Status: proposal.** Running kaetzli today means cloning the repository and using
-`tools/vm.sh`, which needs bash, `gh` with a login and `socat`, and does not run on Windows.
+**Status: partly implemented.** Step 2 of *Order* below: the launcher for Linux
+(`go/cmd/kaetzli`: `start`, `ssh`, `console`, `stop`, `list`, `info`, `update`, `rm`),
+`print-argv` held to the harness by `python/tests/test_launcher.py`, and its binaries in
+every snapshot. Not yet: `run`, `restart`, `snapshot`, `restore`, `resize`; macOS and
+Windows; `/var` as qcow2 (raw, as `vm.sh`'s, until Windows needs sparse files); `vm.sh` as
+a wrapper around it. Before it, running kaetzli meant cloning the repository and using
+`tools/vm.sh`, which needs bash and `socat`, and does not run on Windows.
 
 ## Goal
 

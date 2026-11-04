@@ -1,0 +1,50 @@
+name: Go
+
+# go/: the launcher (go/cmd/kaetzli, docs/proposals/launcher.md), its lint and tests, and
+# its qemu command line held to the boot harness's (python/tests/test_launcher.py). Its
+# own workflow, like python.yml: nothing built, answered in seconds.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
+
+      - name: Lint
+        working-directory: go
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || { echo "gofmt would change: $unformatted" >&2; exit 1; }
+          go vet ./...
+
+      - name: Tests
+        working-directory: go
+        run: go test ./...
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: python/.python-version
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      - name: The launcher boots the harness's machine
+        run: python3 python/launch.py pytest python/tests/test_launcher.py
+
+      # What the release job builds, the same way: every binary, reproducibly.
+      - name: Build every binary twice, and compare
+        run: |
+          ./tools/build-launcher.sh output/a test
+          ./tools/build-launcher.sh output/b test
+          (cd output/a && sha256sum *) > a.sha256
+          (cd output/b && sha256sum --check ../../a.sha256)
