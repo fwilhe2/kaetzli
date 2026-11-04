@@ -48,9 +48,13 @@ COPY builder/deps.txt /deps.txt
 # does not come from TLS anyway — it comes from the signature on the Release file, which
 # is checked either way. check-valid-until=no is not optional, because a snapshot's Release
 # file is stale by construction and apt refuses stale metadata by default.
+# The retries are for snapshot.debian.org, which answers 503 (TooManyRequests) and 504
+# under load, as image/Containerfile has it: apt backs off between them. Without them one
+# refused package of the ~200 here failed the whole builder job.
 RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
     && printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/%sT000000Z sid main\n' "$SNAPSHOT" \
-       > /etc/apt/sources.list
+       > /etc/apt/sources.list \
+    && printf 'Acquire::Retries "10";\n' > /etc/apt/apt.conf.d/80-retries
 
 # One layer, so the image has one apt transaction in its history rather than 23. The sed
 # strips comments and blank lines; xargs turns what is left into the argument list.

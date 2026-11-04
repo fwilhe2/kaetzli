@@ -226,7 +226,7 @@ the library checks and the policy checks are done.
 ./tools/check-patches.sh [--version V] [pkg...]  # packages/<pkg>/patches apply to the tarball (seconds; no build)
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's patch series (bash53-NNN) or release branch (glibc)
 ./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
-./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg
+./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg; service exposure vs test/unit-exposure.txt
 ./test/network.py output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
 ./test/listeners.py output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
 ./test/ssh.sh output/rootfs.erofs rootfs/boot/bzImage        # sshd, in-guest and from the host (PREBUILT=dir: and those binaries)
@@ -246,7 +246,8 @@ the library checks and the policy checks are done.
 ./test/rootfs-size.py [erofs|oci]  # image size vs test/size-budget.txt, and where it went
 ./test/vs-debian-slim.py          # the OCI image against debian-slim, with both breakdowns
 ./test/size-history.py [amd64|arm64]  # both flavours against the last dozen builds on main
-./test/image-diff.py [OLD [NEW]]  # packages, paths and size this build changes against main's build of its base (report; --comment on the PR)
+./test/boot-time-history.py [amd64|arm64]  # systemd.py's boot time (output/boot-time.txt) against the last builds on main
+./test/image-diff.py [OLD [NEW]]  # packages, paths and size this build changes against main's newest green one (report; --comment on the PR)
 ./test/check-sbom.py              # the SBOMs validate as SPDX 2.3 (spdx-tools), carry their provenance and describe the image
 ./test/cve-scan.py [dir]          # known CVEs in the SBOMs, by grype (report only; the cve-scan job)
 ./test/cve-workbook.sh [dir]      # cve-scan.py's reports as <dir>/cve.ods, by grind ($GRIND or PATH; CI builds it from main)
@@ -513,7 +514,10 @@ to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `qemu_argv` hooks it uses; every test still exits on a guest reboot.
 
 `test/boot.py` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.py` asserts
-`running` (no failed unit), no taint and nothing at `err` or above in the journal.
+`running` (no failed unit), no taint, nothing at `err` or above in the journal, and no
+service more exposed (`systemd-analyze security`) than `test/unit-exposure.txt` allows;
+it also records the boot's time beside its log, judged by nothing (`boot-time-history.py`
+reports the trend, KVM against KVM: the boot job opens `/dev/kvm` where the runner has it).
 **All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
 sources too, so debugging a CI failure boots the same machine. Its Python twin,
 `kaetzli.qemu` (pexpect), is what `test/boot.py`, `systemd.py`, `network.py` and

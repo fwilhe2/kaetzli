@@ -755,6 +755,21 @@ if [ "$flavour" = erofs ]; then
     #   -zlzma,6   -C131072                            61.4 MiB   ~10x slower to read
     # 128 KiB clusters matter most (the default is one 4 KiB block). Needs
     # CONFIG_EROFS_FS_ZIP_ZSTD (packages/kernel).
+    #
+    # And what it costs a boot: main's tree of 2026-11-04 (run 41870099030, amd64) made
+    # each way, booted five times by test/systemd.py under KVM, the image in the host's
+    # page cache, every compressed one with -Eztailpacking,fragments; median
+    # systemd-analyze total, and its spread:
+    #   none                                        74.2 MiB   2.21 s   2.17-2.32
+    #   -zlz4hc,12 -C131072                         34.0 MiB   2.14 s   2.06-2.44
+    #   -zzstd,15  -C16384                          28.0 MiB   2.68 s   2.16-2.77
+    #   -zzstd,15  -C65536                          26.3 MiB   2.29 s   2.16-2.41
+    #   -zzstd,15  -C131072                         27.6 MiB   2.20 s   2.14-2.29   this
+    #   -zzstd,15  -C1048576                        26.0 MiB   2.39 s   2.13-2.82
+    # So zstd at 128 KiB costs a boot nothing against no compression at all, and is the
+    # smallest that does not: smaller clusters are slower (more, smaller decompressions),
+    # larger ones read more than a boot needs. From a cold disk rather than the page
+    # cache, the smaller image only gains.
     erofs_repro=()
     if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
         erofs_repro=(-T "$SOURCE_DATE_EPOCH" --all-time -U 00000000-0000-0000-0000-000000000000)

@@ -1,0 +1,34 @@
+# The services `systemd-analyze security` scores on a booted base image, and the highest
+# exposure each may have: 0 is sandboxed, 10 unrestricted. test/systemd.py fails on a
+# service that scores above its line, or that has none. A score below its line is a
+# note: lower the line, so the next loosening is caught.
+#
+# Instances are listed as their template (serial-getty@ttyS0 is serial-getty@.service):
+# the console's name differs by architecture and VMM, the unit does not.
+#
+# A raised line needs the reason in the commit: which setting went, and why the service
+# needs it. `systemd-analyze security <unit>` lists each setting and what it costs.
+
+# systemd's own, sandboxed upstream.
+systemd-hostnamed.service 1.7
+systemd-journald.service 4.9
+systemd-logind.service 2.8
+systemd-networkd.service 2.9
+systemd-resolved.service 2.2
+systemd-timesyncd.service 2.1
+systemd-udevd.service 7.0
+systemd-userdbd.service 2.3
+
+# What logs a person in, or starts their session, has to reach what they may: no sandbox
+# that would not also confine the user.
+getty@.service 9.6
+serial-getty@.service 9.6
+sshd.service 9.6
+user@.service 9.8
+emergency.service 9.5
+rescue.service 9.5
+systemd-ask-password-console.service 9.4
+systemd-ask-password-wall.service 9.4
+
+# dbus-daemon's upstream unit sets nothing.
+dbus.service 9.6
