@@ -16,3 +16,4 @@
                     State: in memory (/var is tmpfs, lost at shutdown)
    
 >> fetch OK
+>> systemd OK: 3 services are no more exposed than python/tests/fixtures/systemd/unit-exposure.txt allows

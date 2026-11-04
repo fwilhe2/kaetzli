@@ -1,0 +1,4 @@
+# The fixtures' allowed exposure.
+systemd-journald.service 4.9
+serial-getty@.service 9.6
+systemd-resolved.service 2.2

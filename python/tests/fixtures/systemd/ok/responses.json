@@ -28,6 +28,10 @@
   "\n      /\\_/\\      root@kaetzli\n     ( o.o )     OS: Kaetzli\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nFETCH-DONE\n"
  ],
  [
+  "systemd-analyze security",
+  "SEC> UNIT EXPOSURE\nSEC> serial-getty@ttyS0.service 9.6\nSEC> systemd-journald.service 4.9\nSEC> systemd-resolved.service 2.2\nSYSTEMD-SECURITY-DONE\n"
+ ],
+ [
   "systemctl --failed",
   "UNIT LOAD ACTIVE SUB DESCRIPTION\nfoo.service loaded failed failed Foo\n"
  ]
