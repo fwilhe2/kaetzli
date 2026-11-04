@@ -203,30 +203,78 @@ def fake_gh(tmp_path, pair, extra=()):
     return FakeGh(answers, downloads)
 
 
+def compare(base, head, status="ahead", files=("docs/x.md",)):
+    """gh api compare BASE...HEAD, as Gh.compare asks it."""
+    out = json.dumps({"status": status, "files": [{"filename": f} for f in files]})
+    return (["gh", "api", f"repos/{{owner}}/{{repo}}/compare/{base}...{head}"], (0, out))
+
+
 class TestAgainstMain:
-    def test_the_newest_green_run_with_both_artifacts(self, pair, tmp_path):
+    def test_the_build_of_the_base_itself(self, pair, tmp_path):
+        # Run 50 is this one, 45 is main moving on past the base: neither is compared to.
         fake = fake_gh(tmp_path, pair)
         out = io.StringIO()
         diff = image_diff.against_main(
-            Gh(run=fake), "amd64", pair[1], report.Report(stdout=out), skip_run="50"
-        )
+            Gh(run=fake), "amd64", pair[1], report.Report(stdout=out), skip_run="50",
+            base="a" * 40,
+        )  # fmt: skip
         assert diff.changed()
-        assert "against run 41 (`aaaaaaa`) on `main`" in out.getvalue()
+        assert "against run 41 (`aaaaaaa`), the build of this branch's base on `main`" in (
+            out.getvalue()
+        )
         downloads = [c[3] for c in fake.calls if c[:3] == ["gh", "run", "download"]]
-        assert "50" not in downloads  # this run
+        assert "50" not in downloads and "45" not in downloads
         assert downloads[-2:] == ["41", "41"]
+
+    def test_a_build_before_the_base_with_only_documentation_since(self, pair, tmp_path):
+        base = "d" * 40
+        fake = fake_gh(tmp_path, pair, extra=[
+            compare("c" * 40, base, status="behind"),  # main moved past the base
+            compare("b" * 40, base, files=("src/x.c",)),  # code since: its build is not the base's
+            compare("a" * 40, base, files=("README.md", "docs/guides/x.md")),
+        ])  # fmt: skip
+        out = io.StringIO()
+        image_diff.against_main(
+            Gh(run=fake), "amd64", pair[1], report.Report(stdout=out), base=base
+        )
+        assert "against run 41 (`aaaaaaa`)" in out.getvalue()
+        assert "documentation only since" in out.getvalue()
+
+    def test_no_build_of_the_base_is_a_note_not_a_wrong_comparison(self, pair, tmp_path):
+        # Main's newest green build is newer than the base: comparing to it would credit
+        # this branch with what main merged since. This is how cri-o 1.37.3 appeared on a
+        # pull request that did not touch it.
+        base = "e" * 40
+        fake = fake_gh(tmp_path, pair, extra=[
+            compare("c" * 40, base, status="behind"),
+            compare("b" * 40, base, status="behind"),
+            compare("a" * 40, base, status="behind"),
+        ])  # fmt: skip
+        with pytest.raises(report.Note, match="no green build of this branch's base `eeeeeee`"):
+            image_diff.against_main(
+                Gh(run=fake), "amd64", pair[1], report.Report(stdout=io.StringIO()), base=base
+            )
+        assert not [c for c in fake.calls if c[:3] == ["gh", "run", "download"]]
 
     def test_without_gh_it_is_a_note(self, pair):
         with pytest.raises(report.Note, match="no `gh`"):
             image_diff.against_main(
-                Gh(which=lambda _: None), "amd64", pair[1], report.Report(stdout=io.StringIO())
+                Gh(which=lambda _: None),
+                "amd64",
+                pair[1],
+                report.Report(stdout=io.StringIO()),
+                base="a" * 40,
             )
 
     def test_no_baseline_is_a_note(self, pair):
         fake = FakeGh([(["gh", "auth", "status"], (0, "")), (["gh", "run", "list"], (0, "[]"))])
-        with pytest.raises(report.Note, match="no green build on `main`"):
+        with pytest.raises(report.Note, match="no green build of this branch's base"):
             image_diff.against_main(
-                Gh(run=fake), "amd64", pair[1], report.Report(stdout=io.StringIO())
+                Gh(run=fake),
+                "amd64",
+                pair[1],
+                report.Report(stdout=io.StringIO()),
+                base="a" * 40,
             )
 
 
@@ -275,3 +323,18 @@ def test_the_entry_point(pair, tmp_path):
     )  # fmt: skip
     assert p.returncode == 0, p.stderr
     assert "| `openssl` | 3.5.3 | 3.5.4 | disk, oci |" in p.stdout
+
+
+class TestBaseCommit:
+    def test_a_branch_is_compared_with_where_it_forked(self):
+        fake = FakeGh([(["gh", "api", "repos/{owner}/{repo}/compare/main...f00"],
+                        (0, json.dumps({"merge_base_commit": {"sha": "a" * 40}})))])  # fmt: skip
+        assert image_diff.base_commit(Gh(run=fake), "topic", "main", "f00") == "a" * 40
+
+    def test_main_is_compared_with_the_commit_before(self):
+        fake = FakeGh([(["gh", "api", "repos/{owner}/{repo}/commits/f00"],
+                        (0, json.dumps({"parents": [{"sha": "b" * 40}]})))])  # fmt: skip
+        assert image_diff.base_commit(Gh(run=fake), "main", "main", "f00") == "b" * 40
+
+    def test_no_answer_is_none(self):
+        assert image_diff.base_commit(Gh(run=FakeGh([])), "topic", "main", "f00") is None

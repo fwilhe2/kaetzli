@@ -246,7 +246,7 @@ the library checks and the policy checks are done.
 ./test/rootfs-size.py [erofs|oci]  # image size vs test/size-budget.txt, and where it went
 ./test/vs-debian-slim.py          # the OCI image against debian-slim, with both breakdowns
 ./test/size-history.py [amd64|arm64]  # both flavours against the last dozen builds on main
-./test/image-diff.py [OLD [NEW]]  # packages, paths and size this build changes against main's newest green one (report; --comment on the PR)
+./test/image-diff.py [OLD [NEW]]  # packages, paths and size this build changes against main's build of its base (report; --comment on the PR)
 ./test/check-sbom.py              # the SBOMs validate as SPDX 2.3 (spdx-tools), carry their provenance and describe the image
 ./test/cve-scan.py [dir]          # known CVEs in the SBOMs, by grype (report only; the cve-scan job)
 ./test/cve-workbook.sh [dir]      # cve-scan.py's reports as <dir>/cve.ods, by grind ($GRIND or PATH; CI builds it from main)
