@@ -717,8 +717,11 @@ manifest list at `kaetzli:<commit>` and `kaetzli:latest`, after `boot` (the OCI 
 userspace as the disk). Both archives `podman load` as `localhost/kaetzli:latest`, so the
 script tags and pushes each before loading the next.
 
-`tools/fetch-image.sh` / `tools/boot-qemu.sh` are for poking at CI artifacts locally.
+`tools/fetch-image.sh` fetches the latest snapshot release with `curl` alone (`--snapshot`
+for an older one), or a CI run's artifacts with `--run` (and when no snapshot exists yet);
+`tools/boot-qemu.sh` boots what it left.
 **fetch installs nothing it has not verified**: the rootfs job uploads `bundle-<arch>`, a
 manifest of run, commit, arch and the SHA-256 of every file in the rootfs, kernel and
-extensions artifacts, and fetch requires an exact match before swapping the new bundle in.
-A change to what those artifacts contain is a change to that step too.
+extensions artifacts, and fetch requires an exact match before swapping the new bundle in;
+a snapshot's `SHA256SUMS` plays the same part (and its attestation, where `gh` can check it).
+A change to what those artifacts or assets contain is a change to that step too.

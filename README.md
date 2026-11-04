@@ -41,8 +41,8 @@ dm-verity verified. Extensions installed under `/var` are not verified.
 
 ## Quick start
 
-On Linux, with QEMU and an authenticated GitHub CLI (`gh`), fetch the latest image and start
-the default VM with Podman:
+On Linux, with QEMU and `curl`, fetch the latest snapshot and start the default VM with
+Podman:
 
 ```sh
 ./tools/vm.sh update
@@ -66,7 +66,8 @@ see [`examples/nginx`](examples/nginx/README.md) for an image built on top of ka
 ## Host requirements
 
 The project builds and publishes `amd64` and `arm64` OCI images. Building from source
-requires Podman; fetching CI images requires an authenticated GitHub CLI (`gh`). QEMU runs
+requires Podman. Fetching a snapshot needs only `curl`; a CI run's artifacts
+(`fetch-image.sh --run`) need an authenticated GitHub CLI (`gh`). QEMU runs
 with or without KVM, though KVM is recommended. Firecracker requires KVM on Linux;
 Virtualization.framework support is for Apple silicon. The Kubernetes demo requires KVM and
 about 8 GB of RAM.
