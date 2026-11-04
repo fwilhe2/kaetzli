@@ -97,7 +97,8 @@ debs_count() { find "$debs_dir" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' '; }
 push_debs() {
     [ -n "$push" ] && [ "$(debs_count)" -gt "$seeded" ] || return 0
     local ctx
-    ctx=$(mktemp -d)
+    # Beside the directory, not in /tmp: hard links do not cross filesystems.
+    ctx=$(mktemp -d "$debs_dir.push.XXXXXX")
     mkdir "$ctx/debs"
     find "$debs_dir" -maxdepth 1 -name '*.deb' -exec ln {} "$ctx/debs/" \;
     printf 'FROM scratch\nCOPY debs/ /debs/\n' > "$ctx/Containerfile"
