@@ -1,6 +1,6 @@
-"""What a build changes in the image, against the newest green build on main:
+"""What a build changes in the image, against main's build of its base:
 
-    ./test/image-diff.py                    # output/ against main's newest green build
+    ./test/image-diff.py                    # output/ against main's build of its base
     ./test/image-diff.py OLD [NEW]          # two directories of build output (NEW: output/)
     ./test/image-diff.py --comment          # and keep a comment on the pull request current
 
@@ -24,6 +24,7 @@ import bisect
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -366,6 +367,11 @@ def report_of(d: Diff, arch: str, against: str) -> list[str]:
 # --- against main, and the pull request -------------------------------------------------
 
 
+# What ci.yml's `changes` job skips the build for: a commit that only touches these has no
+# image of its own, and the build before it is its image.
+DOCS = re.compile(r"^(docs/.*|[^/]*\.md)$")
+
+
 def against_main(
     gh: Gh,
     arch: str,
@@ -374,27 +380,64 @@ def against_main(
     skip_run: str = "",
     workflow: str = "ci.yml",
     branch: str = "main",
-    runs: int = 10,
+    runs: int = 20,
+    *,
+    base: str,
 ) -> Diff:
-    """The newest green run on the branch that still has both artifacts, other than
-    this one (on a push to main, that is the commit before)."""
+    """Against main's build of `base`, this branch's merge base (on a push to main, the
+    commit before): the green run of that commit, or of an earlier one with only
+    documentation after it. Never simply main's newest: once main has moved past the
+    base, that build has commits this branch does not, and a diff against it credits the
+    branch with them."""
     if problem := gh.problem():
         raise Note(f"{problem}, so there is no build on `{branch}` to compare against.", rep)
     with tempfile.TemporaryDirectory() as tmp:
         for r in gh.successful_runs(workflow, branch, limit=runs):
             if r.id == skip_run:
                 continue
+            since = ""
+            if r.sha != base:
+                c = gh.compare(r.sha, base)
+                # ahead: the run's commit is an ancestor of the base; 300 is the most files
+                # the API lists, so a list that long may not be all of it.
+                if c is None or c[0] != "ahead" or len(c[1]) >= 300:
+                    continue
+                if not all(DOCS.match(f) for f in c[1]):
+                    continue
+                since = ", documentation only since"
             d = Path(tmp) / r.id
             if not all(gh.download(r.id, f"{a}-{arch}", d) for a in ("rootfs-size", "sbom")):
                 continue
             diff = Diff(load(d), load(new_dir))
-            diff.lines = report_of(diff, arch, f"run {r.id} (`{r.sha[:7]}`) on `{branch}`")
+            what = f"run {r.id} (`{r.sha[:7]}`), the build of this branch's base on `{branch}`"
+            if since:
+                what = (
+                    f"run {r.id} (`{r.sha[:7]}`) on `{branch}`, before this branch's base "
+                    f"`{base[:7]}`{since}"
+                )
+            diff.lines = report_of(diff, arch, what)
             rep.lines(diff.lines)
             return diff
     raise Note(
-        f"no green build on `{branch}` with rootfs-size-{arch} and sbom-{arch} — artifacts expire.",
+        f"no green build of this branch's base `{base[:7]}` on `{branch}` with "
+        f"rootfs-size-{arch} and sbom-{arch} (still running, failed, or expired): nothing "
+        "to compare against. A newer build of main would credit this branch with what main "
+        "merged since.",
         rep,
     )
+
+
+def base_commit(gh: Gh, branch: str, base_branch: str, sha: str) -> str | None:
+    """What this build is compared against: on the base branch, the commit before; on any
+    other, where it forked from the base branch."""
+    if branch == base_branch:
+        doc = gh.json(f"commits/{sha}")
+        parents = doc.get("parents") if isinstance(doc, dict) else None
+        return parents[0]["sha"] if parents else None
+    doc = gh.json(f"compare/{base_branch}...{sha}")
+    if isinstance(doc, dict) and isinstance(doc.get("merge_base_commit"), dict):
+        return doc["merge_base_commit"].get("sha")
+    return None
 
 
 def comment(gh: Gh, branch: str, marker: str, body: str, changed: bool) -> bool:
@@ -409,6 +452,11 @@ def comment(gh: Gh, branch: str, marker: str, body: str, changed: bool) -> bool:
     if cid := gh.comment_with(pr, marker):
         return gh.edit_comment(cid, text)
     return gh.add_comment(pr, text) if changed else False
+
+
+def _head() -> str:
+    p = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo.ROOT, capture_output=True, text=True)
+    return p.stdout.strip()
 
 
 def main(argv: list[str]) -> int:
@@ -440,10 +488,24 @@ def main(argv: list[str]) -> int:
         diff.lines = report_of(diff, arch, f"`{old_dir}`")
         rep.lines(diff.lines)
     else:
-        diff = against_main(
-            Gh(), arch, new_dir, rep,
-            skip_run=os.environ.get("GITHUB_RUN_ID", ""), branch=base,
-        )  # fmt: skip
+        gh = Gh()
+        sha = os.environ.get("GITHUB_SHA") or _head()
+        here = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME", "")
+        fork = base_commit(gh, here, base, sha)
+        try:
+            if fork is None:
+                raise Note(f"could not tell where `{sha[:7]}` forked from `{base}`.", rep)
+            diff = against_main(
+                gh, arch, new_dir, rep,
+                skip_run=os.environ.get("GITHUB_RUN_ID", ""), branch=base, base=fork,
+            )  # fmt: skip
+        except Note as n:
+            # A comment from an earlier push compared against something else: say so in it
+            # rather than leave it standing. Never a new comment for this.
+            if args.comment and here and here != base:
+                title = f"## What this build changes in the image — {arch}"
+                comment(gh, here, f"<!-- image-diff:{arch} -->", f"{title}\n\n_{n}_", False)
+            raise
 
     branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME", "")
     if args.comment and branch and branch != base:

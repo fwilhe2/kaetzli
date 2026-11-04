@@ -99,6 +99,28 @@ class Gh:
                 return run.id
         return None
 
+    def compare(self, base: str, head: str) -> tuple[str, list[str]] | None:
+        """(status, changed files) of base...head: status is ahead when base is an ancestor
+        of head, identical, behind or diverged. None when the API does not answer."""
+        p = self._run(["gh", "api", f"repos/{self._api_repo()}/compare/{base}...{head}"])
+        if p.returncode != 0:
+            return None
+        try:
+            doc = json.loads(p.stdout)
+        except json.JSONDecodeError:
+            return None
+        return doc.get("status", ""), [f["filename"] for f in doc.get("files") or []]
+
+    def json(self, path: str) -> object | None:
+        """GET repos/<repo>/<path>, parsed, or None."""
+        p = self._run(["gh", "api", f"repos/{self._api_repo()}/{path}"])
+        if p.returncode != 0:
+            return None
+        try:
+            return json.loads(p.stdout)
+        except json.JSONDecodeError:
+            return None
+
     def download(self, run_id: str, name: str, dest: Path) -> bool:
         p = self._run(
             ["gh", "run", "download", run_id, *self._repo_args(), "-n", name, "-D", str(dest)]
