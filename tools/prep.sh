@@ -68,6 +68,66 @@ fi
 builder=$(./tools/image-tags.sh builder)
 sources=$(./tools/image-tags.sh sources)
 
+# The builder's packages, kept between builds (builder/Containerfile has how apt uses
+# them): one image per snapshot and arch, since the snapshot pins every package's bytes.
+# Nothing in it is trusted — apt takes a file only when its SHA-256 matches the signed
+# index — so it may come from any earlier build. FRESH=1 builds without it: proving the
+# snapshot still serves every package is that build's point.
+debs_dir=output/builder-debs
+debs_image="${builder%/builder:*}/builder-debs:$(sed -n 's/^ARG SNAPSHOT=//p' builder/Containerfile)-$(normalize_arch)"
+
+seed_debs() {
+    mkdir -p "$debs_dir"
+    [ -z "${FRESH:-}" ] || return 0
+    if ! podman pull --quiet "$debs_image" >/dev/null 2>&1; then
+        echo ">> builder: no $debs_image to seed from"
+        return 0
+    fi
+    local ctr
+    ctr=$(podman create "$debs_image" /nonexistent)
+    podman cp "$ctr:/debs/." "$debs_dir/"
+    podman rm "$ctr" >/dev/null
+    echo ">> builder: $(debs_count) packages seeded from $debs_image"
+}
+
+debs_count() { find "$debs_dir" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' '; }
+
+# push_debs: the directory as $debs_image, when it holds more than the seed did. After a
+# failed build too: the next one starts from what this one got.
+push_debs() {
+    [ -n "$push" ] && [ "$(debs_count)" -gt "$seeded" ] || return 0
+    local ctx
+    ctx=$(mktemp -d)
+    mkdir "$ctx/debs"
+    find "$debs_dir" -maxdepth 1 -name '*.deb' -exec ln {} "$ctx/debs/" \;
+    printf 'FROM scratch\nCOPY debs/ /debs/\n' > "$ctx/Containerfile"
+    podman build -q -t "$debs_image" "$ctx" >/dev/null
+    rm -rf "$ctx"
+    podman push "$debs_image"
+    echo ">> builder: pushed $(debs_count) packages as $debs_image"
+}
+
+# build_builder: with the seed mounted, a few times over. snapshot.debian.org refuses
+# requests under load (503, 504) for minutes at a time, past what apt's own retries wait
+# out; each attempt keeps what it fetched, so the next asks only for what is missing.
+build_builder() {
+    seed_debs
+    seeded=$(debs_count)
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        if podman build -t "$builder" -f builder/Containerfile \
+                --volume "$PWD/$debs_dir:/debs:z" .; then
+            push_debs
+            return 0
+        fi
+        echo ">> builder: attempt $attempt failed, $(debs_count) packages fetched so far" >&2
+        [ "$attempt" = 5 ] || sleep $((attempt * 60))
+    done
+    push_debs
+    echo "error: could not build $builder: snapshot.debian.org kept refusing" >&2
+    return 1
+}
+
 # Whether the registry already had it, which is the same question as whether there is
 # anything to push. Content-addressed tags make that exact: a tag that resolved is by
 # definition the image we would have built, so pushing it again is at best wasted work.
@@ -86,7 +146,7 @@ elif pull "$builder"; then
     builder_pulled=1
 else
     echo ">> builder: $builder (building)"
-    podman build -t "$builder" -f builder/Containerfile .
+    build_builder
 fi
 
 # Having the image is not the same as having the tarballs where a build can see them, so

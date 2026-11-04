@@ -313,7 +313,10 @@ from `packages/`. Everything else is shared:
   entire contents; its bottom lists what is deliberately absent and why.
 - `tools/prep.sh` → the only network step: pull-or-build the builder and sources images
   (content-hash tags, `tools/image-tags.sh`), unpack the tarballs. `FRESH=1` builds both
-  even when the registry has them.
+  even when the registry has them. A builder build is seeded with the last one's `.deb`s
+  (`builder-debs:<snapshot>-<arch>`, which apt checks against the signed index), retried,
+  and pushes what it fetched even when it fails, so snapshot.debian.org's 503s cost a
+  retry rather than the job; `FRESH=1` builds without the seed.
 - `build.sh` (root) → the driver: prep, extract, mounts, run. **The compile is
   `--network=none`.**
 - `builder/build-package.sh` → the container entrypoint: merged-`/usr` staging, sysroot
