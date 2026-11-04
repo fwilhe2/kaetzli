@@ -1,0 +1,21 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, waiting for systemd to finish starting
+>> systemd OK: system is running, no failed units
+>> systemd OK: taint string is empty
+>> systemd OK: nothing tried to write to the read-only root
+>> systemd OK: no errors in the journal
+>> systemd OK: the image's sysctls are applied
+>> systemd OK: a credential arrived through fw_cfg
+>> fetch says:
+   
+         /\_/\      root@kaetzli
+        ( o.o )     OS: Kaetzli
+                    Image: c4927070eaaa (verity root hash)
+                    Root: erofs, read-only, dm-verity
+                    State: in memory (/var is tmpfs, lost at shutdown)
+   
+>> fetch OK
+>> note: systemd-journald.service 3.0, below its 4.9: lower the line
+>> note: systemd-resolved.service is not loaded: delete its line
+>> systemd OK: 2 services are no more exposed than python/tests/fixtures/systemd/unit-exposure.txt allows

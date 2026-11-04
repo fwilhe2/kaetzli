@@ -226,7 +226,7 @@ the library checks and the policy checks are done.
 ./tools/check-patches.sh [--version V] [pkg...]  # packages/<pkg>/patches apply to the tarball (seconds; no build)
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's patch series (bash53-NNN) or release branch (glibc)
 ./test/boot.py output/rootfs.erofs rootfs/boot/bzImage   # headless boot smoke test (reads rootfs.cmdline beside the image)
-./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg
+./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage  # no failed units, taint, journal errors; sysctls, fw_cfg; service exposure vs test/unit-exposure.txt
 ./test/network.py output/rootfs.erofs rootfs/boot/bzImage  # DHCP + DNS + outbound TCP
 ./test/listeners.py output/rootfs.erofs rootfs/boot/bzImage  # listening sockets vs the expected list, base and +kubernetes
 ./test/ssh.sh output/rootfs.erofs rootfs/boot/bzImage        # sshd, in-guest and from the host (PREBUILT=dir: and those binaries)
@@ -513,7 +513,8 @@ to 108 bytes. `QEMU_REBOOT=1` (no `-no-reboot`) and `QEMU_DISPLAY_ARGS` are the
 `qemu_argv` hooks it uses; every test still exits on a guest reboot.
 
 `test/boot.py` runs `/bin/bash` as PID 1; the others boot systemd. `test/systemd.py` asserts
-`running` (no failed unit), no taint and nothing at `err` or above in the journal.
+`running` (no failed unit), no taint, nothing at `err` or above in the journal, and no
+service more exposed (`systemd-analyze security`) than `test/unit-exposure.txt` allows.
 **All boots go through the one harness**, `test/qemu-lib.sh`, which `tools/boot-qemu.sh`
 sources too, so debugging a CI failure boots the same machine. Its Python twin,
 `kaetzli.qemu` (pexpect), is what `test/boot.py`, `systemd.py`, `network.py` and

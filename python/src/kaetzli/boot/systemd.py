@@ -8,6 +8,7 @@ Overrides, from the environment:
   MEM/CPUS    guest size         (default 1024 / 2)
   LOG         console transcript (default output/systemd-test.log)
   LOGIN_USER  serial console account (default root; no password, see Guest.login)
+  UNIT_EXPOSURE  the services' allowed exposure (default test/unit-exposure.txt)
 
 `systemctl is-system-running` is the main assertion: it reports `degraded` if and only if
 at least one unit failed, so it covers units nothing else here thinks to look at. --wait
@@ -15,8 +16,8 @@ blocks until startup has settled, which keeps this from racing a unit that is me
 slow; the deadline is what catches one that hangs. More checks ride along on the same
 shell, because a login over a serial console is the expensive part and one more command
 on it is free: systemd's Tainted property, writes to the read-only root, the journal's
-errors, the image's sysctls, a credential through fw_cfg, and fetch, the only
-binary in usr/bin that anything in test/ runs for its own sake.
+errors, the image's sysctls, a credential through fw_cfg, fetch, the only binary in
+usr/bin that anything in test/ runs for its own sake, and how sandboxed each service is.
 
 This is deliberately separate from test/boot.py and test/network.py: test/boot.py proves
 the kernel and the loader work with a raw shell as PID 1, test/network.py proves
@@ -103,6 +104,20 @@ FWCFG_CHECK = "echo SYSTEMD'-FWCFG':[$(< /run/credentials/@system/kaetzli.fwcfg-
 # --no-color: the transcript is read as text.
 FETCH_RUN = "fetch --no-color; echo FETCH'-DONE'"
 
+# How much of the system each service can reach, by systemd's own measure: `systemd-analyze
+# security` scores every loaded service from 0 (sandboxed) to 10 (unrestricted), from its
+# unit's settings. Those come from upstream's unit files, so a version bump can drop a
+# ProtectSystem= or a SystemCallFilter= and nothing fails — the service just runs with
+# more than it had. UNIT_EXPOSURE holds each one to its score; one that rises fails, and
+# so does a service it does not list. One that falls is a note, to lower its line
+# (UNIT_EXPOSURE= in the environment names another file). Piped, so the table is not
+# cut to a terminal's width; through `read`, so bash prints it.
+SECURITY_CHECK = (
+    "SYSTEMD_COLORS=0 systemd-analyze security --no-pager 2>&1 | "
+    "while read -r u e _; do echo \"SEC> $u $e\"; done; echo SYSTEMD'-SECURITY-DONE'"
+)
+UNIT_EXPOSURE = "test/unit-exposure.txt"
+
 DIAGNOSE = "systemctl --failed --no-pager --plain; journalctl -p err -b --no-pager -o short"
 
 
@@ -138,6 +153,58 @@ def unknown_errors(lines: list[str], known_file: str = KNOWN_JOURNAL) -> list[st
     if p.returncode > 1:
         raise RuntimeError(f"grep: {p.stderr.strip()}")
     return p.stdout.splitlines()
+
+
+def template(unit: str) -> str:
+    """An instance as its template, serial-getty@ttyS0.service as serial-getty@.service:
+    the console's name differs by architecture and VMM, its unit file does not."""
+    return re.sub(r"@[^.]*\.", "@.", unit, count=1)
+
+
+def exposure_file() -> str:
+    """UNIT_EXPOSURE, unless the environment names another (the tests' fixtures do)."""
+    return os.environ.get("UNIT_EXPOSURE") or UNIT_EXPOSURE
+
+
+def read_exposure(path: str) -> dict[str, float]:
+    """<unit> <score> per line, # comments."""
+    out = {}
+    for line in Path(path).read_text(encoding="utf-8").split("\n"):
+        line = line.split("#", 1)[0].strip()
+        if line:
+            unit, score = line.split()
+            out[unit] = float(score)
+    return out
+
+
+def exposure(lines: list[str]) -> dict[str, float]:
+    """systemd-analyze security's table, by template: the highest score of its instances."""
+    out: dict[str, float] = {}
+    for line in lines:
+        parts = line.split()
+        if len(parts) != 2 or not re.fullmatch(r"[0-9]+\.[0-9]", parts[1]):
+            continue  # the header, or a message
+        unit = template(parts[0])
+        out[unit] = max(out.get(unit, 0.0), float(parts[1]))
+    return out
+
+
+def compare_exposure(
+    got: dict[str, float], want: dict[str, float], name: str
+) -> tuple[list[str], list[str]]:
+    """(failures, notes): a service more exposed than its line or without one fails; one
+    less exposed, or a line for a service not loaded, is a note."""
+    failures, notes = [], []
+    for unit, score in sorted(got.items()):
+        if unit not in want:
+            failures.append(f"{unit} {score} is not in {name}: add it")
+        elif score > want[unit]:
+            failures.append(f"{unit} {score}, {name} allows {want[unit]}")
+        elif score < want[unit]:
+            notes.append(f"{unit} {score}, below its {want[unit]}: lower the line")
+    for unit in sorted(want.keys() - got.keys()):
+        notes.append(f"{unit} is not loaded: delete its line")
+    return failures, notes
 
 
 def check(guest: Guest, fwcfg: bool) -> None:
@@ -246,6 +313,25 @@ def check(guest: Guest, fwcfg: bool) -> None:
         if want not in said:
             guest.fail(f"fetch did not print '{want}'")
     _out(">> fetch OK")
+
+    guest.mark()
+    guest.send(SECURITY_CHECK)
+    if not guest.wait("SYSTEMD-SECURITY-DONE", 60):
+        guest.fail("systemd-analyze security did not finish")
+    got = exposure(_prefixed(guest.before, "SEC> "))
+    if not got:
+        guest.fail("systemd-analyze security scored no service")
+    name = exposure_file()
+    failures, notes = compare_exposure(got, read_exposure(name), name)
+    for note in notes:
+        _out(f">> note: {note}")
+    if failures:
+        _indented(failures)
+        guest.fail(
+            "a service is unlisted or more exposed than before (above): see what its unit "
+            "lost with `systemd-analyze security <unit>`, or raise its line with the reason"
+        )
+    _out(f">> systemd OK: {len(got)} services are no more exposed than {name} allows")
 
 
 def main(argv: list[str]) -> int:
