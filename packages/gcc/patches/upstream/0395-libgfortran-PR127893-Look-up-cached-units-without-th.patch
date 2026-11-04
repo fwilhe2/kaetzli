@@ -1,0 +1,499 @@
+From 151635379e53d11360d328b54917bc70d5abf3eb Mon Sep 17 00:00:00 2001
+From: Jerry DeLisle <jvdelisle@gcc.gnu.org>
+Date: Sun, 1 Nov 2026 12:17:30 -0800
+Subject: [PATCH] libgfortran: [PR127893] Look up cached units without the unit
+ rwlock
+
+Every data transfer statement takes unit_rwlock in get_gfc_unit, even
+when each thread does I/O on its own unit.  On Darwin the rwlock
+thrashes under that load, so parallel I/O on separate units became
+many times slower than with the mutex used before r14-6425.
+
+The unit cache could not be read without unit_rwlock because closing
+a unit freed it, so a pointer read from the cache could dangle.
+
+Keep closed units on a free list for reuse and free them only at
+program exit, so a cached pointer always refers to a gfc_unit.  Make
+the cache a direct-mapped table of 64 slots accessed atomically.
+get_gfc_unit and check_for_recursive trylock the cached unit and use
+it only if, with its lock held, it is open with the expected number;
+otherwise they fall back to the tree lookup under unit_rwlock.
+check_for_recursive now holds unit_rwlock while it searches the tree,
+and find_file takes it for writing before recycling a closed unit.
+
+Assisted-by: Claude Opus 5.5
+
+	PR libfortran/127893
+
+libgfortran/ChangeLog:
+
+	* io/io.h (recycle_unit): Declare.
+	* io/unit.c (CACHE_SIZE): Increase to 64.
+	(CACHE_SLOT): New macro.
+	(unit_free_list): New variable.
+	(insert_unit): Reuse a unit from the free list.
+	(recycle_unit, probe_unit_cache, set_unit_cache): New functions.
+	(check_for_recursive): Probe the unit cache first.  Hold
+	unit_rwlock while searching the unit tree.
+	(get_gfc_unit): Probe the unit cache before taking unit_rwlock.
+	Use the direct-mapped cache.  Recycle a closed unit instead of
+	freeing it.
+	(close_unit_1): Clear the unit's cache slot.  Recycle the unit
+	instead of freeing it.
+	(close_units): Free the units on the free list.
+	* io/unix.c (find_file): Take unit_rwlock for writing and recycle
+	a closed unit instead of freeing it.
+	(flush_all_units): Recycle a closed unit instead of freeing it.
+
+libgomp/ChangeLog:
+
+	* testsuite/libgomp.fortran/unit-cache-1.f90: New test.
+
+(cherry picked from commit c91294dca7d29682c55c8b989c0197f84eb57e53)
+---
+ libgfortran/io/io.h                           |   3 +
+ libgfortran/io/unit.c                         | 211 ++++++++++++------
+ libgfortran/io/unix.c                         |   6 +-
+ .../libgomp.fortran/unit-cache-1.f90          |  67 ++++++
+ 4 files changed, 217 insertions(+), 70 deletions(-)
+ create mode 100644 libgomp/testsuite/libgomp.fortran/unit-cache-1.f90
+
+diff --git a/libgfortran/io/io.h b/libgfortran/io/io.h
+index f4ec625570d6..95773955e596 100644
+--- a/libgfortran/io/io.h
++++ b/libgfortran/io/io.h
+@@ -783,6 +783,9 @@ internal_proto(unit_rwlock);
+ extern int close_unit (gfc_unit *);
+ internal_proto(close_unit);
+ 
++extern void recycle_unit (gfc_unit *);
++internal_proto(recycle_unit);
++
+ extern gfc_unit *set_internal_unit (st_parameter_dt *, gfc_unit *, int);
+ internal_proto(set_internal_unit);
+ 
+diff --git a/libgfortran/io/unit.c b/libgfortran/io/unit.c
+index 5973cef108ce..1c2195b7d69d 100644
+--- a/libgfortran/io/unit.c
++++ b/libgfortran/io/unit.c
+@@ -57,6 +57,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+    WAITERS, it doesn't free the unit but instead sets the CLOSED flag
+    and the thread that decrements WAITERS to zero while CLOSED flag is
+    set is responsible for freeing it (while holding UNIT_RWLOCK).
++   Freed units go on UNIT_FREE_LIST for reuse and their memory is only
++   released at program exit.  This lets get_gfc_unit trylock a unit
++   found in UNIT_CACHE without holding UNIT_RWLOCK; the unit is valid
++   only if, with its LOCK held, it is not CLOSED and has the expected
++   UNIT_NUMBER.  Such a trylock is never held while waiting on anything,
++   so insert_unit may lock a unit taken from UNIT_FREE_LIST.
+    flush_all_units operation is iterating over the unit tree with
+    increasing UNIT_NUMBER while holding UNIT_RWLOCK and attempting to
+    flush each unit (and therefore needs the unit's LOCK held as well).
+@@ -96,9 +102,15 @@ static int newunit_lwi;
+ /* Unit numbers assigned with NEWUNIT start from here.  */
+ #define NEWUNIT_START -10
+ 
+-#define CACHE_SIZE 3
++/* Direct-mapped cache of units indexed by unit number.  Slots are read
++   without UNIT_RWLOCK, so all accesses are atomic.  */
++#define CACHE_SIZE 64
++#define CACHE_SLOT(n) ((unsigned int) (n) & (CACHE_SIZE - 1))
+ static gfc_unit *unit_cache[CACHE_SIZE];
+ 
++/* Closed units available for reuse, linked through LEFT.  */
++static gfc_unit *unit_free_list;
++
+ gfc_offset max_offset;
+ gfc_offset default_recl;
+ 
+@@ -236,24 +248,54 @@ insert (gfc_unit *new, gfc_unit *t)
+ static gfc_unit *
+ insert_unit (int n)
+ {
+-  gfc_unit *u = xcalloc (1, sizeof (gfc_unit));
+-  u->unit_number = n;
+-  u->internal_unit_kind = 0;
++  gfc_unit *u = unit_free_list;
++
++  if (u != NULL)
++    {
++      /* Reuse a closed unit, zeroing everything but its mutex.  */
++      size_t lo = offsetof (gfc_unit, lock);
++      size_t hi = lo + sizeof (u->lock);
++      intptr_t self;
++
++      unit_free_list = u->left;
++      LOCK_UNIT (u);
++      self = u->self;
++      memset (u, 0, lo);
++      memset ((char *) u + hi, 0, sizeof (gfc_unit) - hi);
++      u->self = self;
++    }
++  else
++    {
++      u = xcalloc (1, sizeof (gfc_unit));
+ #ifdef __GTHREAD_MUTEX_INIT
+-  {
+-    __gthread_mutex_t tmp = __GTHREAD_MUTEX_INIT;
+-    u->lock = tmp;
+-  }
++      {
++	__gthread_mutex_t tmp = __GTHREAD_MUTEX_INIT;
++	u->lock = tmp;
++      }
+ #else
+-  __GTHREAD_MUTEX_INIT_FUNCTION (&u->lock);
++      __GTHREAD_MUTEX_INIT_FUNCTION (&u->lock);
+ #endif
+-  LOCK_UNIT (u);
++      LOCK_UNIT (u);
++    }
++  u->unit_number = n;
++  u->internal_unit_kind = 0;
+   u->priority = pseudo_random ();
+   unit_root = insert (u, unit_root);
+   return u;
+ }
+ 
+ 
++/* recycle_unit()-- Put a closed unit on the free list.  UNIT_RWLOCK
++   must be held for writing.  */
++
++void
++recycle_unit (gfc_unit *u)
++{
++  u->left = unit_free_list;
++  unit_free_list = u;
++}
++
++
+ /* destroy_unit_mutex()-- Destroy the mutex and free memory of unit.  */
+ 
+ static void
+@@ -345,6 +387,38 @@ get_gfc_unit_from_unit_root (int n)
+   return p;
+ }
+ 
++/* probe_unit_cache()-- Without taking UNIT_RWLOCK, return unit N locked
++   if it is in the cache and its lock is free, otherwise NULL.  */
++
++static gfc_unit *
++probe_unit_cache (int n)
++{
++  gfc_unit *p = __atomic_load_n (&unit_cache[CACHE_SLOT (n)],
++				 __ATOMIC_ACQUIRE);
++
++  if (p == NULL || TRYLOCK_UNIT (p))
++    return NULL;
++
++  /* P may be stale; it is unit N only if open with that number.  */
++  if (p->unit_number == n && !p->closed && p->child_dtio == 0)
++    return p;
++
++  UNLOCK_UNIT (p);
++  return NULL;
++}
++
++/* set_unit_cache()-- Store unit P in the cache.  UNIT_RWLOCK must be
++   held.  */
++
++static inline void
++set_unit_cache (gfc_unit *p)
++{
++  gfc_unit **slot = &unit_cache[CACHE_SLOT (p->unit_number)];
++
++  if (__atomic_load_n (slot, __ATOMIC_RELAXED) != p)
++    __atomic_store_n (slot, p, __ATOMIC_RELEASE);
++}
++
+ /* Recursive I/O is not allowed. Check to see if the UNIT exists and if
+    so, check if the UNIT is locked already.  This check does not apply
+    to DTIO.  */
+@@ -353,32 +427,40 @@ void
+ check_for_recursive (st_parameter_dt *dtp)
+ {
+   gfc_unit *p;
++  int n = dtp->common.unit;
++  bool recursive = false;
++
++  /* Internal units are always new.  */
++  if (dtp->common.flags & IOPARM_DT_HAS_INTERNAL_UNIT)
++    return;
+ 
+-  p = get_gfc_unit_from_unit_root(dtp->common.unit);
++  p = probe_unit_cache (n);
+   if (p != NULL)
+     {
+-      if (!(dtp->common.flags & IOPARM_DT_HAS_INTERNAL_UNIT))
+-      /* The unit p is external.  */
++      UNLOCK_UNIT (p);
++      return;
++    }
++
++  RDLOCK (&unit_rwlock);
++  p = get_gfc_unit_from_unit_root (n);
++
++  /* Check if this is a parent I/O.  */
++  if (p != NULL && p->child_dtio == 0)
++    {
++      if (TRYLOCK_UNIT (p))
+ 	{
+-	  /* Check if this is a parent I/O.  */
+-	  if (p->child_dtio == 0)
+-	    {
+-	      if (TRYLOCK_UNIT(p))
+-		{
+-		  /* The lock failed.  This unit is locked either our own
+-		     thread, which is illegal recursive I/O, or somebody by
+-		     else, in which case we are doing OpenMP or similar; this
+-		     is harmless and permitted.  When threading is not active, or
+-		     there is no thread system, we fake the ID to be 1.  */
+-		  if (__atomic_load_n (&p->self, __ATOMIC_RELAXED) == OWN_THREAD_ID)
+-		    generate_error (&dtp->common, LIBERROR_RECURSIVE_IO, NULL);
+-		  return;
+-		}
+-	      else
+-		UNLOCK(&p->lock);
+-	    }
++	  /* Held by this thread means recursive I/O; held by another
++	     thread is allowed.  Without threads, SELF is 1 when held.  */
++	  if (__atomic_load_n (&p->self, __ATOMIC_RELAXED) == OWN_THREAD_ID)
++	    recursive = true;
+ 	}
++      else
++	UNLOCK_UNIT (p);
+     }
++  RWUNLOCK (&unit_rwlock);
++
++  if (recursive)
++    generate_error (&dtp->common, LIBERROR_RECURSIVE_IO, NULL);
+ }
+ 
+ /* get_gfc_unit()-- Given an integer, return a pointer to the unit
+@@ -389,51 +471,39 @@ static gfc_unit *
+ get_gfc_unit (int n, int do_create)
+ {
+   gfc_unit *p;
+-  int c, created = 0;
++  int created = 0;
+ 
+   NOTE ("Unit n=%d, do_create = %d", n, do_create);
++
++  p = probe_unit_cache (n);
++  if (p != NULL)
++    return p;
++
+   RDLOCK (&unit_rwlock);
+ 
+ retry:
+-  for (c = 0; c < CACHE_SIZE; c++)
+-    if (unit_cache[c] != NULL && unit_cache[c]->unit_number == n)
+-      {
+-	p = unit_cache[c];
+-	goto found;
+-      }
+-
+   p = get_gfc_unit_from_unit_root (n);
++  if (p != NULL)
++    {
++      set_unit_cache (p);
++      goto found;
++    }
++
++  if (!do_create)
++    goto found;
+ 
+-  /* We did not find a unit in the cache nor in the unit list,
+-    create a new (locked) unit and insert into the unit list and
+-    cache. Manipulating either or both the unit list and the unit
+-    cache requires to hold a write-lock [for obvious reasons]:
+-    By separating the read/write lock, we will greatly reduce
+-    the contention on the read part, while the write part is
+-    unlikely once the unit hits the cache. */
+   RD_TO_WRLOCK (&unit_rwlock);
+ 
+-  /* In the case of high concurrency, when multiple threads want
+-    to find or create the same unit, the unit number may not
+-    exist in cache nor in the unit list during read phase, then
+-    threads will acquire the write-lock to insert the same unit
+-    number to unit list. To avoid duplicate insert, we need to
+-    find unit list once again to ensure that the unit number
+-    not exist. */
++  /* Another thread may have created the unit while UNIT_RWLOCK was
++     released.  */
+   p = get_gfc_unit_from_unit_root (n);
+-  if (p == NULL && do_create)
++  if (p == NULL)
+     {
+       p = insert_unit (n);
+       created = 1;
+     }
+ 
+-  if (p != NULL)
+-    {
+-      for (c = 0; c < CACHE_SIZE - 1; c++)
+-	unit_cache[c] = unit_cache[c + 1];
+-
+-      unit_cache[CACHE_SIZE - 1] = p;
+-    }
++  set_unit_cache (p);
+ 
+   if (created)
+     {
+@@ -468,7 +538,7 @@ found:
+ 	  WRLOCK (&unit_rwlock);
+ 	  UNLOCK_UNIT (p);
+ 	  if (predec_waiting_locked (p) == 0)
+-	    destroy_unit_mutex (p);
++	    recycle_unit (p);
+ 	  goto retry;
+ 	}
+ 
+@@ -817,7 +887,8 @@ init_units (void)
+ static int
+ close_unit_1 (gfc_unit *u, int locked, bool free_newunit)
+ {
+-  int i, rc;
++  int rc;
++  gfc_unit **slot;
+ 
+   if (ASYNC_IO && u->au)
+     async_close (u->au);
+@@ -833,9 +904,9 @@ close_unit_1 (gfc_unit *u, int locked, bool free_newunit)
+   if (!locked)
+     WRLOCK (&unit_rwlock);
+ 
+-  for (i = 0; i < CACHE_SIZE; i++)
+-    if (unit_cache[i] == u)
+-      unit_cache[i] = NULL;
++  slot = &unit_cache[CACHE_SLOT (u->unit_number)];
++  if (__atomic_load_n (slot, __ATOMIC_RELAXED) == u)
++    __atomic_store_n (slot, NULL, __ATOMIC_RELAXED);
+ 
+   delete_unit (u);
+ 
+@@ -852,10 +923,10 @@ close_unit_1 (gfc_unit *u, int locked, bool free_newunit)
+     UNLOCK_UNIT (u);
+ 
+   /* If there are any threads waiting in find_unit for this unit,
+-     avoid freeing the memory, the last such thread will free it
++     avoid recycling it, the last such thread will recycle it
+      instead.  */
+   if (u->waiting == 0)
+-    destroy_unit_mutex (u);
++    recycle_unit (u);
+ 
+   if (!locked)
+     RWUNLOCK (&unit_rwlock);
+@@ -898,6 +969,12 @@ close_units (void)
+   WRLOCK (&unit_rwlock);
+   while (unit_root != NULL)
+     close_unit_1 (unit_root, 1, true);
++  while (unit_free_list != NULL)
++    {
++      gfc_unit *u = unit_free_list;
++      unit_free_list = u->left;
++      destroy_unit_mutex (u);
++    }
+   RWUNLOCK (&unit_rwlock);
+ 
+   free (newunits);
+diff --git a/libgfortran/io/unix.c b/libgfortran/io/unix.c
+index 2a115dc35a59..08c02ae0f01b 100644
+--- a/libgfortran/io/unix.c
++++ b/libgfortran/io/unix.c
+@@ -1794,10 +1794,10 @@ retry:
+       LOCK_UNIT (u);
+       if (u->closed)
+ 	{
+-	  RDLOCK (&unit_rwlock);
++	  WRLOCK (&unit_rwlock);
+ 	  UNLOCK_UNIT (u);
+ 	  if (predec_waiting_locked (u) == 0)
+-	    free (u);
++	    recycle_unit (u);
+ 	  goto retry;
+ 	}
+ 
+@@ -1864,7 +1864,7 @@ flush_all_units (void)
+ 	  WRLOCK (&unit_rwlock);
+ 	  UNLOCK_UNIT (u);
+ 	  if (predec_waiting_locked (u) == 0)
+-	    free (u);
++	    recycle_unit (u);
+ 	}
+     }
+   while (1);
+diff --git a/libgomp/testsuite/libgomp.fortran/unit-cache-1.f90 b/libgomp/testsuite/libgomp.fortran/unit-cache-1.f90
+new file mode 100644
+index 000000000000..af40ac936b3a
+--- /dev/null
++++ b/libgomp/testsuite/libgomp.fortran/unit-cache-1.f90
+@@ -0,0 +1,67 @@
++! { dg-do run }
++! PR 127893
++!
++! Concurrent OPEN/CLOSE of units whose numbers share a unit-cache slot,
++! mixed with I/O on long-lived and shared units.
++
++program unit_cache_1
++  use omp_lib
++  implicit none
++  integer, parameter :: niter = 500, nslot = 4, nthr = 8
++  integer :: tid, k, u, nu, lu, v, w, ios, shared_u, nlines, errs
++  character(len=16) :: str
++
++  errs = 0
++  call omp_set_num_threads (nthr)
++  open (newunit=shared_u, status='scratch')
++
++!$omp parallel private(tid,k,u,nu,lu,v,w,ios,str) reduction(+:errs)
++  tid = omp_get_thread_num ()
++
++  lu = 500 + tid
++  open (lu, status='scratch', form='unformatted')
++  write (lu) tid
++
++  do k = 1, niter
++    ! Unit numbers 64 apart.
++    u = 1024 + 64 * (tid * nslot + mod (k, nslot))
++    open (u, status='scratch', form='unformatted')
++    write (u) k, tid
++    rewind (u)
++    read (u) v, w
++    if (v /= k .or. w /= tid) errs = errs + 1
++    close (u)
++
++    open (newunit=nu, status='scratch')
++    write (nu, '(2i8)') k, tid
++    rewind (nu)
++    read (nu, '(2i8)') v, w
++    if (v /= k .or. w /= tid) errs = errs + 1
++    close (nu)
++
++    write (str, '(i0)') 3 * k + tid
++    read (str, *) v
++    if (v /= 3 * k + tid) errs = errs + 1
++
++    rewind (lu)
++    read (lu) v
++    if (v /= tid) errs = errs + 1
++
++    write (shared_u, '(i0,1x,i0)') tid, k
++    inquire (unit=1024 + 64 * mod (k, nthr * nslot), iostat=ios)
++  end do
++  close (lu)
++!$omp end parallel
++
++  rewind (shared_u)
++  nlines = 0
++  do
++    read (shared_u, *, iostat=ios) v, w
++    if (ios /= 0) exit
++    nlines = nlines + 1
++  end do
++  close (shared_u)
++
++  if (errs /= 0) stop 1
++  if (nlines /= nthr * niter) stop 2
++end program unit_cache_1
