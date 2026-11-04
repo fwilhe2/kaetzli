@@ -58,10 +58,20 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
 
 # One layer, so the image has one apt transaction in its history rather than 23. The sed
 # strips comments and blank lines; xargs turns what is left into the argument list.
+#
+# The packages go through /debs. tools/prep.sh bind-mounts a directory there, seeded
+# from the last build's (the builder-debs image): apt takes a file from it when its
+# SHA-256 is the one the snapshot's signed index names, and downloads the rest, so
+# snapshot.debian.org is asked for only what is new, and a failed attempt's downloads
+# are kept for the next. Without a mount, /debs is a plain directory, removed again.
 RUN apt-get update \
+    && mkdir -p /debs \
     && sed -e 's/#.*//' -e '/^[[:space:]]*$/d' /deps.txt \
-       | xargs apt-get install -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+       | xargs apt-get -o Dir::Cache::Archives=/debs -o APT::Keep-Downloaded-Packages=true \
+           install -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /debs/partial \
+    && if ! mountpoint -q /debs; then rm -rf /debs; fi
 
 COPY builder/build-package.sh /build.sh
 RUN chmod +x /build.sh
