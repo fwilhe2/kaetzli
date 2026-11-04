@@ -2,18 +2,32 @@
 # Download a bootable combination of the latest rootfs image + kernel into
 # output/boot-image/, with the system extensions built in the same run beside them.
 #
+#     ./tools/fetch-image.sh                       # the latest snapshot release
+#     ./tools/fetch-image.sh --snapshot NAME       # an older one (docs/proposals/release.md)
+#     ./tools/fetch-image.sh --run ID              # a CI run's artifacts (needs gh)
+#
+# A snapshot needs nothing but curl: the latest is resolved once, from the redirect of
+# releases/latest, and every file then comes from that snapshot's own URL, so one
+# published mid-download cannot mix two builds. SHA256SUMS lists every asset, and nothing
+# is installed until each file this arch needs matches it; with gh logged in, SHA256SUMS'
+# signed attestation is checked too (the release job makes one for every asset). Until a
+# first snapshot exists, the default falls back to main's newest CI run.
+#
 # Both come out of the same CI run, because they have to match: the kernel is a package
 # in this repo (kernel/), and its container.config fragment is what makes the image able
 # to run containers at all. Pulling a kernel from anywhere else gives you a guest that
 # boots and then quietly has no `memory` cgroup controller, no overlayfs and no veth.
 #
-# By default it grabs the latest successful CI run on main that built an image (skipping
-# runs in progress, docs-only runs and [skip ci] commits), for the host's own architecture.
+# From CI (--run, or with no snapshot published yet) it grabs a run's artifacts: by
+# default the latest successful CI run on main that built an image (skipping runs in
+# progress, docs-only runs and [skip ci] commits), for the host's own architecture.
 # Override any of:
 #   ARCH         amd64 or arm64 (default the host's own architecture)
-#   ROOTFS_RUN   pin a specific kaetzli run id
-#   REQUIRE_ATTESTATION=1  refuse a manifest without a signed attestation (only runs on
-#                main have one; see below)
+#   ROOTFS_RUN   pin a specific kaetzli run id (the same as --run)
+#   REQUIRE_ATTESTATION=1  refuse a CI run's manifest without a signed attestation (only
+#                runs on main have one; see below)
+#   RELEASES     where snapshots are (default https://github.com/fwilhe2/kaetzli/releases;
+#                a fork's, or a mirror laid out the same way)
 #   OUT          output directory (default output/boot-image, or output/boot-image-$ARCH
 #                when ARCH is overridden away from the host's own)
 #
@@ -42,13 +56,25 @@
 # Examples:
 #   ./tools/fetch-image.sh
 #   ARCH=arm64 ./tools/fetch-image.sh
-#   ROOTFS_RUN=29703135782 ./tools/fetch-image.sh
+#   ./tools/fetch-image.sh --run 29703135782
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 source tools/lib.sh
 
 REPO="fwilhe2/kaetzli"
+
+SNAPSHOT= RUN_ARG=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --snapshot) SNAPSHOT=${2:?--snapshot needs a name}; shift 2 ;;
+        --run)      RUN_ARG=${2:?--run needs a run id}; shift 2 ;;
+        -h|--help)  sed -n '5,7p' "$0" | sed 's/^#     //'; exit 0 ;;
+        *) echo "error: unknown argument: $1 (see --help)" >&2; exit 2 ;;
+    esac
+done
+[ -z "$SNAPSHOT" ] || [ -z "$RUN_ARG" ] || { echo "error: --snapshot or --run, not both" >&2; exit 2; }
+RUN_ARG=${RUN_ARG:-${ROOTFS_RUN:-}}
 
 # Defaults to the host's own architecture. ci.yml builds and boot-tests both amd64 and
 # arm64 in every run, tagging each artifact with the arch that produced it, so this has
@@ -66,8 +92,6 @@ else
     OUT="${OUT:-output/boot-image-$ARCH}"
 fi
 
-command -v gh >/dev/null || { echo "error: gh CLI not found" >&2; exit 1; }
-
 die() { echo "error: $*" >&2; exit 1; }
 
 # sha256sum on Linux, shasum on macOS, where boot-vz.sh users run this: bash 3.2, BSD tools.
@@ -81,7 +105,7 @@ if [ -d "$OUT" ]; then
     for f in "$OUT"/* "$OUT"/.[!.]*; do
         [ -e "$f" ] || [ -L "$f" ] || continue
         case "${f##*/}" in
-            rootfs.erofs|rootfs.cmdline|bzImage|extensions|confexts|ci-run|bundle.txt) ;;
+            rootfs.erofs|rootfs.cmdline|bzImage|extensions|confexts|ci-run|bundle.txt|snapshot|SHA256SUMS) ;;
             *) die "$OUT holds ${f##*/}, which is not part of an image bundle; set OUT to another directory" ;;
         esac
     done
@@ -91,6 +115,127 @@ fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
+# install_bundle <dir> <what>: the new bundle, complete in <dir> beside $OUT (the same
+# filesystem, so the swap is two renames), in place of the old one.
+install_bundle() {
+    local new=$1 what=$2 old= parent
+    parent=$(dirname "$OUT")
+    chmod 755 "$new"
+    if [ -e "$OUT" ]; then
+        old="$parent/.$(basename "$OUT").old.$$"
+        mv "$OUT" "$old"
+    fi
+    if ! mv "$new" "$OUT"; then
+        [ -z "$old" ] || mv "$old" "$OUT"
+        die "could not move the new bundle into $OUT; the previous one is unchanged"
+    fi
+    [ -z "$old" ] || rm -rf "$old"
+
+    echo
+    echo "Downloaded and verified into $OUT/ ($what):"
+    ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
+    if [ "$ARCH" = "$host_arch" ]; then
+        echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.sh"
+    else
+        echo "Boot it with: ARCH=$ARCH ./tools/boot-qemu.sh"
+    fi
+}
+
+# --- A snapshot release ----------------------------------------------------------------
+
+releases="${RELEASES:-https://github.com/$REPO/releases}"
+fetch() { curl -fsSL --retry 3 --connect-timeout 20 -o "$2" "$1"; }
+
+# The latest snapshot's name, from where releases/latest redirects: .../releases/tag/<name>.
+# Empty when nothing is published yet (GitHub then redirects to the releases page).
+latest_snapshot() {
+    curl -fsSI --connect-timeout 20 "$releases/latest" | tr -d '\r' |
+        awk 'tolower($1) == "location:" { loc = $2 } END { print loc }' |
+        sed -n 's|.*/releases/tag/||p'
+}
+
+if [ -z "$RUN_ARG" ]; then
+    command -v curl >/dev/null || die "curl not found"
+    name=$SNAPSHOT
+    if [ -z "$name" ]; then
+        name=$(latest_snapshot) || die "could not reach $releases/latest"
+    fi
+    if [ -z "$name" ]; then
+        echo ">> no snapshot release is published yet; fetching main's newest CI build instead"
+    else
+        [[ "$name" =~ ^[0-9]{8}\.[0-9]{6}-[0-9]+$ ]] || die "'$name' is not a snapshot name"
+        base="$releases/download/$name"
+        echo ">> snapshot ($ARCH): $name"
+        mkdir "$tmp/rel"
+        fetch "$base/SHA256SUMS" "$tmp/rel/SHA256SUMS" ||
+            die "snapshot $name has no SHA256SUMS (expired? the newest is at $releases/latest)"
+
+        # Strictly: every line a digest and a plain file name, since the names become paths.
+        : > "$tmp/wanted"
+        while read -r digest asset rest; do
+            [ -n "$digest" ] || continue
+            [ -n "$asset" ] && [ -z "$rest" ] && [ ${#digest} -eq 64 ] ||
+                die "malformed SHA256SUMS line: $digest $asset $rest"
+            case "$digest" in *[!0-9a-f]*) die "malformed digest in SHA256SUMS: $digest" ;; esac
+            case "$asset" in */*|.*|*[!A-Za-z0-9._-]*) die "refusing asset name in SHA256SUMS: $asset" ;; esac
+            case "$asset" in
+                rootfs-"$ARCH".erofs|rootfs-"$ARCH".cmdline|kernel-"$ARCH"|\
+                *-"$ARCH".sysext.raw|*-"$ARCH".sysext.dm-verity|\
+                *-"$ARCH".confext.raw|*-"$ARCH".confext.dm-verity)
+                    printf '%s %s\n' "$asset" "$digest" >> "$tmp/wanted" ;;
+            esac
+        done < "$tmp/rel/SHA256SUMS"
+        for need in "rootfs-$ARCH.erofs" "rootfs-$ARCH.cmdline" "kernel-$ARCH"; do
+            grep -q "^$need " "$tmp/wanted" || die "snapshot $name lists no $need"
+        done
+
+        # The signature, where gh can check it: a logged-in gh that cannot is a refusal.
+        if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then
+            gh attestation verify "$tmp/rel/SHA256SUMS" -R "$REPO" \
+                --signer-workflow "$REPO/.github/workflows/ci.yml" --deny-self-hosted-runners \
+                > "$tmp/attestation.log" 2>&1 || {
+                sed 's/^/   /' "$tmp/attestation.log" >&2
+                die "SHA256SUMS of $name has no attestation that verifies"
+            }
+            echo "   signed: SHA256SUMS was built by $REPO's ci.yml (gh attestation verify)"
+        else
+            echo "   note: no logged-in gh, so SHA256SUMS' signature is not checked"
+        fi
+
+        while read -r asset digest; do
+            echo "   $asset"
+            fetch "$base/$asset" "$tmp/rel/$asset" || die "could not download $asset from $name"
+            [ "$(sha256 "$tmp/rel/$asset")" = "$digest" ] || die "checksum mismatch: $asset"
+        done < "$tmp/wanted"
+        echo "   $(wc -l < "$tmp/wanted" | tr -d ' ') files match SHA256SUMS"
+
+        parent=$(dirname "$OUT")
+        mkdir -p "$parent"
+        new=$(mktemp -d "$parent/.$(basename "$OUT").new.XXXXXX")
+        trap 'rm -rf "$tmp" "$new"' EXIT
+        mv "$tmp/rel/rootfs-$ARCH.erofs" "$new/rootfs.erofs"
+        mv "$tmp/rel/rootfs-$ARCH.cmdline" "$new/rootfs.cmdline"
+        mv "$tmp/rel/kernel-$ARCH" "$new/bzImage"
+        while read -r asset _; do
+            case "$asset" in
+                *-"$ARCH".sysext.*)  d=extensions ext=${asset%-"$ARCH".sysext.*} suffix=${asset##*.sysext.} ;;
+                *-"$ARCH".confext.*) d=confexts ext=${asset%-"$ARCH".confext.*} suffix=${asset##*.confext.} ;;
+                *) continue ;;
+            esac
+            mkdir -p "$new/$d"
+            mv "$tmp/rel/$asset" "$new/$d/$ext.$suffix"
+        done < "$tmp/wanted"
+        cp "$tmp/rel/SHA256SUMS" "$new/SHA256SUMS"
+        echo "$name" > "$new/snapshot"
+        install_bundle "$new" "snapshot $name"
+        exit 0
+    fi
+fi
+
+# --- A CI run's artifacts --------------------------------------------------------------
+
+command -v gh >/dev/null || die "gh CLI not found (a CI run's artifacts need it; a snapshot does not)"
 
 # The newest successful run on main that built an image. Not simply the newest run:
 # one still in progress has no artifacts yet, a docs-only push succeeds without building
@@ -106,9 +251,9 @@ latest_bundle_run() {
         if [ "$n" -gt 0 ]; then echo "$id"; return; fi
     done
 }
-RUN="${ROOTFS_RUN:-$(latest_bundle_run)}"
+RUN="${RUN_ARG:-$(latest_bundle_run)}"
 [ -n "$RUN" ] || die "no successful run on main with a bundle-$ARCH artifact among the last 50"
-case "$RUN" in *[!0-9]*) die "ROOTFS_RUN '$RUN' is not a run id" ;; esac
+case "$RUN" in *[!0-9]*) die "'$RUN' is not a run id" ;; esac
 COMMIT=$(gh run view "$RUN" -R "$REPO" --json headSha -q .headSha)
 [ -n "$COMMIT" ] || die "could not read the commit of run $RUN"
 
@@ -229,24 +374,4 @@ if [ "$have_ext" = 1 ]; then
 fi
 cp "$manifest" "$new/bundle.txt"
 echo "$RUN" > "$new/ci-run"
-chmod 755 "$new"
-
-old=
-if [ -e "$OUT" ]; then
-    old="$parent/.$(basename "$OUT").old.$$"
-    mv "$OUT" "$old"
-fi
-if ! mv "$new" "$OUT"; then
-    [ -z "$old" ] || mv "$old" "$OUT"
-    die "could not move the new bundle into $OUT; the previous one is unchanged"
-fi
-[ -z "$old" ] || rm -rf "$old"
-
-echo
-echo "Downloaded and verified into $OUT/ (run $RUN, commit $COMMIT):"
-ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
-if [ "$ARCH" = "$host_arch" ]; then
-    echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.sh"
-else
-    echo "Boot it with: ARCH=$ARCH ./tools/boot-qemu.sh"
-fi
+install_bundle "$new" "run $RUN, commit $COMMIT"

@@ -1,8 +1,7 @@
 # Releases
 
-**Status: publishing is implemented** (`tools/release.py`, the `release` job in
-`ci.yml`); **fetching from releases is not** — `tools/fetch-image.sh` still reads CI
-artifacts, which need an authenticated `gh` and expire. Immutable releases are a
+**Status: implemented**: publishing (`tools/release.py`, the `release` job in `ci.yml`)
+and fetching (`tools/fetch-image.sh`, `--snapshot`, `--run`). Immutable releases are a
 repository setting, to be switched on by hand.
 
 ## The model is rolling

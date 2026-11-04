@@ -14,7 +14,7 @@
 #     ./tools/vm.sh list                       # every machine: state, ssh port, image, extensions
 #     ./tools/vm.sh info dev                   # one of them in detail, and whether an update waits
 #
-#     ./tools/vm.sh update                     # fetch CI's latest image (tools/fetch-image.sh)
+#     ./tools/vm.sh update                     # fetch the latest snapshot (tools/fetch-image.sh)
 #     ./tools/vm.sh restart dev                # ...and boot it, /var and all
 #
 #     ./tools/vm.sh snapshot dev before-k8s    # copy the /var disk (the machine stopped)
@@ -201,7 +201,8 @@ image_sources() {
         ci)
             root=$(ci_dir) kernel="$root/bzImage" ext="$root"
             SOURCE_DESC="CI's image in $root"
-            [ ! -f "$root/ci-run" ] || SOURCE_DESC="CI run $(cat "$root/ci-run"), in $root" ;;
+            [ ! -f "$root/ci-run" ] || SOURCE_DESC="CI run $(cat "$root/ci-run"), in $root"
+            [ ! -f "$root/snapshot" ] || SOURCE_DESC="snapshot $(cat "$root/snapshot"), in $root" ;;
         *)
             root="$VM_IMAGE" kernel="$VM_IMAGE/bzImage" ext="$VM_IMAGE"
             SOURCE_DESC="$VM_IMAGE" ;;
