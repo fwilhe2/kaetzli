@@ -377,6 +377,11 @@ jobs:
       - name: Check every symbol resolves
         run: ./test/check-symbol-resolution.py rootfs
 
+      # staging/, not rootfs/: per package, extensions included, so a finding names the
+      # package whose build dropped builder/build-package.sh's flags.
+      - name: Check every package is hardened
+        run: ./test/check-hardening.py staging
+
       - name: Check the kernel can run containers
         run: ./test/kernel-caps.py rootfs
 

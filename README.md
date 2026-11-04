@@ -116,6 +116,9 @@ For build details, see the [documentation index](docs/README.md).
   enlarged.
 - **SSH keys only:** accounts have no passwords and sshd accepts keys. `vm.sh` creates and
   keeps a key for each VM.
+- **Hardened binaries:** every package is compiled with a stack protector,
+  `_FORTIFY_SOURCE=3`, stack clash protection and full RELRO; dynamically linked
+  executables are PIE.
 - **Networking:** systemd-networkd and systemd-resolved provide guest networking. The base
   includes `ip`, `ping`, and `curl` for inspection and connectivity checks.
 

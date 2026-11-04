@@ -1,8 +1,9 @@
 # Four of the reference plugins, into /usr/libexec/cni: the FHS place for programs other
 # programs run, where CRI-O's plugin_dirs points first (docs/guides/sysext.md). /opt/cni/bin is
-# left to whatever a cluster's CNI DaemonSet copies in. Static Go, as upstream builds them.
+# left to whatever a cluster's CNI DaemonSet copies in. Static Go, as upstream builds them
+# (-buildmode=exe over the pie that builder/build-package.sh sets for cgo programs).
 for plugin in main/bridge main/loopback ipam/host-local meta/portmap; do
-    CGO_ENABLED=0 go build \
+    CGO_ENABLED=0 go build -buildmode=exe \
         -ldflags "-s -w -X github.com/containernetworking/plugins/pkg/utils/buildversion.BuildVersion=v$KAETZLI_VERSION" \
         -o "$ROOTFS/usr/libexec/cni/${plugin#*/}" "./plugins/$plugin"
 done

@@ -1,0 +1,10 @@
+# Hardening findings test/check-hardening.py reports but does not fail on: one
+# `<package> <property>` per line, the reason in a comment above it. Properties are relro,
+# bind-now, pie, exec-stack, fortify and stack-protector (python/src/kaetzli/elf/hardening.py
+# says what each means). A line whose finding has gone fails the check, so delete it with
+# the fix.
+
+# gcc ships libgcc_s and libstdc++, built from CFLAGS_FOR_TARGET, which carries CPPFLAGS
+# only: libgcc_s is what a stack protector's failure path itself may unwind through, and
+# neither Debian nor Fedora builds gcc's runtime with one.
+gcc stack-protector

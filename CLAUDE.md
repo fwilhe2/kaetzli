@@ -216,6 +216,7 @@ the library checks and the policy checks are done.
 ./test/check-rootfs-deps.py rootfs      # unresolved NEEDED entries
 ./test/check-symbol-versions.py rootfs  # symbol versions no shipped library defines
 ./test/check-symbol-resolution.py rootfs  # undefined symbols nothing in a binary's NEEDED closure defines
+./test/check-hardening.py staging       # every package's binaries: RELRO, BIND_NOW, PIE, NX stack, SSP, fortify
 ./tools/header-skew.py            # builder -dev headers vs the libraries we ship (report)
 ./test/kernel-caps.py rootfs            # kernel config vs test/kernel-caps.txt: what a container needs
 ./test/kernel-parity.py <amd64> <arm64>  # the two arches' kernel configs agree (configs or trees)
@@ -405,11 +406,16 @@ It holds while our version is at least sid's — held by `check-symbol-versions.
 versioned libraries and `check-symbol-resolution.py` for unversioned ones (glib, json-c,
 pcre2); `tools/header-skew.py` shows both sides. `docs/guides/linking.md` is the long version.
 
-**3. No optimization.** Autotools picks `-O2` only when `CFLAGS` is unset, and
-`build-package.sh` sets it, so it exports `-O2` itself; `SYSROOT_CFLAGS` is the same without
-`-O2`, for meson. Meson's default buildtype is `debug` (`-O0`) and says nothing:
+**3. No optimization, no hardening.** Autotools picks `-O2` only when `CFLAGS` is unset,
+and `build-package.sh` sets it, so it exports `-O2` itself; `SYSROOT_CFLAGS` is the same
+without `-O2`, for meson. Meson's default buildtype is `debug` (`-O0`) and says nothing:
 `meson_install` passes `--buildtype=release`. systemd's `-Dmode=release` is unrelated (log
-and status format). A package that sets `CFLAGS` wholesale drops both sysroot and `-O2`.
+and status format). The hardening (Fedora's set: `_FORTIFY_SOURCE=3`, stack protector,
+stack clash, CET/BTI marking, `-z relro -z now`; Go `-buildmode=pie`) rides in the same
+variables, and glibc, which sees none of them, gets it from its own configure switches. A
+package that sets `CFLAGS` wholesale drops sysroot, `-O2` and hardening at once;
+`test/check-hardening.py` catches the last per package, with `test/known-unhardened.txt`
+for what is deliberate.
 
 ## Image assembly and boot
 

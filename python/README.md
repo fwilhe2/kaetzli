@@ -15,7 +15,8 @@ src/kaetzli/size/    the size reports: budget (rootfs-size), slim (vs-debian-sli
                      history (size-history), trim (oci-trim), and sizes, their parser
 src/kaetzli/elf/      the library checks: deps (check-rootfs-deps), versions
                      (check-symbol-versions), resolution (check-symbol-resolution),
-                     and scan, what they read from a tree with pyelftools
+                     and scan, what they read from a tree with pyelftools; hardening
+                     (check-hardening), per package from staging/
 src/kaetzli/sbom_check.py
                      test/check-sbom.py: what the SBOM says
 src/kaetzli/kernel/  the kernel config checks: caps (kernel-caps), parity (kernel-parity),
