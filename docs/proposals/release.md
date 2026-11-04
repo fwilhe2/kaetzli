@@ -1,8 +1,10 @@
 # Releases
 
-**Status: proposal.** The repository publishes the OCI image from `main`, but has no
-downloadable VM image release. `tools/fetch-image.sh` reads CI artifacts, which need an
-authenticated `gh` and expire.
+**Status: partly implemented.** Implemented: snapshots, assets, release notes and
+publishing (`tools/release.py`, ci.yml's `release` job), and `IMAGE_VERSION`. Not yet:
+fetching from releases (`tools/fetch-image.sh` still reads CI artifacts, which need an
+authenticated `gh` and expire), and GitHub's immutable releases setting, which is the
+repository owner's to turn on.
 
 ## The model is rolling
 

@@ -263,6 +263,7 @@ the library checks and the policy checks are done.
 ./tools/boot-vz.sh                # the same, in Virtualization.framework via vfkit (macOS)
 ./tools/ssh.sh [--root] [cmd...]  # passwordless ssh into the guest any of those started, as `user` or root
 ./tools/k8s-demo.sh up|ps|kubectl|ssh|down  # a 3-node kubeadm cluster on the image and its kubernetes extension, this checkout's build if there is one (docs/guides/sysext.md)
+./tools/release.py assemble ARTIFACTS DIR | publish DIR --name N  # a rolling snapshot release (CI's release job)
 ./tools/clean.sh [-n] [--downloads|--images|--all|--vms]  # delete build state, tarballs, stale images; vm.sh's machines only with --vms
 ./tools/build-extension.sh sysext|confext <name> <dir>  # a directory tree → output/extensions|confexts/<name>.raw
 ./tools/build-node-e2e.sh         # e2e_node.test + ginkgo for the pinned Kubernetes, in a golang container
@@ -693,9 +694,17 @@ no rebase onto the current main and no rebuild, so two bumps are never tested to
 before they land. CI then runs on main, and a red main does not release. `hold` keeps a
 pull request out.
 
-`publish-oci` is the only job that writes anything public, and only on `main`, so a pull
-request cannot exercise it — verify changes to it or `tools/publish-oci.sh` by hand
-(`REGISTRY=` points it at a local registry). It pushes `kaetzli:<commit>-<arch>`, then a
+**`release` publishes a rolling snapshot** of `main`'s head (`tools/release.py`,
+`docs/proposals/release.md`): `changes` names it once (`YYYYMMDD.HHMMSS-<run_number>`), the
+image carries the name as `IMAGE_VERSION` (rootfs and reproducible both pass it, and
+`test/oci.sh` checks it), and the job publishes only if its commit is still the head and
+ahead of the latest snapshot. Asset names have no version, so
+`releases/latest/download/<asset>` is stable.
+
+`publish-oci` and `release` are the only jobs that write anything public, and only on
+`main`, so a pull request cannot exercise them — verify changes to `tools/publish-oci.sh`
+by hand (`REGISTRY=` points it at a local registry), and `tools/release.py assemble` on a
+run's downloaded artifacts. It pushes `kaetzli:<commit>-<arch>`, then a
 manifest list at `kaetzli:<commit>` and `kaetzli:latest`, after `boot` (the OCI image is the same
 userspace as the disk). Both archives `podman load` as `localhost/kaetzli:latest`, so the
 script tags and pushes each before loading the next.

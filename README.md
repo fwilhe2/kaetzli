@@ -31,6 +31,13 @@ temporary filesystems by default. `/home` and `/root` point into `/var`; attach 
 `/var` disk when state must survive reboot. The `vm.sh` workflow creates and manages one
 for each VM.
 
+Every green build of `main`'s head is also published as a rolling snapshot release, with
+no authentication needed to download it:
+`https://github.com/fwilhe2/kaetzli/releases/latest/download/rootfs-amd64.erofs`, and
+likewise `rootfs-<arch>.cmdline`, `kernel-<arch>`, each extension, the SBOMs and
+`SHA256SUMS`. Snapshots are deleted after at least 37 days, and nothing is backported to
+one: the fix is always a newer snapshot. Each release's notes show how to boot it.
+
 System extensions are EROFS images merged by systemd-sysext at boot; configuration
 extensions use systemd-confext. Extensions attached by the VM tools are read-only and
 dm-verity verified. Extensions installed under `/var` are not verified.

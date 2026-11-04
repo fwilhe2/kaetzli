@@ -37,7 +37,8 @@ echo "loaded $ref"
 # that is all a base image has, and asking for more is how a test starts depending on the
 # host. --network=none because none of it needs a network, and an image that quietly did
 # would be worth finding out about.
-podman run --rm --network=none -e EXPECT_BUILD="${KAETZLI_BUILD:-}" "$ref" -c '
+podman run --rm --network=none -e EXPECT_BUILD="${KAETZLI_BUILD:-}" \
+    -e EXPECT_VERSION="${KAETZLI_VERSION:-}" "$ref" -c '
 set -u
 fail=0
 check() {  # check <description> <test...>
@@ -55,6 +56,7 @@ check() {  # check <description> <test...>
 # variable that kills the script.
 ID=
 BUILD_ID=
+IMAGE_VERSION=
 . /etc/os-release 2>/dev/null || true
 
 echo "the shell the entrypoint started:"
@@ -70,6 +72,9 @@ check "os-release identifies the image"      test "$ID" = kaetzli
 # CI supplying a commit that never reaches os-release, leaving a published image unable
 # to say which build it is.
 check "BUILD_ID is what the build was given" test "$BUILD_ID" = "${EXPECT_BUILD:-}"
+# The same for the snapshot name, which the changes job in CI gives a push to main and nothing
+# else (docs/proposals/release.md).
+check "IMAGE_VERSION is the snapshot it would be" test "$IMAGE_VERSION" = "${EXPECT_VERSION:-}"
 
 echo "what a container must not be carrying:"
 check "no kernel"                            test ! -e /boot
