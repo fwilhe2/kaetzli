@@ -1,8 +1,0 @@
-#41 update/closed-late-1
-  behind main (checks: green): rebasing and building again
-success
-  closed while it was built, leaving it
-#40 update/held-late-1
-  behind main (checks: green): rebasing and building again
-success
-  labelled hold while it was built, leaving it

@@ -1,6 +1,0 @@
-#25 update/dead-check-1
-  behind main (checks: stale): rebasing and building again
-  would rebase onto origin/main, push, run CI and merge if it passes
-#24 update/no-checks-1
-  up to date but checks are none: building again
-  would rebase onto origin/main, push, run CI and merge if it passes

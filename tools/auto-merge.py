@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-# Merge the pull requests update-packages.yml opened, one at a time, each only after CI
-# has passed on exactly the commit that lands on main:
+# Merge the green pull requests update-packages.yml opened:
 #
 #     ./tools/auto-merge.py        # what .github/workflows/auto-merge.yml runs
-#     ./tools/auto-merge.py -n     # say what would happen, touch nothing (works locally)
+#     ./tools/auto-merge.py -n     # say what would happen, touch nothing
 #
 # The code is python/src/kaetzli/automerge.py, run in python/'s venv (python/README.md).
 import pathlib

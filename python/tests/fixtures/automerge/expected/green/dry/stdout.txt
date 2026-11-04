@@ -1,4 +1,0 @@
-#10 update/a-2.0
-  green on top of the current main
-  would run: git push --quiet origin 1000000000000000000000000000000000000000:refs/heads/main
-  merged 1000000

@@ -1,8 +1,0 @@
-#11 update/b-2.0
-  behind main (checks: green): rebasing and building again
-success
-  merged 1110000
-#12 update/c-2.0
-  green on top of the current main
-::warning::main moved during this run, #12 waits for the next one
-dispatched ci.yml on main

@@ -1,6 +1,0 @@
-#4 update/running-1.0
-  skip: a check is still running
-#3 update/red-1.0
-  skip: a check failed, needs a human
-#1 update/held-1.0
-  skip: labelled hold

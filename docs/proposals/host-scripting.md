@@ -1,8 +1,7 @@
 # Host-side scripts: which language for which job
 
 **Status: proposal, partly implemented.** Implemented: items 1 to 5, the CVE reports,
-the SBOM, the size reports, the library checks and the policy checks, and item 6, whose
-`auto-merge.py` is in the shadow of `auto-merge.sh` (`python/`, see its README). Item 7
+the SBOM, the size reports, the library checks and the policy checks, and item 6. Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py` and `test/listeners.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
@@ -134,13 +133,10 @@ real `dpkg --compare-versions`, are the edge cases' golden.
 
 Dependencies: `license-expression`.
 
-### 6. Updates and GitHub automation: `tools/upstream.py`, `check-updates.py`, `release-notes.py`, `check-snapshot.py` (done), `auto-merge.sh`
+### 6. Updates and GitHub automation: `tools/upstream.py`, `check-updates.py`, `release-notes.py`, `check-snapshot.py` (done)
 
 `upstream.sh` scrapes HTML listings with regexes and sorts versions with knobs from
-`env.sh`. `auto-merge.sh` is a state machine that pushes to `main`: age, labels,
-checks, rebase, rebuild, fast-forward. It is the script where readability matters most
-and where a rewrite is riskiest, so it goes last in this group, after `-n` (dry-run)
-output can be compared line by line against the bash version over several nights.
+`env.sh`.
 `UPSTREAM_SED` values are sed expressions and stay that way: Python runs `sed -E` on them
 rather than translating the knob.
 
@@ -156,20 +152,10 @@ for `fetch`, whose local source crashed the bash version. Packages are checked
 eight at a time: four minutes became forty seconds. `check-snapshot.py` (Docker Hub's
 dated sid tags against the pin) moved with them, and was identical live.
 
-`auto-merge.py` is `kaetzli.automerge`: the decisions (the checks' state, the night
-window, which pull requests are updates) are functions, and every git and gh command is
-the one the bash version ran, in the same order. Its tests run both versions through
-fake `git`, `gh` and `date` on nine scenarios, dry and for real: the merge, a rebase
-pushed with a lease, a lease refused, a conflict, CI red after a rebase, the branch or
-main moving meanwhile, stale and missing checks, and the window's edges. The Python
-reproduces the bash version's output, exit code and the log of every command. On the
-open pull requests, live, the dry runs were identical (with `MIN_AGE_HOURS=0` as well).
-
-It does not merge yet. `auto-merge.yml` runs both with `-n` before the bash version acts
-and warns, with the diff in the job summary, when they differ. When they have agreed for
-two weeks of nights with something to do, the workflow runs `auto-merge.py` and
-`auto-merge.sh` and the shadow step are deleted; the harness and its goldens stay as
-the tests.
+`auto-merge.sh` was on this list too, as a state machine that rebased each pull request
+onto main and built it again before a fast-forward push. It was made simple
+instead (it merges what is green, as it is) and is now `auto-merge.py`, `kaetzli.automerge`;
+the bash version is gone.
 
 `dispatch-ci.sh` was on this list and stays bash: it is `gh` and `git` in sequence (a
 check run, a dispatch, a wait), and its two `jq` expressions are one-liners.

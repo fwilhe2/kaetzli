@@ -1,2 +1,0 @@
-CONFLICT (content): Merge conflict in env.sh
-! [rejected] (non-fast-forward)

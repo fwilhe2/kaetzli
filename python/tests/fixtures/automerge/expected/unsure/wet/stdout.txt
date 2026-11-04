@@ -1,9 +1,0 @@
-#25 update/dead-check-1
-  behind main (checks: stale): rebasing and building again
-success
-  merged 2500000
-#24 update/no-checks-1
-  up to date but checks are none: building again
-success
-  merged 2400000
-dispatched ci.yml on main

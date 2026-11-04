@@ -32,8 +32,8 @@ on:
 permissions:
   contents: read
 
-# Shared with auto-merge.yml, which rebases update/ branches and must not judge a pull
-# request this workflow is still waiting on CI for.
+# Shared with auto-merge.yml, which must not judge a pull request this workflow is still
+# waiting on CI for.
 concurrency:
   group: package-updates
   cancel-in-progress: false
@@ -281,7 +281,7 @@ jobs:
           ${FIXED:-none named}
 
           Opened automatically by \`.github/workflows/update-packages.yml\`. CI builds
-          with the patches applied and boots the image; auto-merge takes it after a day if
+          with the patches applied and boots the image; auto-merge merges it from 20:00 UTC if
           that is green, unless it is labelled \`hold\`.
           EOF
           )

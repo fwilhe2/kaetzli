@@ -1,4 +1,0 @@
-#!/bin/bash
-# The hour is the scenario's ($FAKE_HOUR); everything else is the real date.
-if [ "$*" = "-u +%H" ] && [ -n "${FAKE_HOUR:-}" ]; then printf '%02d\n' "$FAKE_HOUR"; exit 0; fi
-exec /usr/bin/date "$@"

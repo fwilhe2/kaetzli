@@ -1,4 +1,0 @@
-#10 update/a-2.0
-  green on top of the current main
-  merged 1000000
-dispatched ci.yml on main

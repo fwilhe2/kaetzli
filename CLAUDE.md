@@ -688,10 +688,10 @@ fresh=true` does the same by hand. A plain cache miss is not that: it still pull
 images. Note that `build.sh`, `tools/lib.sh` and `builder/build-package.sh` are in every
 key, so even a comment there rebuilds every package.
 
-**Only a green commit reaches `main` by automation**: the ruleset *main: CI green before a
-push* requires `result` from GitHub Actions on the pushed commit, admins bypassing it.
-`tools/auto-merge.sh` merges update pull requests from 20:00 to 05:00 UTC by fast-forward
-to the commit CI passed, after re-reading `hold` and the state; there is no minimum age.
+**`tools/auto-merge.py` merges green update pull requests** from 20:00 UTC, as they are:
+no rebase onto the current main and no rebuild, so two bumps are never tested together
+before they land. CI then runs on main, and a red main does not release. `hold` keeps a
+pull request out.
 
 `publish-oci` is the only job that writes anything public, and only on `main`, so a pull
 request cannot exercise it — verify changes to it or `tools/publish-oci.sh` by hand

@@ -1,7 +1,0 @@
-#11 update/b-2.0
-  behind main (checks: green): rebasing and building again
-  would rebase onto origin/main, push, run CI and merge if it passes
-#12 update/c-2.0
-  green on top of the current main
-  would run: git push --quiet origin 1200000000000000000000000000000000000000:refs/heads/main
-  merged 1200000

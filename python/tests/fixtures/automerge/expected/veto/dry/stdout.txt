@@ -1,6 +1,0 @@
-#41 update/closed-late-1
-  behind main (checks: green): rebasing and building again
-  would rebase onto origin/main, push, run CI and merge if it passes
-#40 update/held-late-1
-  behind main (checks: green): rebasing and building again
-  would rebase onto origin/main, push, run CI and merge if it passes

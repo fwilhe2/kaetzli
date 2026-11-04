@@ -76,7 +76,10 @@ fi
 gh pr comment "$PR_URL" \
     --body "CI for \`${SHA:0:12}\`: $RUN_URL (the Package update CI check above will be updated when it finishes)" >&2
 
+# gh run watch can return before the run has finished (an API hiccup), and an empty
+# conclusion is refused by the check-runs API, leaving the check in progress forever.
 gh run watch "$RUN_ID" --exit-status >&2 || true
+until [ "$(gh run view "$RUN_ID" --json status --jq .status)" = completed ]; do sleep 60; done
 CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion')
 
 complete_check "$CONCLUSION" "$RUN_URL" "CI finished with conclusion: $CONCLUSION"
