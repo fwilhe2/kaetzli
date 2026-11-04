@@ -18,6 +18,7 @@ shell, because a login over a serial console is the expensive part and one more 
 on it is free: systemd's Tainted property, writes to the read-only root, the journal's
 errors, the image's sysctls, a credential through fw_cfg, fetch, the only binary in
 usr/bin that anything in test/ runs for its own sake, and how sandboxed each service is.
+Last, how long the boot took, recorded and not judged (kaetzli.boot.timing).
 
 This is deliberately separate from test/boot.py and test/network.py: test/boot.py proves
 the kernel and the loader work with a raw shell as PID 1, test/network.py proves
@@ -37,7 +38,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from kaetzli.boot import boot, run
+from kaetzli.boot import boot, run, timing
 from kaetzli.qemu import Guest
 
 CHECK = "echo SYSTEMD'-STATE':$(systemctl is-system-running --wait)"
@@ -117,6 +118,16 @@ SECURITY_CHECK = (
     "while read -r u e _; do echo \"SEC> $u $e\"; done; echo SYSTEMD'-SECURITY-DONE'"
 )
 UNIT_EXPOSURE = "test/unit-exposure.txt"
+
+# How long the boot took, by systemd's clock, and its ten slowest units: recorded beside
+# the console log as boot-time.txt for test/boot-time-history.py (kaetzli.boot.timing),
+# never judged here. The count is bash's, so the handshake needs no head(1).
+TIME_CHECK = (
+    'systemd-analyze time --no-pager 2>&1 | while IFS= read -r l; do echo "TIME> $l"; done; '
+    "systemd-analyze blame --no-pager 2>&1 | { n=0; while IFS= read -r l; do "
+    'n=$((n+1)); if [ $n -le 10 ]; then echo "BLAME> $l"; fi; done; }; '
+    "echo SYSTEMD'-TIME-DONE'"
+)
 
 DIAGNOSE = "systemctl --failed --no-pager --plain; journalctl -p err -b --no-pager -o short"
 
@@ -205,6 +216,26 @@ def compare_exposure(
     for unit in sorted(want.keys() - got.keys()):
         notes.append(f"{unit} is not loaded: delete its line")
     return failures, notes
+
+
+def record_time(guest: Guest, accel: str, record: Path) -> None:
+    """The boot's time into record, and a line saying it; a boot systemd cannot time is
+    a note, since nothing here judges the number."""
+    guest.mark()
+    guest.send(TIME_CHECK)
+    if not guest.wait("SYSTEMD-TIME-DONE", 60):
+        guest.fail("systemd-analyze time did not finish")
+    parsed = None
+    for line in _prefixed(guest.before, "TIME> "):
+        parsed = parsed or timing.parse_time(line)
+    if parsed is None:
+        _out(">> note: systemd-analyze time gave no startup time; nothing recorded")
+        return
+    phases, total = parsed
+    blame = timing.parse_blame(_prefixed(guest.before, "BLAME> "))
+    timing.write(timing.BootTime(accel, phases, total, blame), record)
+    spent = " + ".join(f"{s:.2f} s {name}" for name, s in phases.items())
+    _out(f">> boot took {spent} = {total:.2f} s ({accel}), recorded in {record}")
 
 
 def check(guest: Guest, fwcfg: bool) -> None:
@@ -346,6 +377,9 @@ def main(argv: list[str]) -> int:
         with b.guest("systemd", diagnose=DIAGNOSE) as guest:
             guest.login(user)
             check(guest, fwcfg=bool(b.machine.fwcfg_credentials))
+            record_time(
+                guest, "kvm" if b.machine.kvm else "tcg", Path(b.log).parent / "boot-time.txt"
+            )
 
     return run(test)
 

@@ -32,6 +32,10 @@
   "SEC> UNIT EXPOSURE\nSEC> serial-getty@ttyS0.service 9.6\nSEC> systemd-journald.service 3.0\nSYSTEMD-SECURITY-DONE\n"
  ],
  [
+  "systemd-analyze time",
+  "TIME> Startup finished in 257ms (kernel) + 1.813s (userspace) = 2.071s\nTIME> multi-user.target reached after 1.790s in userspace.\nBLAME> 416ms dev-dm\\x2d0.device\nBLAME> 161ms sshd-keygen.service\nSYSTEMD-TIME-DONE\n"
+ ],
+ [
   "systemctl --failed",
   "UNIT LOAD ACTIVE SUB DESCRIPTION\nfoo.service loaded failed failed Foo\n"
  ]

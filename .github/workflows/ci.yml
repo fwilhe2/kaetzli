@@ -588,6 +588,11 @@ jobs:
 
   boot:
     runs-on: *runner
+    # actions: read for boot-time-history.py, which reads earlier runs' artifacts.
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     needs:
       - rootfs
     strategy: *per-arch
@@ -632,6 +637,20 @@ jobs:
           sudo apt-get install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
 
+      # KVM where the runner has it, as the k8s job does: every boot here is several
+      # times faster than under TCG, and test/systemd.py's boot time means something
+      # (it records which it ran on, and boot-time-history.py compares like with like).
+      - name: Open /dev/kvm to the runner user
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+              sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+          else
+            echo "no /dev/kvm: the boots run under TCG"
+          fi
+
       # The Python boot tests run in python/'s venv (kaetzli.qemu).
       - *setup-python
 
@@ -643,6 +662,20 @@ jobs:
 
       - name: Check for failed units, and say hello
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
+      # Read back by boot-time-history.py in later runs.
+      - name: Upload the boot time
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: boot-time-${{ matrix.arch }}
+          path: output/boot-time.txt
+
+      # The trend over the last builds on main. Telemetry, so it never fails the job.
+      - name: Boot time over time
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./test/boot-time-history.py ${{ matrix.arch }}
 
       - name: Check networking
         run: ./test/network.py artifacts/rootfs.erofs rootfs/boot/bzImage

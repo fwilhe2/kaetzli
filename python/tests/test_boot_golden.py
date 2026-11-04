@@ -8,7 +8,8 @@ its last commit, with <tmp> for the temporary directory), console tail and all; 
 Python has to reproduce it byte for byte.
 Deliberate differences are edited into expected/: listeners/extra names the Python
 module, where the expected list now lives, rather than the bash script; systemd/ok and
-systemd/exposure-* end with the services' exposure, which the bash test never checked.
+systemd/exposure-* end with the services' exposure, which the bash test never checked, and
+the two that pass with the boot's time.
 """
 
 from __future__ import annotations
