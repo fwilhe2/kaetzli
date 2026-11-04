@@ -695,7 +695,10 @@ pull request out.
 
 `publish-oci` is the only job that writes anything public, and only on `main`, so a pull
 request cannot exercise it — verify changes to it or `tools/publish-oci.sh` by hand
-(`REGISTRY=` points it at a local registry). It pushes `kaetzli:<commit>-<arch>`, then a
+(`REGISTRY=` points it at a local registry). It also attests (`actions/attest`, Sigstore)
+every image digest it pushed (`DIGESTS=`), the OCI SBOMs against their images, and every
+file each `bundle.txt` lists, by its checksum; `tools/fetch-image.sh` verifies the
+bundle's attestation. It pushes `kaetzli:<commit>-<arch>`, then a
 manifest list at `kaetzli:<commit>` and `kaetzli:latest`, after `boot` (the OCI image is the same
 userspace as the disk). Both archives `podman load` as `localhost/kaetzli:latest`, so the
 script tags and pushes each before loading the next.

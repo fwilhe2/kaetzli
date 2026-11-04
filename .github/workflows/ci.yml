@@ -955,16 +955,66 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Signed attestations (actions/attest): an OIDC token for Sigstore's certificate,
+      # and the API that keeps them.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # tools/publish-oci.sh reads artifacts/oci-image-<arch>/kaetzli-oci.tar.
+      # tools/publish-oci.sh reads artifacts/oci-image-<arch>/kaetzli-oci.tar; the SBOMs
+      # and bundle manifests are what the attestations below are made of.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: oci-image-*
+          pattern: '{oci-image,sbom,bundle}-*'
           path: artifacts
 
       - name: Log in to ghcr.io
         run: podman login ghcr.io -u '${{ github.actor }}' -p '${{ secrets.GITHUB_TOKEN }}'
 
-      - run: ./tools/publish-oci.sh
+      - run: DIGESTS=output/oci-digests.txt ./tools/publish-oci.sh
+
+      # What gets a provenance attestation: each image pushed and the list, by digest, and
+      # every file of each arch's boot bundle — the disk image, its command line, the
+      # kernel's package, the extensions — by the SHA-256 its bundle.txt lists, plus each
+      # bundle.txt itself, which tools/fetch-image.sh verifies. Checksums, so nothing is
+      # downloaded again; `gh attestation verify <file> -R fwilhe2/kaetzli` on any of
+      # them proves this workflow built it from this commit.
+      - name: List the subjects
+        id: subjects
+        run: |
+          {
+              cat output/oci-digests.txt
+              for b in artifacts/bundle-*/bundle.txt; do
+                  awk '$1 == "sha256" { print $2 "  " $3 }' "$b"
+                  sha256sum "$b" | awk -v n="$(basename "$(dirname "$b")")/bundle.txt" '{ print $1 "  " n }'
+              done
+          } > output/attest-subjects.txt
+          cat output/attest-subjects.txt
+          image=ghcr.io/fwilhe2/kaetzli/kaetzli
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          for arch in amd64 arm64; do
+              digest=$(awk -v ref="$image:${GITHUB_SHA::12}-$arch" '$2 == ref { print $1 }' output/oci-digests.txt)
+              [ -n "$digest" ] || { echo "no digest for $image:${GITHUB_SHA::12}-$arch" >&2; exit 1; }
+              echo "$arch=sha256:$digest" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Attest provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: output/attest-subjects.txt
+
+      # The SBOM of the OCI flavour, bound to the image it describes.
+      - name: Attest the SBOM (amd64)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.subjects.outputs.image }}
+          subject-digest: ${{ steps.subjects.outputs.amd64 }}
+          sbom-path: artifacts/sbom-amd64/sbom-oci.json
+
+      - name: Attest the SBOM (arm64)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.subjects.outputs.image }}
+          subject-digest: ${{ steps.subjects.outputs.arm64 }}
+          sbom-path: artifacts/sbom-arm64/sbom-oci.json

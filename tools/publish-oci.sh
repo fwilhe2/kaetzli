@@ -4,6 +4,11 @@
 #     ./tools/publish-oci.sh                      # both arches, from artifacts/
 #     TAG=v1 ./tools/publish-oci.sh               # under a name of your choosing
 #     REGISTRY=localhost:5000 ./tools/publish-oci.sh
+#     DIGESTS=output/oci-digests.txt ./tools/publish-oci.sh
+#
+# DIGESTS names a file to write what was pushed to, one `<sha256 hex>  <image>:<tag>` per
+# image and one for the list, in sha256sum's format: CI attests each digest (ci.yml,
+# publish-oci), and a digest is what a signature can be about where a tag is not.
 #
 # It expects the two archives where CI's download-artifact leaves them,
 # artifacts/oci-image-<arch>/kaetzli-oci.tar, which is also where tools/fetch-image.sh
@@ -33,6 +38,25 @@ TAG="${TAG:-${sha:0:12}}"
 # what makes `podman run ghcr.io/.../kaetzli` work without looking a commit up first.
 LATEST="${LATEST:-latest}"
 
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+if [ -n "${DIGESTS:-}" ]; then
+    mkdir -p "$(dirname "$DIGESTS")"
+    : > "$DIGESTS"
+fi
+# record <ref>: the digest the last push wrote, against the name it was pushed as.
+record() {
+    local digest
+    digest=$(< "$tmp/digest")
+    case "$digest" in
+        sha256:*) ;;
+        *) echo "error: podman wrote no sha256 digest for $1: '$digest'" >&2; exit 1 ;;
+    esac
+    if [ -n "${DIGESTS:-}" ]; then
+        printf '%s  %s\n' "${digest#sha256:}" "$1" >> "$DIGESTS"
+    fi
+}
+
 per_arch=()
 for arch in amd64 arm64; do
     archive="artifacts/oci-image-$arch/kaetzli-oci.tar"
@@ -54,7 +78,8 @@ for arch in amd64 arm64; do
 
     dest="$REPO:$TAG-$arch"
     podman tag "$ref" "$dest"
-    podman push "$dest"
+    podman push --digestfile "$tmp/digest" "$dest"
+    record "$dest"
     echo ">> pushed $dest"
     per_arch+=("$dest")
 done
@@ -69,7 +94,8 @@ done
 podman manifest rm "$REPO:$TAG" >/dev/null 2>&1 || true
 podman manifest create "$REPO:$TAG" "${per_arch[@]}"
 
-podman manifest push --all "$REPO:$TAG"
+podman manifest push --all --digestfile "$tmp/digest" "$REPO:$TAG"
+record "$REPO:$TAG"
 echo ">> pushed $REPO:$TAG (manifest list)"
 
 if [ -n "$LATEST" ]; then

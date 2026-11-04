@@ -496,8 +496,8 @@ done with it, not before.
 - **In-guest A/B updates** (Talos's installer, Flatcar's update_engine and
   `generate_payload`, systemd-sysupdate): the VMM supplies both the kernel and the root
   image from outside, so an update replaces files on the host, which `tools/vm.sh update`
-  and `tools/fetch-image.sh` already do with verification. Signed artifacts are covered by
-  the [release](release.md) proposal.
+  and `tools/fetch-image.sh` already do with verification. Every file CI builds on main
+  carries a signed attestation, which `fetch-image.sh` verifies.
 - **UKI, Secure Boot and TPM measurement** (Talos `internal/pkg/uki`, `internal/pkg/secureboot`,
   `internal/pkg/measure`; Flatcar `build_library/sbsign_util.sh`): they need firmware boot,
   an ESP and a bootloader, all deliberately absent. Revisit only with a self-bootable disk

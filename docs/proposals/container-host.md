@@ -35,8 +35,8 @@ expected from a container host.
 
 The host controls the VM's kernel command line and attached devices. A verified root image
 protects against accidental or unauthorized changes to the image file, but does not
-authenticate who supplied that file. Signed releases and signature verification would be
-needed for a stronger update trust chain.
+authenticate who supplied that file. CI attests every file it builds on main (Sigstore,
+`gh attestation verify`); a launcher should verify that before using an image.
 
 This project does not aim to emulate Podman machine's Ignition configuration or user model.
 A first implementation should provide its own small launcher, use the existing image and
