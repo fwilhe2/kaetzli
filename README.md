@@ -176,6 +176,19 @@ it requires, for example:
 ./test/podman.sh output/rootfs.erofs rootfs/boot/bzImage
 ```
 
+Every build on main signs what it publishes: the OCI images get a SLSA provenance and
+their SBOM, and each boot bundle file gets a provenance (disk image, command line,
+kernel, extensions). To check that a file or image came from this repository's CI and
+which commit built it:
+
+```sh
+gh attestation verify oci://ghcr.io/fwilhe2/kaetzli/kaetzli:latest -R fwilhe2/kaetzli
+gh attestation verify output/boot-image/rootfs.erofs -R fwilhe2/kaetzli
+```
+
+`tools/fetch-image.sh` checks the bundle's signature itself; `REQUIRE_ATTESTATION=1`
+makes it refuse a run that has none.
+
 `./tools/check-updates.py` checks pinned package versions, vendored second tarballs and
 upstream patch series. `./tools/bump-version.sh <package> <version>` updates a package pin
 and checksum. The update workflow opens pull requests for available updates at 17:00 UTC,

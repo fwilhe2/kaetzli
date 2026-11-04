@@ -70,8 +70,9 @@ All listed assets are required for both architectures except `cve-<arch>.ods`, w
 optional because `cve-workbook.sh` does not fail a build. Missing any other expected
 asset fails the release job before a draft is created. The checksum manifest detects
 accidental corruption; by itself it does not authenticate assets if both the files and
-manifest are replaced. Signing the manifest or publishing verifiable build provenance
-is outside this proposal.
+manifest are replaced. Authentication is already there: CI's publish-oci job attests
+every bundle file by its checksum, and a release asset is the same bytes, so
+`gh attestation verify <asset> -R fwilhe2/kaetzli` authenticates it.
 
 These stay out:
 

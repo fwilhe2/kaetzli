@@ -12,6 +12,8 @@
 # Override any of:
 #   ARCH         amd64 or arm64 (default the host's own architecture)
 #   ROOTFS_RUN   pin a specific kaetzli run id
+#   REQUIRE_ATTESTATION=1  refuse a manifest without a signed attestation (only runs on
+#                main have one; see below)
 #   OUT          output directory (default output/boot-image, or output/boot-image-$ARCH
 #                when ARCH is overridden away from the host's own)
 #
@@ -31,8 +33,11 @@
 #   arch <amd64|arm64>
 #   sha256 <hex> <artifact-name>/<path inside the artifact>     one per file
 #
-# The manifest proves the files are the ones that run produced and belong together. It is
-# not a signature: it is fetched over the same authenticated gh connection as the files.
+# The manifest proves the files are the ones that run produced and belong together. By
+# itself it is not a signature: it is fetched over the same authenticated gh connection
+# as the files. For a run on main it is signed too — the publish-oci job attests it — and
+# that is checked with `gh attestation verify` against this repository's ci.yml and the
+# run's commit.
 #
 # Examples:
 #   ./tools/fetch-image.sh
@@ -142,6 +147,21 @@ done < "$manifest"
 [ "$m_run" = "$RUN" ]       || die "the manifest is for run '$m_run', not $RUN"
 [ "$m_commit" = "$COMMIT" ] || die "the manifest is for commit '$m_commit', but run $RUN built $COMMIT"
 [ "$m_arch" = "$ARCH" ]     || die "the manifest is for '$m_arch', not $ARCH"
+
+# The manifest's signature, where it has one: ci.yml's publish-oci job attests every
+# bundle.txt of a run on main (actions/attest, Sigstore), and the manifest names every
+# other file's digest. Runs off main, and runs from before attestation began, have none;
+# that is a note, unless REQUIRE_ATTESTATION=1 makes it a refusal.
+if gh attestation verify "$manifest" -R "$REPO" --signer-workflow "$REPO/.github/workflows/ci.yml" \
+        --source-digest "$COMMIT" --deny-self-hosted-runners > "$tmp/attestation.log" 2>&1; then
+    echo "   signed: built by $REPO's ci.yml from $COMMIT (gh attestation verify)"
+elif [ "${REQUIRE_ATTESTATION:-0}" = 1 ]; then
+    sed 's/^/   /' "$tmp/attestation.log" >&2
+    die "the manifest has no attestation that verifies, and REQUIRE_ATTESTATION=1"
+else
+    echo "   note: no attestation verifies this manifest (runs off main, and older ones, have"
+    echo "         none); checked against the run's own artifacts only. REQUIRE_ATTESTATION=1 refuses."
+fi
 for need in "$rootfs_art/rootfs.erofs" "$rootfs_art/rootfs.cmdline" "$kernel_art/kernel.tar"; do
     grep -q "^$need " "$tmp/listed" || die "the manifest does not list $need"
 done
