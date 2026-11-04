@@ -8,3 +8,7 @@
 # only: libgcc_s is what a stack protector's failure path itself may unwind through, and
 # neither Debian nor Fedora builds gcc's runtime with one.
 gcc stack-protector
+
+# The same runtime, from CPPFLAGS alone: libstdc++ is built without _FORTIFY_SOURCE, as
+# Debian's and Fedora's are.
+gcc fortify

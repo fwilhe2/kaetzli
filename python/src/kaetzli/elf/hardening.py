@@ -15,11 +15,13 @@ Judged per file, for every dynamically linked ELF:
                      is read-only after start-up
     pie              an executable is ET_DYN                    -fPIE -pie (gcc's default)
     exec-stack       a PT_GNU_STACK without PF_X (any ELF)      -Wl,-z,noexecstack
-    fortify          no unfortified printf-family import:       -D_FORTIFY_SOURCE=3 at -O2
-                     with _FORTIFY_SOURCE >= 2 glibc's headers
-                     turn every printf, fprintf, syslog, ...
-                     into __*_chk, so a plain one is a
-                     translation unit built without it (or -O0)
+    fortify          a file that calls printf, fprintf,         -D_FORTIFY_SOURCE=3 at -O2
+                     syslog, ... imports some __*_chk: with
+                     _FORTIFY_SOURCE >= 2 glibc's headers turn
+                     every such call into one, so a file with
+                     none was built without it (or at -O0). A
+                     plain import beside them is an address
+                     taken, which cannot be fortified
 
 and per package, since a function with nothing to protect gets no canary:
 
@@ -64,7 +66,7 @@ PROPERTIES = {
     "bind-now": "no BIND_NOW: the GOT stays writable (-Wl,-z,now)",
     "pie": "an executable that is not position-independent (-fPIE -pie)",
     "exec-stack": "an executable stack (-Wl,-z,noexecstack)",
-    "fortify": "printf-family calls that are not __*_chk (-D_FORTIFY_SOURCE at -O2)",
+    "fortify": "printf-family calls and no __*_chk at all (-D_FORTIFY_SOURCE at -O2)",
     "stack-protector": "no file calls __stack_chk_fail (-fstack-protector-strong)",
 }
 
@@ -87,6 +89,7 @@ ALWAYS_FORTIFIED = frozenset(
     }
 )
 
+_CHK = re.compile(r"^__[a-z_]+_chk$")
 _DF_BIND_NOW = 0x8
 _DF_1_NOW = 0x1
 _PF_X = 0x1
@@ -103,6 +106,7 @@ class Binary:
     findings: list[str] = field(default_factory=list)
     unfortified: list[str] = field(default_factory=list)
     calls_ssp: bool = False
+    calls_chk: bool = False  # imports any __*_chk
     cfi: bool | None = None  # control-flow marked; None where the arch has no such note
 
 
@@ -154,11 +158,16 @@ def _examine(elf: ELFFile, rel: str) -> Binary | None:
                     b.calls_ssp = True  # imported, or defined by libc itself
                 elif sym["st_shndx"] == "SHN_UNDEF" and sym.name in ALWAYS_FORTIFIED:
                     b.unfortified.append(sym.name)
+                elif sym["st_shndx"] == "SHN_UNDEF" and _CHK.match(sym.name):
+                    b.calls_chk = True
         elif isinstance(section, NoteSection) and section.name == ".note.gnu.property":
             b.cfi = _cfi(section, elf["e_machine"])
     if not now:
         b.findings.append("bind-now")
-    if b.unfortified and b.lang == "c":
+    # A plain import beside __*_chk ones is code that takes the function's address (perf
+    # hands fprintf around as a callback), which no header can fortify: only a file with
+    # none at all was built without it.
+    if b.unfortified and not b.calls_chk and b.lang == "c":
         b.findings.append("fortify")
     return b
 

@@ -109,6 +109,22 @@ def test_each_missing_flag_is_named_with_its_package(tmp_path, empty, pkg):
     assert "good:" not in out
 
 
+# Fortified, and passes fprintf's address on: an address cannot be fortified, so the plain
+# symbol is imported beside the __*_chk ones. perf and gawk do this.
+POINTER_C = APP_C.replace(
+    "int main(int argc, char **argv) {",
+    "int (*out)(FILE *, const char *, ...) = fprintf;\nint main(int argc, char **argv) {",
+).replace("return 0;", 'out(stderr, "%d\\n", argc);\n    return 0;')
+
+
+@needs_gcc
+def test_a_fortified_file_that_takes_printfs_address_passes(tmp_path, empty):
+    staging = tmp_path / "staging"
+    _gcc(staging / "ptr" / "rootfs" / "usr" / "bin" / "ptr", POINTER_C, GOOD)
+    rc, out = check([str(staging), str(empty)])
+    assert rc == 0, out
+
+
 @needs_gcc
 def test_a_file_finding_names_the_file(tmp_path, empty):
     staging = _staging(tmp_path / "staging", {"lazy": BROKEN["lazy"]})
