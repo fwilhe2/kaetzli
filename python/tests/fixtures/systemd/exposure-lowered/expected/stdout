@@ -19,3 +19,4 @@
 >> note: systemd-journald.service 3.0, below its 4.9: lower the line
 >> note: systemd-resolved.service is not loaded: delete its line
 >> systemd OK: 2 services are no more exposed than python/tests/fixtures/systemd/unit-exposure.txt allows
+>> boot took 0.26 s kernel + 1.81 s userspace = 2.07 s (kvm), recorded in <tmp>/boot-time.txt
