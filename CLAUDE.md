@@ -121,6 +121,8 @@ docs/             design notes; each says at the top whether it is implemented.
                   libraries
 python/           the kaetzli package behind the .py scripts in test/ and tools/: its
                   code, tests, requirements.in and the one lock (python/README.md)
+go/               the launcher, go/cmd/kaetzli (docs/proposals/launcher.md): Go because
+                  it is one static file for hosts with no checkout and no Python
 examples/         images built FROM the published kaetzli image, each with its own README;
                   templates for users, not part of a build or of CI
 downloads/        source tarballs (gitignored)
@@ -158,7 +160,10 @@ the library checks and the policy checks are done.
   subcommands and state (`vm.sh`, `k8s-demo.sh`). The default for new host-side code
   that is not a command sequence.
 - **Go** only where a static binary is the point: something that must run where there
-  is no Python. Not as a second general-purpose language beside Python.
+  is no Python. Not as a second general-purpose language beside Python. The launcher
+  (`go/`) is that case, standard library only, built by `tools/build-launcher.sh` in the
+  golang container `go/go.mod`'s toolchain names; its qemu command line is a third copy
+  of the harness's, and `python/tests/test_launcher.py` holds it equal.
 - **`env.sh` stays bash.** Python reads a package's pins through bash (`env_get`, or
   `bash -c 'source …; printf …'`), never by parsing the file.
 - **Python 3.12 is the baseline**: the host's `python3`, from the distribution (Debian,
@@ -265,6 +270,7 @@ the library checks and the policy checks are done.
 ./tools/ssh.sh [--root] [cmd...]  # passwordless ssh into the guest any of those started, as `user` or root
 ./tools/k8s-demo.sh up|ps|kubectl|ssh|down  # a 3-node kubeadm cluster on the image and its kubernetes extension, this checkout's build if there is one (docs/guides/sysext.md)
 ./tools/release.py name|publish [--dry-run]  # the snapshot name; a green main build as a GitHub release (CI's release job)
+./tools/build-launcher.sh [OUT] [VERSION]  # the launcher, go/cmd/kaetzli, for every platform, reproducibly
 ./tools/clean.sh [-n] [--downloads|--images|--all|--vms]  # delete build state, tarballs, stale images; vm.sh's machines only with --vms
 ./tools/build-extension.sh sysext|confext <name> <dir>  # a directory tree → output/extensions|confexts/<name>.raw
 ./tools/build-node-e2e.sh         # e2e_node.test + ginkgo for the pinned Kubernetes, in a golang container

@@ -68,6 +68,10 @@ from kaetzli.cve import sbom as sbom_mod
 from kaetzli.report import Report
 
 ARCHES = ("amd64", "arm64")
+# The launcher (go/cmd/kaetzli), as tools/build-launcher.sh names it: `uname -s`-`uname -m`,
+# so the README's install line works unchanged. The release job builds it into
+# <artifacts>/launcher/.
+LAUNCHERS = ("kaetzli-linux-x86_64", "kaetzli-linux-aarch64")
 NAME = re.compile(r"^[0-9]{8}\.[0-9]{6}-[1-9][0-9]*$")
 # What ci.yml's `changes` job skips the build for: docs/** and the root *.md. The two
 # have to agree, or a commit is either released twice or never.
@@ -359,6 +363,21 @@ def collect(artifacts: Path, out: Path, arch: str, extensions: list[str]) -> Col
     return got
 
 
+def collect_launcher(artifacts: Path, out: Path) -> Collected:
+    """The launcher's binaries from <artifacts>/launcher/ into out/, executable."""
+    out.mkdir(parents=True, exist_ok=True)
+    got = Collected()
+    for name in LAUNCHERS:
+        src = artifacts / "launcher" / name
+        if src.is_file() and not src.is_symlink():
+            _place(src, out / name)
+            (out / name).chmod(0o755)
+            got.assets.append(Asset(name, out / name))
+        else:
+            got.problems.append(f"no launcher/{name} (tools/build-launcher.sh)")
+    return got
+
+
 def sha256sums(assets: list[Asset]) -> str:
     lines = []
     for a in sorted(assets, key=lambda a: a.name):
@@ -479,6 +498,20 @@ def _boot(repo_name: str, arch: str) -> list[str]:
     ]
 
 
+def _launcher(repo_name: str) -> list[str]:
+    url = f"https://github.com/{repo_name}/releases/latest/download"
+    return [
+        "Or with the launcher, which fetches and verifies the image itself, keeps `/var` "
+        "and logs in over ssh (Linux, with qemu installed):",
+        "",
+        "```sh",
+        f"curl -fLo ~/.local/bin/kaetzli {url}/kaetzli-$(uname -s | tr A-Z a-z)-$(uname -m)",
+        "chmod +x ~/.local/bin/kaetzli",
+        "kaetzli start --ext podman && kaetzli ssh",
+        "```",
+    ]
+
+
 def notes(
     name: str,
     sha: str,
@@ -518,6 +551,7 @@ def notes(
     lines += ["", "## Boot it", ""]
     for arch in ARCHES:
         lines += [*_boot(repo, arch), ""]
+    lines += [*_launcher(repo), ""]
     lines.append(
         "The extensions attach as described in "
         f"[docs/guides/sysext.md](https://github.com/{repo}/blob/{sha}/docs/guides/sysext.md)."
@@ -657,6 +691,9 @@ def publish(
             missing_workbooks.append(arch)
         if got.cve_db:
             cve_db[arch] = got.cve_db
+    launcher = collect_launcher(o.artifacts, o.out)
+    assets += launcher.assets
+    problems += launcher.problems
     imgs = images()
     problems += [f"no digest for {ref}" for _, ref, digest in imgs if not digest]
 
