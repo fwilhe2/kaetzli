@@ -19,8 +19,8 @@ password-protected root terminal. It also covers where the work should live.
   screen. There is no desktop, no other window, no settings UI and no way out of the
   browser.
 - Configuration comes in from outside: the start URL, allowed sites, site logins, Wi-Fi
-  or proxy settings and the admin password are systemd credentials or a confext. They are
-  never baked into the image.
+  or proxy settings and root's password hash are systemd credentials or a confext. They
+  are never baked into the image.
 - It plays media: HTML5 video and audio, with software decode at first.
 - It has an admin mode: a password unlocks a root terminal on the same screen, and the
   kiosk comes back afterwards.
@@ -111,7 +111,7 @@ before `parity.config`.
 | Flavour | Fragment | For |
 | --- | --- | --- |
 | `default` | none (today's kernel) | everything headless: server, podman, kubernetes, Firecracker |
-| `display` | `display.config`: `virtio-gpu` with fbdev emulation, `virtio-snd` and intel-hda, HID with `usb-tablet`/virtio-input | the kiosk, and any later GUI extension |
+| `display` | `display.config`: `virtio-gpu` with fbdev emulation, `virtio-snd` and intel-hda, USB + HID for `usb-tablet`, virtio-input | the kiosk, and any later GUI extension |
 
 The TPM drivers (`TCG_TPM`, `TCG_CRB`, `TCG_TIS`) go into **`default`**, not `display`.
 `systemd-creds` sealed to a vTPM is useful for any machine, not only a kiosk. That is a
@@ -130,14 +130,25 @@ consumer does not need a rename.
   other than symbols turned on. `kernel-caps.py` (what a container needs) and
   `kernel-parity.py` (amd64 and arm64 agree) run per flavour, and each reads that
   flavour's config, not `boot/config`.
-- **`vm.config` clears what `display` turns on.** `CONFIG_DRM`, `SOUND`, `FB` and
-  `HID_SUPPORT` are cleared there on purpose, and the post-merge check fails on any
-  symbol `vm.config` cleared that came back `=y`. So for a flavour, that check runs
-  against `vm.config` minus the symbols the flavour fragment names. The flavour fragment
-  gets the same rule in reverse: everything it turns on must be `=y`, and every symbol it
-  names must exist. Without that exemption, `display` fails the build. With it, the
-  exemption is exactly the fragment, which is what the additive-only check compares
+- **`vm.config` clears what `display` turns on.** It clears, on purpose, more than the
+  obvious four (`DRM`, `SOUND`, `FB`, `HID_SUPPORT`): `usb-tablet` also needs
+  `USB_SUPPORT`, `INPUT_TABLET` and `INPUT_MOUSE`, and DRM *selects* symbols that
+  `vm.config` clears too, such as `I2C` and `BACKLIGHT_CLASS_DEVICE`. The post-merge
+  check fails on any symbol a fragment cleared that came back `=y`. So for a flavour,
+  the `vm.config` part of that check is exempt for **exactly the symbols the flavour
+  fragment names**, and the fragment must name every `vm.config` clear it undoes,
+  including the ones only selected by what it turns on (as `=y` lines, with a comment
+  saying which symbol selects them). A selection nobody named still fails the build,
+  which is how the next one is found. The fragment gets the additive fragments' rules
+  too: everything it turns on must be `=y`, and every symbol it names must exist. Then
+  the exemption is exactly the fragment, which is what the additive-only check compares
   against.
+- **The other clears are never exempt.** The check also reads `container.config`,
+  `kspp.config` and `parity.config`. `display.config` is merged before `parity.config`,
+  so parity settles the arches for display's symbols too, but a clear in any of those
+  three silently undoes a display line. That fails as *asked for, not in .config*. The
+  fix is a change to the shared fragment, in its own PR, because it changes `default`
+  as well. A flavour never overrides a shared clear.
 - **One source of truth for the fragments.** They stay as heredocs in
   `packages/kernel/build.sh`, which applies `display.config` when `$KERNEL_FLAVOUR` says
   so.
@@ -147,8 +158,17 @@ consumer does not need a rename.
   - **`build.sh` mounts the followed package's `build.sh`** when the follower has none.
   - **`build.sh` passes `KERNEL_FLAVOUR` into the container**, because only the
     `KAETZLI_*` pins and `SOURCE_DATE_EPOCH` cross today.
-  - **The flavour reuses the followed package's extracted tree.** Otherwise each flavour
-    extracts another full kernel tree, locally and in CI.
+  - **Flavours share the extracted source, and every flavour builds out of tree.** Today
+    the kernel builds in place: `.config`, the objects and the image all land in the
+    source directory. So two flavours sharing one tree would overwrite each other's
+    config and build output, and a partial rebuild could stage a `bzImage-display`
+    built from a mixed config. Every flavour, `default` included, builds with `O=` set
+    to a fixed directory of its own (`/tmp/kernel-<flavour>`). `default` moves too,
+    because kbuild refuses `O=` on a source tree that has been configured in place. The
+    fragments stay in the source's `kernel/configs/`, where `make <name>.config` looks
+    for them. Each flavour writes the same content there, and only `display` merges
+    `display.config`. The post-merge check reads `$O/.config`. The path is fixed so the
+    build stays reproducible, and `test/reproducible.sh kernel` shows whether it is.
   - **`unset CPE`**, as `linux-tools` does. NVD files every kernel CVE against
     `linux_kernel`, so a second CPE counts each one twice.
 
@@ -224,7 +244,7 @@ one.
 | Audio | **ALSA direct** (`--enable-alsa`, cubeb's ALSA backend) at first | A kiosk has one audio client, so no daemon is needed. PipeWire would bring WirePlumber, which **embeds Lua** (constraint 5). Move to PipeWire + pipewire-pulse only if mixing or Bluetooth turns out to be needed. Verify early, because cubeb ALSA is not Mozilla's tier 1. |
 | Codecs | Firefox's bundled ffvpx (VP8/VP9/AV1/Opus/FLAC/MP3) + **ffmpeg's libavcodec** (LGPL build, no `--enable-nonfree`) for H.264/AAC | ffmpeg is in Debian main, so it is DFSG-fine. Patent exposure in some jurisdictions is a separate question, noted under *Licensing*. |
 | Fonts | a deliberate set: DejaVu or Noto Sans/Serif/Mono, Noto Color Emoji; CJK is a decision | CJK alone is over 100 MB. Pick what the content needs, guard it with `present` lines and put the result in the size budget. |
-| Kernel | `virtio-gpu` (DRM + fbdev emulation for the text console), `virtio-snd` and/or `snd-hda-intel` for qemu's intel-hda, `HID` + `usb-tablet`/virtio-input | Today `CONFIG_DRM`, `SOUND`, `FB` and `HID_SUPPORT` are all off on purpose. They are VM devices, so they sit within constraint 2, but a headless VM does not need them, so they go into the `display` kernel flavour (see *Kernel flavours*). TPM goes into `default`. |
+| Kernel | `virtio-gpu` (DRM + fbdev emulation for the text console), `virtio-snd` and/or `snd-hda-intel` for qemu's intel-hda, USB + `HID` for `usb-tablet`, virtio-input | Today `CONFIG_DRM`, `SOUND`, `FB`, `USB_SUPPORT`, `HID_SUPPORT` and the tablet and mouse input drivers are all off on purpose. They are VM devices, so they sit within constraint 2, but a headless VM does not need them, so they go into the `display` kernel flavour (see *Kernel flavours*). TPM goes into `default`. |
 
 **Size, roughly:** libxul alone is about 130 MB. Firefox, the GTK stack, wlroots, fonts and
 ffmpeg come to an estimated 350–500 MB, against today's 90 MB. That is fine for this
@@ -286,7 +306,10 @@ attached confext or a credential:
   a deliberate exception (below). With `CONFIG_VT`, the kernel has tty1–63 whatever
   logind does, so the gettys are what matter: `NAutoVTs=0` and **`ReserveVT=0`**. The
   default `ReserveVT=6` starts a getty on tty6 regardless. Then tty2's explicitly
-  enabled getty is the only login prompt; the other VTs are empty screens.
+  enabled getty is the only login prompt *on the screen*; the other VTs are empty.
+  The serial console (`console=ttyS0` or `hvc0`) still gets a `serial-getty@` from
+  systemd's generator. It belongs to the host, which the VM threat model trusts, but it
+  is a login prompt all the same, and *Admin mode* holds it to the same password.
 - Mask `ctrl-alt-del.target`, set `kernel.sysrq=0`, and set logind's
   `HandlePowerKey=` and the like to taste.
 - No USB storage (no `usb-storage` or automount in the kernel), no xdg-desktop-portal,
@@ -304,7 +327,9 @@ route that needs no setuid and no new code:
    otherwise blocks.
 2. tty2 has `agetty` → `login`. Logging in as root needs the root password, and that
    password **is** the gate. Ctrl+Alt+F2 is not a secret, and it does not need to be.
-3. No other getty exists: `NAutoVTs=0` and `ReserveVT=0` (see *Lockdown*).
+3. No other getty exists on the screen: `NAutoVTs=0` and `ReserveVT=0` (see
+   *Lockdown*). The serial console's getty is the host's, and asks for the same
+   password.
 4. `TMOUT=` in the root shell, and a unit that runs `chvt 1` when the session ends.
 5. Text console on the display: DRM fbdev emulation, so tty2 is visible on the same
    screen.
@@ -319,12 +344,18 @@ not exist. The fix comes in two parts:
 
 - **The host side.** `qemu-lib.sh`, `vm.sh` and the launcher drop `login.noauth` when the
   kiosk extension is attached.
-- **The guest side, as defence in depth.** The kiosk confext's drop-in for
-  `getty@tty2.service` resets its `ImportCredential=` list, so a `login.noauth` passed by
-  hand still never reaches `login`. *Verify that an empty `ImportCredential=` resets the
-  imports inherited from the base unit.*
+- **The guest side, as defence in depth.** The kiosk confext ships drop-ins for **every
+  getty unit**, `getty@.service`, `serial-getty@.service` and `console-getty.service`,
+  that reset their `ImportCredential=` lists. Then a `login.noauth` passed by hand never
+  reaches `login`, on tty2 or on the serial console. Covering only tty2 would leave
+  `serial-getty@ttyS0` or `hvc0` logging root in without a password. *Verify that an
+  empty `ImportCredential=` resets the imports inherited from the base unit.*
 
-`test/kiosk.sh` boots **with** `login.noauth` set and requires tty2 to ask for a password.
+Dropping `login.noauth` also takes away the harness's own way in: `qemu_login` and
+`kaetzli.qemu` log in on the serial console through it. So `test/kiosk.sh` reaches the
+guest over ssh with the per-boot key (`qemu_ssh_setup`), which needs no password. It
+boots **with** `login.noauth` set and requires a password prompt on **both** tty2 and the
+serial console. A kiosk boot by `vm.sh` or the launcher gets ssh the same way.
 
 **The password breaks a current invariant**: `shadow` is all `*` and the build fails on
 a hash. Keep that rule. Bring the hash in at boot as a credential
@@ -332,10 +363,24 @@ a hash. Keep that rule. Bring the hash in at boot as a credential
 already handles `/etc/machine-id`:
 
 1. A root oneshot early in boot writes `/run/kiosk/shadow`. It is the image's
-   `/etc/shadow` with root's `*` replaced by the credential.
-2. The oneshot bind-mounts that file read-only over `/etc/shadow`. A bind mount onto a
-   read-only filesystem is allowed; writing to it is not.
+   `/etc/shadow` with root's `*` replaced by the credential. The file holds root's hash,
+   so it gets the image's `/etc/shadow` mode and owner. It is written under `UMask=0077`
+   in a `0700` `RuntimeDirectory=` (kept with `RuntimeDirectoryPreserve=yes`), so it is
+   never readable on the way there. A bind mount shows the source file's mode, so a
+   `0644` copy would hand the kiosk user, and any compromised Firefox content process,
+   a hash to crack offline.
+2. **A mount unit, not the oneshot, puts it over `/etc/shadow`**: `etc-shadow.mount`,
+   `What=/run/kiosk/shadow`, `Options=bind,ro`, `ConditionPathExists=` on the file,
+   ordered after the oneshot and before the gettys and sshd. PID 1 mounts it in the
+   host's namespace. A mount made by the oneshot itself would stay in that service's
+   private namespace once it is sandboxed (`ProtectSystem=`, `PrivateMounts=`, …) to
+   pass `test/unit-exposure.txt`, and admin mode would never unlock, silently. Split
+   this way, the oneshot can stay fully sandboxed. A bind mount onto a read-only
+   filesystem is allowed; writing to it is not.
 3. `pam_unix` reads `/etc/shadow` as it always does, so nothing else changes.
+
+`test/kiosk.sh` checks the mounted `/etc/shadow`'s mode from inside the guest, and that
+`login` on tty2 accepts the password.
 
 With no credential given, nothing is mounted, root stays `*`, and admin mode is off. That
 is the safe default. The oneshot must refuse anything that is not a crypt hash. It also
@@ -420,37 +465,22 @@ Use kiosk-specific, low-privilege accounts only, and say that in the docs.
 
 ## Where it lives
 
-Three options, judged on what actually couples the two images.
+The extension form (*As a system extension*) settles this. These options were weighed
+when the kiosk was still a second image, and are kept short, for the record.
 
-**What the two images share** is most of what is hard here: glibc (everything compiles
-against it), systemd, openssl and glib (coupled to sid), the kernel source, `build.sh`,
-the builder, `builder/build-package.sh`, image assembly, the SBOM, the checks, the qemu
-harness, the Python tooling, CI and the update/auto-merge machinery. **What differs**: a
-GUI package set, a kernel config, `image/files`, tests, size budgets, and two of the
-constraints.
+**What the kiosk shares with the base** is most of what is hard here: glibc (everything
+compiles against it), systemd, openssl and glib (coupled to sid), the kernel source,
+`build.sh`, the builder, `builder/build-package.sh`, image assembly, the SBOM, the checks,
+the qemu harness, the Python tooling, CI and the update/auto-merge machinery.
 
-### A. One repository, two images
+### A. This repository
 
-This option as written below is the second-image form, which the extension form under
-"As a system extension" supersedes. It is kept for comparison.
-
-The variant model in [`image-variants.md`](image-variants.md) already anticipates this:
-packages build once and an image selects them at assembly.
-
-- `packages/` gains the GUI stack. `packages/kernel-display` `FOLLOWS=kernel` (the
-  mechanism exists) and adds a `display.config` fragment.
-- `image/` grows per-image file trees and package lists. Each image gets its own budget
-  line, `test/image-files/` topics, tests and release assets.
-- CLAUDE.md states the constraints **per image**: the kiosk has a JavaScript runtime by
-  definition (constraint 5) and may not need to run containers (constraint 3).
-- A glibc, systemd or openssl bump is tested against **both** images in the one PR that
-  makes it. That is what neither of the other options can do, and it is what this
-  project's auto-merge depends on.
-
-The real cost is focus. The README, CLAUDE.md and CI all get a second subject, and the
-kiosk's build time and noise land on every PR that touches shared files. CI path filters
-help here, and so do separate release streams, so a red kiosk need not block the server
-image.
+A glibc, systemd or openssl bump is tested against the kiosk in the one PR that makes it.
+Neither of the other options can do that, and this project's auto-merge depends on it.
+The cost is focus: the kiosk's build time and noise land on PRs that touch shared files,
+which CI path filters reduce. The second-image form of this option, with per-image file
+trees, budgets and constraints, is superseded. Constraints are not stated per image;
+the kiosk's exceptions belong to the extension (*Constraints that have to be rewritten*).
 
 ### B. A fork
 
@@ -579,15 +609,18 @@ stand.
    own suggested first edge, libpcap into tcpdump in `debug`. Then add CI by
    topological level. This is useful without the kiosk, and it is most of the
    infrastructure risk.
-2. Kernel flavours. The TPM drivers go into `default`. `kernel-display` gets the
+2. Kernel flavours. First the kernel moves to an out-of-tree `O=` build, on its own and
+   shown byte-identical by `test/reproducible.sh kernel`. The TPM drivers go into
+   `default`. `kernel-display` gets the
    additive-only check, the CI matrix and the release asset. Add boot tests that see
    `/dev/tpmrm0` on both flavours, and `/dev/dri/card0` plus an ALSA card on `display`.
 3. The Wayland stack up to cage running a trivial client (`foot` or a test client), with a
    screendump test.
 4. The browser spike, Firefox vs WPE, and the decision.
 5. The browser, policies, kiosk unit and admin mode, with an escape test for each
-   lockdown item, and the tty2 password test with `login.noauth` set. Kiosk boots drop
-   `login.noauth`; the root-password oneshot and its bind mount go in.
+   lockdown item, and the tty2 and serial-console password tests with `login.noauth`
+   set. Kiosk boots drop `login.noauth` and are reached over ssh. The root-password
+   oneshot and its `etc-shadow.mount` go in.
 6. Media: ffmpeg, audio, a playback test with an audio capture.
 7. Secrets: vTPM in the harness (`swtpm`), `tools/kiosk-secrets.py`, the AutoConfig
    loader, and a test that a login from the list autofills on its origin and nowhere
