@@ -1,9 +1,9 @@
-VERSION="2.9.0"
+VERSION="2.10.0"
 PACKAGE="expat-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 # Release assets on GitHub, filed under a tag that spells the version with underscores.
 URL="https://github.com/libexpat/libexpat/releases/download/R_${VERSION//./_}/${TARBALL}"
-SHA256="1e6371862cc31999b368c3b89b49994f0677e1bab5f1b2b85ae3741f5d803051"
+SHA256="c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f"
 LICENSE="MIT"
 CPE="cpe:2.3:a:libexpat_project:libexpat:${VERSION}:*:*:*:*:*:*:*"
 UPSTREAM_GITHUB="libexpat/libexpat"
