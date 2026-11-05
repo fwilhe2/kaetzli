@@ -1,0 +1,95 @@
+From 6805a5b072a8bfc347225165ad4d55fa134ab4fe Mon Sep 17 00:00:00 2001
+From: David Faust <david.faust@oss.qualcomm.com>
+Date: Thu, 5 Nov 2026 11:15:28 -0800
+Subject: [PATCH] bpf: fix memmove backward loop offset [PR128440]
+
+The initial offset used for the backward loop when expanding memmove was
+wrong when moving chunks larger than 1 byte.  Fix it by properly
+accounting for the increment size in the offset.
+
+Tested on x86_64-linux-gnu for bpf-unknown-none.
+Tested with Linux kernel bpf-next selftests. No changes.
+
+	PR target/128440
+
+gcc/
+
+	* config/bpf/bpf.cc (bpf_expand_cpymem): Fix offset used by the
+	backward memmove loop.
+
+gcc/testsuite/
+
+	* gcc.target/bpf/memmove-3.c: New.
+	* gcc.target/bpf/memmove-4.c: New.
+
+Suggested-by: Gabriel Ravier <gabravier@gmail.com>
+Signed-off-by: David Faust <david.faust@oss.qualcomm.com>
+(cherry picked from commit 6838ac488a9dc8c912ae9bcd99e85d13a219f6b6)
+---
+ gcc/config/bpf/bpf.cc                    |  2 +-
+ gcc/testsuite/gcc.target/bpf/memmove-3.c | 17 +++++++++++++++++
+ gcc/testsuite/gcc.target/bpf/memmove-4.c | 18 ++++++++++++++++++
+ 3 files changed, 36 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.target/bpf/memmove-3.c
+ create mode 100644 gcc/testsuite/gcc.target/bpf/memmove-4.c
+
+diff --git a/gcc/config/bpf/bpf.cc b/gcc/config/bpf/bpf.cc
+index 6bd714d50534..e92136567b5a 100644
+--- a/gcc/config/bpf/bpf.cc
++++ b/gcc/config/bpf/bpf.cc
+@@ -1455,7 +1455,7 @@ bpf_expand_cpymem (rtx *operands, bool is_move)
+ 			       true, fwd_label, profile_probability::even ());
+ 
+       /* Emit the "backwards" unrolled loop.  */
+-      emit_move_loop (src, dst, mode, (size_bytes - 1), -inc, iters, remainder);
++      emit_move_loop (src, dst, mode, (size_bytes - inc), -inc, iters, remainder);
+       emit_jump_insn (gen_jump (done_label));
+       emit_barrier ();
+ 
+diff --git a/gcc/testsuite/gcc.target/bpf/memmove-3.c b/gcc/testsuite/gcc.target/bpf/memmove-3.c
+new file mode 100644
+index 000000000000..6f2bf2e7aa6f
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/bpf/memmove-3.c
+@@ -0,0 +1,17 @@
++/* Check that the memmove loop offsets are sane when using increments
++   larger than 1.  PR target/128440.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -masm=normal" } */
++
++long  lbuf[4];
++
++void
++g (void) {
++  __builtin_memmove (&lbuf[1], &lbuf[0], 16);
++}
++
++/* { dg-final { scan-assembler-times {\[%r[0-9]\+8\]} 4 } } */
++/* { dg-final { scan-assembler-times {\[%r[0-9]\+0\]} 4 } } */
++
++/* No other offsets should be used.  */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+[1-79]+\]} } } */
+diff --git a/gcc/testsuite/gcc.target/bpf/memmove-4.c b/gcc/testsuite/gcc.target/bpf/memmove-4.c
+new file mode 100644
+index 000000000000..5da85c9ca96c
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/bpf/memmove-4.c
+@@ -0,0 +1,18 @@
++/* Check that the memmove loop offsets are sane when using increments
++   larger than 1.  PR target/128440.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -masm=normal" } */
++
++int buf[4];
++
++void
++f (void) {
++  __builtin_memmove (&buf[1], &buf[0], 12);
++}
++
++/* { dg-final { scan-assembler-times {\[%r[0-9]\+4\]} 4 } } */
++/* { dg-final { scan-assembler-times {\[%r[0-9]\+8\]} 4 } } */
++/* { dg-final { scan-assembler-times {\[%r[0-9]\+0\]} 4 } } */
++
++/* No other offsets should be used.  */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+[123579]+\]} } } */
