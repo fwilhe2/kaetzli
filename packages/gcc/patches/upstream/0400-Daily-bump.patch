@@ -1,0 +1,89 @@
+From 96d7d52d44b205afdfd3149b56aba4bb61fc270b Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Thu, 5 Nov 2026 00:21:18 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 24 ++++++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/testsuite/ChangeLog | 10 ++++++++++
+ libgcc/ChangeLog        | 12 ++++++++++++
+ 4 files changed, 47 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index efcb6a0426af..05aac33e1fd9 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,27 @@
++2026-11-04  Jeevitha  <jeevitha@linux.ibm.com>
++
++	Backported from master:
++	2026-11-02  Jeevitha Palanisamy  <jeevitha@linux.ibm.com>
++
++	PR target/127274
++	* config/rs6000/emmintrin.h (_mm_movemask_pd): Reverse vector
++	element order on big-endian Power10 before calling vec_extractm().
++	(_mm_movemask_epi8): Likewise.
++	* config/rs6000/xmmintrin.h (_mm_movemask_ps): Likewise.
++
++2026-11-04  Siddhesh Poyarekar  <siddhesh@gotplt.org>
++
++	Backported from master:
++	2026-10-19  Siddhesh Poyarekar  <siddhesh@gotplt.org>
++
++	PR tree-optimization/127899
++	* tree-object-size.cc (plus_stmt_object_size): Reset WHOLESIZE
++	if BYTES is unknown.
++	(dynamic_object_size): Return bool.
++	(cond_expr_object_size): Adjust calls and return REEXAMINE.
++	(collect_object_sizes_for): Add assert that size is unknown for
++	reexamined objects.
++
+ 2026-11-03  Richard Biener  <rguenther@suse.de>
+ 
+ 	PR tree-optimization/127475
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 968729b2ed62..10ea69eb092b 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261104
++20261105
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 0005cef85290..83f3de836994 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,13 @@
++2026-11-04  Siddhesh Poyarekar  <siddhesh@gotplt.org>
++
++	Backported from master:
++	2026-10-19  Siddhesh Poyarekar  <siddhesh@gotplt.org>
++
++	PR tree-optimization/127899
++	* gcc.dg/builtin-dynamic-object-size-pr127899-1.c: New test.
++	* gcc.dg/builtin-dynamic-object-size-pr127899-2.c: Likewise.
++	* gcc.dg/builtin-dynamic-object-size-pr127899-3.c: Likewise.
++
+ 2026-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	PR tree-optimization/127475
+diff --git a/libgcc/ChangeLog b/libgcc/ChangeLog
+index 52c2432c4e00..356ccd7e2b14 100644
+--- a/libgcc/ChangeLog
++++ b/libgcc/ChangeLog
+@@ -1,3 +1,15 @@
++2026-11-04  Sam Price  <thesamprice@gmail.com>
++
++	* config/microblaze/moddi3.S: Name the register-pair halves by
++	endianness.  Fix the divisor negation, the result sign and the
++	zero paths.  Do not normalize an already-normalized dividend.
++	Do not compute the quotient, which is not returned.  Drop the
++	dead comparison, the unreferenced label and the branch over it.
++	Name the working registers and the labels after the reference
++	algorithm, and state the invariant the trial subtraction relies
++	on.
++	Assisted-by: Claude (Anthropic)
++
+ 2026-08-17  Ramin Moussavi  <lordrasmus@gmail.com>
+ 
+ 	* config.host (microblaze*-linux*): Set md_unwind_header.

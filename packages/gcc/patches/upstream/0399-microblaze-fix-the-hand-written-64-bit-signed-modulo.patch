@@ -1,0 +1,373 @@
+From 064157ddfd5e7f67362ee484a8e7651dce57b96f Mon Sep 17 00:00:00 2001
+From: Sam Price <thesamprice@gmail.com>
+Date: Sun, 11 Oct 2026 02:17:27 -0400
+Subject: [PATCH] microblaze: fix the hand-written 64-bit signed modulo
+
+libgcc/config/microblaze/moddi3.S has been in the tree unchanged since the
+port landed in 2010 (809201325afb); the only commits touching it since are
+copyright-year bumps and the two libgcc reorganizations.  It is wrong for
+almost every input, and for an LLONG_MIN dividend it either fails to
+terminate or returns nonsense, depending on the byte order.
+
+The fix is Ramin Moussavi's, carried in OpenADK as
+toolchain/gcc/patches/16.2.0/0010; he has agreed to its being submitted here.
+
+Four defects:
+
+1. The register pair order is hard-coded for big-endian.  A 64-bit value
+   passed in a register pair keeps its high word in the lower-numbered
+   register on big-endian and in the higher-numbered one on little-endian,
+   but the file treats r5 as the dividend's high word and r7 as the
+   divisor's unconditionally.  On microblazeel it therefore operates on
+   both operands with their halves swapped.  microblazeel support arrived
+   in 4.8 (76ef61fbd9ed) and this file was never adjusted.
+
+2. "Make Divisor Positive" negated the high word into r9 instead of r7,
+   so a negative divisor kept its high word.  r9 had just been used as the
+   scratch for the zero test.
+
+3. The result sign came from the dividend XOR the divisor; a remainder
+   takes the sign of the dividend alone.  Worse, both the sign fix-up and
+   the "result is zero" paths wrote r29:r30 -- the quotient, which this
+   function does not return -- while the return value is r3:r4.  The zero
+   paths also branched in before r3:r4 were cleared, so 0 % v returned
+   whatever the caller happened to leave in those registers.
+
+4. The normalization loop looks for a set MSB after shifting, so a
+   dividend of LLONG_MIN -- whose negation stays negative -- shifts its
+   only set bit out on the first pass and the loop never terminates.
+
+Name the halves with macros picked by __MICROBLAZEEL__ so one file serves
+both, clear the remainder before the early exits, take the sign from the
+dividend, negate the divisor's own high word, and skip normalization when
+the dividend is already normalized.
+
+Defect 3 is also why the quotient goes.  The original computed it in r29:r30
+and then returned it by mistake; with the return value corrected, nothing
+reads it.  Removing it takes four instructions out of the loop body, two out
+of the setup and the four that spilled and reloaded it, and lets the loop tail
+collapse to a single BNEi for one more -- eleven in all.  That is 44 static
+instructions against the original's 60, and over a 4701-value check 2777735
+executed against 3605340 for the same fix keeping the quotient, 23% fewer.
+The dead comparison into r18, whose result was never tested and which
+compared against the dividend's low word rather than the divisor's, goes too,
+along with the label that no longer has a reference and the branch that only
+existed to jump over it.
+
+The keep-or-skip decision reads the sign bit of a 64-bit subtraction to
+settle an unsigned comparison.  That is sound, and the file now says why
+where the comparison is: D <= 2^63 because it is the magnitude of a signed
+64-bit value, and the loop keeps 0 <= RES < D, so RES - D lies in [-D, D-1]
+and is always in signed range, where the sign bit means what the test takes
+it to mean.  The same bound is why a 64-bit partial remainder suffices with
+no 65th bit.
+
+Division by zero keeps returning zero, matching divsi3.S, modsi3.S,
+udivsi3.S and umodsi3.S.  That differs from a core with hardware divide,
+where a % b is a - (a / b) * b and a zero quotient makes a % 0 give a, but
+the divergence predates this patch; the reasoning is now recorded next to
+the label.
+
+The comments are rewritten, and the registers and labels are renamed after
+the algorithm rather than their position in the file -- restoring division,
+Koren, Computer Arithmetic Algorithms, section 3.2, whose notation the
+comments now use.
+
+Verified on qemu-system-microblaze and qemu-system-microblazeel, machine
+petalogix-s3adsp1800:
+
+  - All 1685 tests in gcc.c-torture/execute at -O2, on both byte orders,
+    1633 passing either way.  Two of them separate the unpatched routine
+    from this one:
+    pr50865.c, which is INT64_MIN % 1LL and has been in the tree since PR
+    middle-end/50865 in 2011, hangs on big-endian and aborts on
+    little-endian before this patch; arith-rand-ll.c aborts on both.  Both
+    pass on both afterwards.  The rest are unchanged: the patched routine
+    gives the same verdict as libgcc's generic C on every one of the 1685,
+    on both byte orders.
+
+  - A 4701-value check -- every sign combination, the 32-bit word
+    boundaries, LLONG_MAX, LLONG_MIN and 4000 random pairs, with expected
+    values computed on the host -- passes on both.
+
+  - An 8192-value set built to drive the partial remainder to 2^63, which
+    is the only place the signed comparison above could have gone wrong,
+    passes on both.  arith-rand-ll.c never reaches that state.
+
+The visible symptom that led here: uClibc-ng's gmtime() reduces a 64-bit
+time_t with a signed modulo, so on microblazeel every timestamp past 2^31
+came back with the wrong seconds field, and some year boundaries were a
+day early.
+
+libgcc/
+	* config/microblaze/moddi3.S: Name the register-pair halves by
+	endianness.  Fix the divisor negation, the result sign and the
+	zero paths.  Do not normalize an already-normalized dividend.
+	Do not compute the quotient, which is not returned.  Drop the
+	dead comparison, the unreferenced label and the branch over it.
+	Name the working registers and the labels after the reference
+	algorithm, and state the invariant the trial subtraction relies
+	on.
+
+Signed-off-by: Sam Price <thesamprice@gmail.com>
+	Assisted-by: Claude (Anthropic)
+Signed-off-by: Michael J. Eager <eager@eagercon.com>
+---
+ libgcc/config/microblaze/moddi3.S | 223 +++++++++++++++++++-----------
+ 1 file changed, 146 insertions(+), 77 deletions(-)
+
+diff --git a/libgcc/config/microblaze/moddi3.S b/libgcc/config/microblaze/moddi3.S
+index 71a67c11ccb5..b63e161171fc 100644
+--- a/libgcc/config/microblaze/moddi3.S
++++ b/libgcc/config/microblaze/moddi3.S
+@@ -2,7 +2,7 @@
+ # 
+ #  Copyright (C) 2009-2026 Free Software Foundation, Inc.
+ #
+-#  Contributed by Michael Eager <eager@eagercon.com>.
++#  Contributed by Sam Price <thesamprice@gmail.com>
+ #
+ #  This file is free software; you can redistribute it and/or modify it
+ #  under the terms of the GNU General Public License as published by the
+@@ -23,9 +23,29 @@
+ #  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ #  <http://www.gnu.org/licenses/>. 
+ #
+-#  modsi3.S
+-# 
+-#  modulo operation for 64 bit integers.
++#  moddi3.S
++#
++#  64-bit signed remainder.
++#
++#  Binary restoring division, one quotient bit per iteration:
++#
++#      r[i] = 2*r[i-1] - q[i]*D          (r[0] = X)
++#
++#  Each step shifts one dividend bit into the partial remainder and
++#  subtracts the divisor, keeping the result only when it does not go
++#  negative.  The restore is implicit: the trial subtraction lands in
++#  scratch and is copied back only when kept, so a rejected step costs
++#  nothing.  The shift needs one bit more than the register width, which is
++#  the carry flag -- hence the ADD/ADDC chain rather than a shift.
++#
++#  The quotient the recurrence produces is not kept: this function returns
++#  the remainder, so the bit is tested and discarded.
++#
++#  The operands are reduced to unsigned magnitudes first, and the remainder
++#  takes the sign of the dividend alone, not the exclusive or of the operand
++#  signs -- that is the quotient's rule.
++#
++#  Koren, Computer Arithmetic Algorithms, section 3.2 is the reference.
+ # 
+ #######################################
+ 
+@@ -36,86 +56,135 @@
+ .previous
+ #endif
+ 
++/* A 64-bit value passed in a register pair keeps its high word in the
++   lower-numbered register on big-endian and the higher-numbered one on
++   little-endian, so name the halves and let the body read the same either
++   way.  Letters are Koren's: X dividend, D divisor, R remainder.
++
++     OPX   X.  The loop consumes it from the top, so once it is running OPX
++           holds only the bits of X not yet shifted into the remainder.
++     OPD   D.  Not modified after the sign fix-up.
++     RES   R, the return value; during the loop the partial remainder r[i],
++           with RES:OPX the double-length remainder register.  */
++#ifdef __MICROBLAZEEL__
++# define OPX_L	r5
++# define OPX_H	r6
++# define OPD_L	r7
++# define OPD_H	r8
++# define RES_L	r3
++# define RES_H	r4
++#else
++# define OPX_H	r5
++# define OPX_L	r6
++# define OPD_H	r7
++# define OPD_L	r8
++# define RES_H	r3
++# define RES_L	r4
++#endif
++
++/* Working registers.  A pair only needs the endianness treatment above when
++   it crosses an ABI boundary; TRIAL does not, so its halves are fixed.  What
++   does matter is instruction order: low half first, since ADD and RSUB set
++   the carry ADDC and RSUBC consume.  */
++#define TRIAL_H	r25	/* The trial subtraction 2*r[i-1] - D.  */
++#define TRIAL_L	r26
++#define SIGN	r27	/* Sign of X, kept as the whole high word because only
++			   BGEI reads it and that tests the sign.  */
++#define COUNT	r28	/* Iterations remaining, 64 less whatever
++			   normalization skipped.  */
++#define ZERO_T	r9	/* Scratch for the two zero tests.  An argument
++			   register, so caller-saved: free to clobber, and it
++			   needs no slot in the frame below.  */
++
+ 	.globl	__moddi3
+ 	.ent	__moddi3
+ __moddi3:
+-	.frame	r1,0,r15	
++	.frame	r1,0,r15
+ 
+-#Change the stack pointer value and Save callee saved regs
+-	addik	r1,r1,-24
+-	swi	r25,r1,0
+-	swi	r26,r1,4
+-	swi	r27,r1,8	# used for sign
+-	swi	r28,r1,12	# used for loop count
+-	swi	r29,r1,16	# Used for div value High
+-	swi	r30,r1,20	# Used for div value Low
++	# Allocate the stack frame and save callee-saved registers.
++	addik	r1,r1,-16
++	swi	TRIAL_H,r1,0
++	swi	TRIAL_L,r1,4
++	swi	SIGN,r1,8
++	swi	COUNT,r1,12
+ 
+-#Check for Zero Value in the divisor/dividend
+-	OR	r9,r5,r6			# Check for the op1 being zero
+-	BEQID	r9,$LaResult_Is_Zero		# Result is zero
+-	OR	r9,r7,r8			# Check for the dividend being zero
+-	BEQI	r9,$LaDiv_By_Zero	        # Div_by_Zero   # Division Error
+-	BGEId	r5,$La1_Pos 
+-	XOR	r27,r5,r7			# Get the sign of the result
+-	RSUBI	r6,r6,0				# Make dividend positive
+-	RSUBIC	r5,r5,0				# Make dividend positive
+-$La1_Pos:
+-	BGEI	r7,$La2_Pos
+-	RSUBI	r8,r8,0				# Make Divisor Positive
+-	RSUBIC	r9,r9,0				# Make Divisor Positive
+-$La2_Pos:
+-	ADDIK	r4,r0,0				# Clear mod low
+-	ADDIK	r3,r0,0                	        # Clear mod high
+-	ADDIK	r29,r0,0			# clear div high
+-	ADDIK	r30,r0,0			# clear div low
+-	ADDIK	r28,r0,64			# Initialize the loop count
+-   # First part try to find the first '1' in the r5/r6
+-$LaDIV1:
+-	ADD	r6,r6,r6
+-	ADDC	r5,r5,r5			# left shift logical r5
+-	BGEID	r5,$LaDIV1			
+-	ADDIK	r28,r28,-1
+-$LaDIV2:
+-	ADD	r6,r6,r6
+-	ADDC	r5,r5,r5	# left shift logical r5/r6 get the '1' into the Carry
+-	ADDC	r4,r4,r4	# Move that bit into the Mod register
+-	ADDC	r3,r3,r3	# Move carry into high mod register
+-	rsub	r18,r7,r3	# Compare the High Parts of Mod and Divisor
+-	bnei	r18,$L_High_EQ
+-	rsub	r18,r6,r4	# Compare Low Parts only if Mod[h] == Divisor[h]
+-$L_High_EQ:	
+-	rSUB	r26,r8,r4	# Subtract divisor[L] from Mod[L]
+-	rsubc	r25,r7,r3	# Subtract divisor[H] from Mod[H]
+-	BLTi	r25,$LaMOD_TOO_SMALL
+-	OR	r3,r0,r25	# move r25 to mod [h]
+-	OR	r4,r0,r26	# move r26 to mod [l]
+-	ADDI	r30,r30,1
+-	ADDC	r29,r29,r0
+-$LaMOD_TOO_SMALL:
+-	ADDIK	r28,r28,-1
+-	BEQi	r28,$LaLOOP_END
+-	ADD	r30,r30,r30		# Shift in the '1' into div [low]
+-	ADDC	r29,r29,r29		# Move the carry generated into high
+-	BRI	$LaDIV2   # Div2
+-$LaLOOP_END:
+-	BGEI	r27,$LaRETURN_HERE
+-	rsubi	r30,r30,0
+-	rsubc	r29,r29,r0
+-	BRI	$LaRETURN_HERE
++	ADDIK	RES_L,r0,0	# Clear the remainder.
++	ADDIK	RES_H,r0,0
++
++	# Handle a zero dividend and a zero divisor.
++	OR	ZERO_T,OPX_H,OPX_L
++	BEQID	ZERO_T,$LaRETURN_HERE	# 0 % n == 0.  The delay-slot OR only
++					# clobbers ZERO_T, dead at the target.
++	OR	ZERO_T,OPD_H,OPD_L
++	BEQI	ZERO_T,$LaDiv_By_Zero
++	# Reduce to unsigned magnitudes.  Negating LLONG_MIN leaves it negative
++	# as a signed value, but the bit pattern is 2^63, which is the
++	# magnitude the loop wants -- so "Abs" holds when read as unsigned.
++	BGEId	OPX_H,$LaX_Abs
++	OR	SIGN,r0,OPX_H		# Save the sign of X.
++	RSUBI	OPX_L,OPX_L,0
++	RSUBIC	OPX_H,OPX_H,0
++$LaX_Abs:
++	BGEI	OPD_H,$LaD_Abs
++	RSUBI	OPD_L,OPD_L,0
++	RSUBIC	OPD_H,OPD_H,0
++$LaD_Abs:
++	ADDIK	COUNT,r0,64		# One iteration per bit of X.
++	# Already normalized: all 64 bits count.  Skipping this check would
++	# hang on LLONG_MIN, whose magnitude has only the top bit set --
++	# normalization would shift it out and never see a clear sign bit.
++	BLTi	OPX_H,$LaRecurrence
++
++	# Skip the dividend's leading zero bits, dropping the loop count to
++	# match.  This changes no value; it only passes over iterations whose
++	# quotient bits are known to be zero.
++$LaNormalize:
++	ADD	OPX_L,OPX_L,OPX_L
++	ADDC	OPX_H,OPX_H,OPX_H
++	BGEID	OPX_H,$LaNormalize
++	ADDIK	COUNT,COUNT,-1
++$LaRecurrence:
++	# Form 2*r[i-1]: shift the RES:OPX pair left one bit, so the dividend's
++	# top bit leaves OPX through the carry and enters RES at the bottom.
++	# Order matters -- the carry flows low half to high.
++	ADD	OPX_L,OPX_L,OPX_L
++	ADDC	OPX_H,OPX_H,OPX_H
++	ADDC	RES_L,RES_L,RES_L
++	ADDC	RES_H,RES_H,RES_H
++	# Subtract D into scratch and read the sign: q[i] = 1 when the result
++	# is non-negative.  BLTi is a signed test settling an unsigned
++	# comparison, which holds because D <= 2^63 and the loop keeps
++	# 0 <= RES < D, so RES - D lands in [-D, D-1] -- always in signed
++	# range, where the sign bit is the sign of the true difference.  That
++	# bound is also why RES needs no 65th bit.
++	RSUB	TRIAL_L,OPD_L,RES_L
++	RSUBC	TRIAL_H,OPD_H,RES_H
++	BLTi	TRIAL_H,$LaQ_Bit_Is_Zero	# q[i] = 0; RES still holds
++					# r[i-1], nothing to restore.
++	OR	RES_H,r0,TRIAL_H	# q[i] = 1.  Keep 2*r[i-1] - D.
++	OR	RES_L,r0,TRIAL_L
++$LaQ_Bit_Is_Zero:
++	ADDIK	COUNT,COUNT,-1
++	BNEi	COUNT,$LaRecurrence
++	BGEI	SIGN,$LaRETURN_HERE
++	# The remainder takes the sign of the dividend, not the exclusive or
++	# of the operand signs -- that is the quotient's rule.
++	RSUBI	RES_L,RES_L,0
++	RSUBIC	RES_H,RES_H,0
++	# Falls through: $LaDiv_By_Zero holds no instructions.
+ $LaDiv_By_Zero:
+-$LaResult_Is_Zero:
+-	or	r29,r0,r0	# set result to 0 [High]
+-	or	r30,r0,r0	# set result to 0 [Low]
++	# Division by zero is undefined in C.  Return zero, as divsi3.S,
++	# modsi3.S, udivsi3.S and umodsi3.S do.  Note this does not match a
++	# core with hardware divide, where a % b is a - (a / b) * b and a
++	# zero quotient makes the remainder a; that divergence predates this
++	# file and is discussed in the commit message.
+ $LaRETURN_HERE:
+-# Restore values of CSRs and that of r29 and the divisor and the dividend
+-	
+-	lwi	r25,r1,0
+-	lwi	r26,r1,4
+-	lwi	r27,r1,8
+-	lwi	r28,r1,12
+-	lwi	r29,r1,16
+-	lwi	r30,r1,20
++	# Restore the callee-saved registers and release the stack frame.
++	lwi	TRIAL_H,r1,0
++	lwi	TRIAL_L,r1,4
++	lwi	SIGN,r1,8
++	lwi	COUNT,r1,12
+ 	rtsd	r15,8
+-	addik r1,r1,24
++	addik	r1,r1,16
+         .end __moddi3
+ 	
