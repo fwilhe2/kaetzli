@@ -11,7 +11,8 @@ password-protected root terminal. It also covers where the work should live.
 - It is an interactive kiosk: people browse, so there is a toolbar, but no settings and
   no other windows. It is not single-URL signage.
 - Site logins come in as an encrypted, KeePass-style list of entries (see *Secrets*).
-- A one-day WPE WebKit spike happens before Firefox is committed to (see *The spike*).
+- A one-day WebKit spike (WPE, MiniBrowser, Epiphany) happens before Firefox is committed
+  to (see *The spike*).
 
 ## What it is
 
@@ -253,27 +254,52 @@ image, but its budget line should be its own and argued.
 **Considered, not chosen:** Chromium is the signage incumbent. It takes much longer to
 build (gn, about 8 h a build), and you asked for Firefox. **WPE WebKit + cog** (Igalia, in
 Debian and Yocto) was designed for exactly this use: no GTK, Wayland-native and much
-smaller. It uses GStreamer for media.
+smaller. It uses GStreamer for media. **MiniBrowser** and **Epiphany** are the WebKit
+browsers that come with a toolbar; *The spike* weighs them.
 
 ### The spike
 
-Spend one day on WPE WebKit + cog against Firefox, in the qemu harness, and decide on
-these, in this order:
+Spend one day on WebKit against Firefox, in the qemu harness. Three WebKit shapes are in
+play:
+
+- **WPE + cog**: the smallest, with no GTK, but with no chrome at all.
+- **MiniBrowser**, WebKit's in-tree test browser (`Tools/MiniBrowser`, BSD-licensed). The
+  GTK port's has a URL bar, back, forward and reload, so it measures WebKit *with* a
+  toolbar before anyone writes one. It is a measuring tool, not the kiosk: a test shell
+  whose options change whenever WebKit's developers need them to, which nobody reviews or
+  ships as a browser. It has no lockdown (WebKit settings are command-line flags, and
+  developer extras open the inspector from a shortcut) and no password manager. The GTK
+  one needs GTK 4, which gives back most of what WPE saves. *Check first whether the WPE
+  port's MiniBrowser in the pinned release has a toolbar*: only that one keeps WPE's size.
+  Shipping it would mean a fork, patched for lockdown, which is allowed (BSD) but is a
+  test tool turned into a product.
+- **Epiphany** (GNOME Web), the real WebKitGTK browser, in Debian, Fedora and Alpine. It
+  has a fullscreen mode and lockdown settings (`org.gnome.Epiphany.lockdown`: arbitrary
+  URLs, history, printing, saving to disk; *verify the current key set*). It drags in GTK 4,
+  libadwaita and dconf, and its password manager needs libsecret and a secret-service
+  daemon, so *Secrets* step 3 does not come free.
+
+Measure WebKit with MiniBrowser (the WPE one if it has a toolbar, else GTK), judge
+Epiphany on lockdown and secrets, and decide on these, in this order:
 
 1. **Browser UI.** cog is a launcher with **no chrome**: no URL bar, no back button. An
-   interactive kiosk needs one, so WPE means writing and maintaining a small browser UI.
-   That cost is probably decisive, so look at it first.
-2. **Secrets.** WPE has no password manager, so *Secrets* step 3 would be ours to build
-   (injecting into forms through a WebKit extension). Firefox's AutoConfig gets it for
-   free.
+   interactive kiosk needs one, so WPE means writing and maintaining a small browser UI,
+   or forking MiniBrowser. Epiphany has one. That cost is probably decisive, so look at
+   it first.
+2. **Secrets.** WPE and MiniBrowser have no password manager, so *Secrets* step 3 would
+   be ours to build (injecting into forms through a WebKit extension). Epiphany's needs a
+   secret-service daemon. Firefox's AutoConfig gets it for free.
 3. **Lockdown.** Is there an equivalent of `policies.json`? With WPE, everything not
-   built simply does not exist, which helps.
+   built simply does not exist, which helps. Epiphany has its lockdown keys; MiniBrowser
+   has nothing.
 4. **Media.** GStreamer's plugin set against ffmpeg: size, codecs, and whether any
    GStreamer element brings in an interpreter.
 5. **Measured, not estimated:** installed size, build time on a 4-core runner, idle RSS,
    and CPU during 1080p software video playback.
 
-Firefox is the default. WPE has to win on 1–3 and be much smaller to replace it.
+Firefox is the default. WebKit, in whichever shape, has to win on 1–3 and be much
+smaller to replace it. A MiniBrowser fork is considered only if WebKit wins by a wide
+margin.
 
 ## Lockdown
 
@@ -597,7 +623,7 @@ stand.
 
 ## What else to decide
 
-1. **Firefox or WPE WebKit**, from the spike.
+1. **Firefox or WebKit** (WPE, a MiniBrowser fork, or Epiphany), from the spike.
 2. **Audio**: ALSA direct vs PipeWire (Lua).
 3. **Fonts and languages**, since they decide most of the size beyond Firefox itself.
 4. **Tabs**: one tab, or several.
@@ -616,7 +642,7 @@ stand.
    `/dev/tpmrm0` on both flavours, and `/dev/dri/card0` plus an ALSA card on `display`.
 3. The Wayland stack up to cage running a trivial client (`foot` or a test client), with a
    screendump test.
-4. The browser spike, Firefox vs WPE, and the decision.
+4. The browser spike, Firefox vs WebKit (WPE, MiniBrowser, Epiphany), and the decision.
 5. The browser, policies, kiosk unit and admin mode, with an escape test for each
    lockdown item, and the tty2 and serial-console password tests with `login.noauth`
    set. Kiosk boots drop `login.noauth` and are reached over ssh. The root-password
