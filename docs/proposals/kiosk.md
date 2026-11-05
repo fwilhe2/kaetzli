@@ -1,9 +1,9 @@
-# A kiosk image
+# A kiosk extension
 
-**Status: proposal.** Nothing here is implemented. It plans a `kiosk` system extension: boot straight
-into a locked-down Firefox on a minimal Wayland stack, play audio and video, take
-per-deployment configuration and secrets from outside, and offer a password-protected
-admin terminal. It also covers where that image should live.
+**Status: proposal.** Nothing here is implemented. It plans a `kiosk` system extension,
+which boots straight into a locked-down Firefox on a minimal Wayland stack. It plays audio
+and video, takes per-deployment configuration and secrets from outside, and offers a
+password-protected root terminal. It also covers where the work should live.
 
 **Decided so far:**
 
@@ -38,8 +38,13 @@ that is needed:
 
 - **One base, one kernel, one release.** A kiosk is `--ext kiosk` on the same image a
   server uses. The base stays at about 90 MB for everyone else.
-- **Integrity is unchanged.** An attached extension is verified by dm-verity from the
-  kernel command line, like the root, so everything that runs is still verified.
+- **Integrity holds, if the extension is attached.** An extension attached as a disk is
+  verified by dm-verity from the kernel command line, like the root. An extension or
+  confext merged from `/var/lib/extensions` or `/var/lib/confexts` is **not** verified
+  (`docs/guides/sysext.md`). For a kiosk, that path would let whoever holds the `/var`
+  disk replace `policies.json` or `mozilla.cfg`, which runs privileged JavaScript. So the
+  kiosk's sysext and confext, and any per-deployment confext, are always attached disks,
+  never files on `/var`. Settings that do not justify a confext come in as credentials.
 - **"Where it lives" mostly answers itself.** It is one more extension in this
   repository, with its own `test/kiosk.sh`, just as `kubernetes` has `test/k8s.sh`.
 
@@ -72,10 +77,10 @@ that is needed:
    flavour.
 4. **Nothing in the extension may write `/etc` at boot** (the base's first boot happens
    at build time).
-   - **Users**: `kiosk` and `admin` cannot come from `sysusers.d`, because the extension
-     merges after `/etc` is sealed. Ship them as userdb records in `/usr/lib/userdb/`,
-     served by `nss-systemd`. *Verify that the drop-in directory and its shadow fields
-     behave as expected.*
+   - **Users**: `kiosk` cannot come from `sysusers.d`, because the extension merges
+     after `/etc` is sealed. Ship it as a userdb record in `/usr/lib/userdb/`, served by
+     `nss-systemd`. It needs no password. *Verify that the drop-in directory works from a
+     sysext.* The admin is root (see *Admin mode*).
    - **`/etc` files**: fontconfig's `/etc/fonts`, logind's `NAutoVTs=` and the tty2
      getty either move under `/usr` (`--sysconfdir`, `/usr/lib/systemd/logind.conf.d/`)
      or go into the `kiosk` confext. That is the mechanism `kubernetes` already uses.
@@ -100,7 +105,8 @@ check covers only images today.
 ### Kernel flavours
 
 This is a kernel build matrix: arch × flavour. Each flavour is the default config **plus
-one additive fragment**, and nothing else.
+one fragment that only turns things on**. That fragment is merged after `vm.config` and
+before `parity.config`.
 
 | Flavour | Fragment | For |
 | --- | --- | --- |
@@ -108,7 +114,9 @@ one additive fragment**, and nothing else.
 | `display` | `display.config`: `virtio-gpu` with fbdev emulation, `virtio-snd` and intel-hda, HID with `usb-tablet`/virtio-input | the kiosk, and any later GUI extension |
 
 The TPM drivers (`TCG_TPM`, `TCG_CRB`, `TCG_TIS`) go into **`default`**, not `display`.
-`systemd-creds` sealed to a vTPM is useful for any machine, not only a kiosk. Name
+`systemd-creds` sealed to a vTPM is useful for any machine, not only a kiosk. That is a
+change to `default` itself: `vm.config` clears `TCG_TPM` today, and that line is deleted,
+in its own PR, with its kernel-config report. Name
 flavours after what they add (`display`), not after who uses them (`kiosk`), so a second
 consumer does not need a rename.
 
@@ -120,24 +128,42 @@ consumer does not need a rename.
   one. A check, either a mode of `test/kernel-config-diff.py` or a small
   `test/kernel-flavours.py`, fails a flavour whose difference from `default` is anything
   other than symbols turned on. `kernel-caps.py` (what a container needs) and
-  `kernel-parity.py` (amd64 and arm64 agree) run per flavour.
+  `kernel-parity.py` (amd64 and arm64 agree) run per flavour, and each reads that
+  flavour's config, not `boot/config`.
+- **`vm.config` clears what `display` turns on.** `CONFIG_DRM`, `SOUND`, `FB` and
+  `HID_SUPPORT` are cleared there on purpose, and the post-merge check fails on any
+  symbol `vm.config` cleared that came back `=y`. So for a flavour, that check runs
+  against `vm.config` minus the symbols the flavour fragment names. The flavour fragment
+  gets the same rule in reverse: everything it turns on must be `=y`, and every symbol it
+  names must exist. Without that exemption, `display` fails the build. With it, the
+  exemption is exactly the fragment, which is what the additive-only check compares
+  against.
 - **One source of truth for the fragments.** They stay as heredocs in
   `packages/kernel/build.sh`, which applies `display.config` when `$KERNEL_FLAVOUR` says
-  so. The same post-merge check covers the flavour fragment: what it turns on must be
-  `=y`, and every symbol it names must exist.
-- **A flavour is a package**, so the rest of the machinery works on it unchanged: CI
-  matrix, cache key, staging, SBOM, `check-updates.py` and `bump-version.sh`.
+  so.
+- **A flavour is a package**, so CI matrix, cache key, staging and SBOM work on it.
   `packages/kernel-display/env.sh` is `FOLLOWS=kernel` plus `KERNEL_FLAVOUR=display`, with
-  no `build.sh` of its own. The driver mounts the followed package's `build.sh` when the
-  follower has none. That is a small `build.sh` change, and the only new mechanism here.
+  no `build.sh` of its own. That needs these changes, and nothing more:
+  - **`build.sh` mounts the followed package's `build.sh`** when the follower has none.
+  - **`build.sh` passes `KERNEL_FLAVOUR` into the container**, because only the
+    `KAETZLI_*` pins and `SOURCE_DATE_EPOCH` cross today.
+  - **The flavour reuses the followed package's extracted tree.** Otherwise each flavour
+    extracts another full kernel tree, locally and in CI.
+  - **`unset CPE`**, as `linux-tools` does. NVD files every kernel CVE against
+    `linux_kernel`, so a second CPE counts each one twice.
+
+  `check-updates.py` skips a `FOLLOWS` package and `bump-version.sh` refuses one. That is
+  right: the flavour moves when `kernel` does, and nothing checks its version separately.
 - **The paths must not collide**, because `merge-staging.sh` fails on any path that two
   packages install:
   - Each flavour gets its own `LOCALVERSION` (`7.3.1-display`), so `uname -r` says which
     flavour is running.
   - The kernel installs as `boot/bzImage-<flavour>` and `boot/config-<flavour>`, and
     `default` keeps `boot/bzImage` and `boot/config`, so nothing downstream changes.
-  - Each flavour has its own `usr/lib/modules/<release>/config` link. kubeadm finds the
-    running kernel's config through `uname -r` either way.
+  - Each flavour has its own `usr/lib/modules/<release>/config` link, pointing at **its
+    own** config. Today the link is hard-coded to `../../../../boot/config`, so reusing
+    it as it is would give the display kernel the default kernel's config. kubeadm then
+    finds the running kernel's config through `uname -r`.
 
   The image ships every flavour's config and modules directory, which are a few KB each,
   and none of the kernels. `build-rootfs.sh`'s `rm -f boot/bzImage` becomes
@@ -233,8 +259,9 @@ Firefox is the default. WPE has to win on 1–3 and be much smaller to replace i
 
 Firefox and the OS each have escape hatches, and each one needs closing.
 
-**Firefox: an enterprise `policies.json`**, shipped in the image (read-only) and merged with
-per-deployment settings from a confext:
+**Firefox: an enterprise `policies.json`**, shipped in the extension (read-only, under
+Firefox's own `distribution/` directory). Per-deployment settings are merged from an
+attached confext or a credential:
 
 - Interactive kiosk, so **not** `--kiosk`, which removes the URL bar. Use a single
   fullscreen window with the navigation toolbar only: back, forward, reload, home and the
@@ -256,7 +283,10 @@ per-deployment settings from a confext:
 **The OS:**
 
 - **VT switching.** cage blocks Ctrl+Alt+Fn by default. Admin mode relies on that being
-  a deliberate exception (below). Set `NAutoVTs=0`, so tty2 is the only getty there is.
+  a deliberate exception (below). With `CONFIG_VT`, the kernel has tty1–63 whatever
+  logind does, so the gettys are what matter: `NAutoVTs=0` and **`ReserveVT=0`**. The
+  default `ReserveVT=6` starts a getty on tty6 regardless. Then tty2's explicitly
+  enabled getty is the only login prompt; the other VTs are empty screens.
 - Mask `ctrl-alt-del.target`, set `kernel.sysrq=0`, and set logind's
   `HandlePowerKey=` and the like to taste.
 - No USB storage (no `usb-storage` or automount in the kernel), no xdg-desktop-portal,
@@ -265,37 +295,62 @@ per-deployment settings from a confext:
 
 ## Admin mode
 
-The design needs **no new code and no setuid**:
+**The admin account is `root`.** A separate `admin` user cannot do admin work. Nothing in
+the image is setuid, so there is no `su` or `sudo` to get from a user login to root.
+userdb will not serve a second uid-0 account. Logging in as root directly is the only
+route that needs no setuid and no new code:
 
 1. The kiosk runs `cage -s -- firefox …` on tty1. `-s` allows VT switching, which cage
    otherwise blocks.
-2. tty2 has `agetty` → `login` for one account, `admin`. Logging in there needs the
-   admin password, and that password **is** the gate. Ctrl+Alt+F2 is not a secret, and it
-   does not need to be.
-3. tty3 and up do not exist (`NAutoVTs=0`).
-4. `TMOUT=` in the admin shell, and a unit that runs `chvt 1` when the session ends.
+2. tty2 has `agetty` → `login`. Logging in as root needs the root password, and that
+   password **is** the gate. Ctrl+Alt+F2 is not a secret, and it does not need to be.
+3. No other getty exists: `NAutoVTs=0` and `ReserveVT=0` (see *Lockdown*).
+4. `TMOUT=` in the root shell, and a unit that runs `chvt 1` when the session ends.
 5. Text console on the display: DRM fbdev emulation, so tty2 is visible on the same
    screen.
 
 A GUI terminal (foot) can come later. It needs a root-side way to start a privileged
-session, because there is no setuid `su`, and the text console needs nothing.
+session, just as the text console does through `login`.
+
+**`login.noauth` must not reach a kiosk.** The VM tools pass
+`systemd.set_credential=login.noauth:yes` on every boot (`test/qemu-lib.sh`). With it,
+`login` asks no password at all, on any getty, for root included, so the gate above would
+not exist. The fix comes in two parts:
+
+- **The host side.** `qemu-lib.sh`, `vm.sh` and the launcher drop `login.noauth` when the
+  kiosk extension is attached.
+- **The guest side, as defence in depth.** The kiosk confext's drop-in for
+  `getty@tty2.service` resets its `ImportCredential=` list, so a `login.noauth` passed by
+  hand still never reaches `login`. *Verify that an empty `ImportCredential=` resets the
+  imports inherited from the base unit.*
+
+`test/kiosk.sh` boots **with** `login.noauth` set and requires tty2 to ask for a password.
 
 **The password breaks a current invariant**: `shadow` is all `*` and the build fails on
 a hash. Keep that rule. Bring the hash in at boot as a credential
-(`kiosk.admin-password-hash`) and serve it without writing `/etc`: a userdb record in
-`/run/userdb/admin.user`, which `nss-systemd` serves as a shadow entry to `pam_unix`
-(`shadow: files systemd`). *Verify that nss-systemd's shadow support covers this before
-building on it.* With no credential given, the admin account stays locked, and that is
-the safe default.
+(`kiosk.root-password-hash`) and serve it without writing `/etc`, the way the image
+already handles `/etc/machine-id`:
+
+1. A root oneshot early in boot writes `/run/kiosk/shadow`. It is the image's
+   `/etc/shadow` with root's `*` replaced by the credential.
+2. The oneshot bind-mounts that file read-only over `/etc/shadow`. A bind mount onto a
+   read-only filesystem is allowed; writing to it is not.
+3. `pam_unix` reads `/etc/shadow` as it always does, so nothing else changes.
+
+With no credential given, nothing is mounted, root stays `*`, and admin mode is off. That
+is the safe default. The oneshot must refuse anything that is not a crypt hash. It also
+deletes nothing: an empty or malformed credential leaves root locked rather than open.
 
 ## Taking credentials in
 
 The existing machinery already does most of this: systemd credentials over fw_cfg/SMBIOS
-(qemu), confexts on the `/var` disk, and `tools/vm.sh` and the launcher passing both.
+(qemu), confexts attached as verified disks, and `tools/vm.sh` and the launcher passing
+both. Confexts on the `/var` disk are not used for a kiosk, because they are not verified
+(see *As a system extension*).
 
-- **Deployment config**: the start URL, allowlist and policy additions. A confext
-  carrying `/etc/firefox/policies/…`, or a credential a oneshot renders into
-  `/run/…/policies.json`, with Firefox pointed there.
+- **Deployment config**: the start URL, allowlist and policy additions. These come in an
+  attached confext carrying `/etc/firefox/policies/…`, or as a credential a oneshot renders
+  into `/run/…/policies.json`, with Firefox pointed there.
 - **Site logins**: an encrypted list, below.
 - **Network**: as today.
 
@@ -343,9 +398,11 @@ admin's machine, and the guest only ever sees systemd's format.
 **3. Into the browser: Firefox AutoConfig.** `mozilla.cfg` is a supported enterprise
 mechanism that runs privileged JavaScript at startup. It can read
 `$CREDENTIALS_DIRECTORY/kiosk.logins` and call `Services.logins.addLoginsAsync()` into
-the fresh in-RAM profile. Firefox then autofills on the matching origins. It is
-JavaScript inside the JavaScript runtime the image already has, so it adds no
-interpreter. It ships read-only in the image next to `policies.json`.
+the fresh in-RAM profile. Firefox then autofills on the matching origins. The base image
+has no JavaScript runtime. Firefox brings one, which is the constraint 5 exception the
+kiosk extension needs anyway (see *What you forgot to think about*). AutoConfig adds no
+second interpreter on top of that one, but it does not make the exception unnecessary. It
+ships read-only in the extension, next to `policies.json`.
 
 **Be honest about what this protects.** Encryption protects the list at rest and in
 transit, and outside the VM. *Inside* a running interactive kiosk, the visitor can use
@@ -452,11 +509,18 @@ than a second subject.
 
 **Constraints that have to be rewritten, not bent**
 
-- Constraint 5: Firefox *is* a JavaScript runtime. State the exception: it is the
-  payload. Also guard against Python and Lua sneaking in (WirePlumber, mesa's build
-  scripts in `DESTDIR`, GTK's helper scripts).
-- Constraint 3: does a kiosk need podman? Probably not. Say so per image.
-- Constraint 2: virtio-gpu and virtio-snd are VM devices and fit. Hardware does not.
+There is one image, so these are exceptions **for the `kiosk` extension**, written into
+CLAUDE.md as such. They are not per-image constraints. The base keeps all six as they
+stand.
+
+- Constraint 5: Firefox *is* a JavaScript runtime, and AutoConfig runs on it. State the
+  exception: it is the extension's payload, and it never reaches the base. Also guard
+  the extension against Python and Lua sneaking in: WirePlumber, mesa's build scripts in
+  `DESTDIR`, GTK's helper scripts. Give it its own `test/image-files/` lines.
+- Constraint 3 is untouched. The base still runs containers, and the kiosk extension
+  simply does not use them.
+- Constraint 2: virtio-gpu and virtio-snd are VM devices and fit, in the `display`
+  flavour. Hardware does not.
 
 **Licensing and trademarks**
 
@@ -507,7 +571,7 @@ than a second subject.
 2. **Audio**: ALSA direct vs PipeWire (Lua).
 3. **Fonts and languages**, since they decide most of the size beyond Firefox itself.
 4. **Tabs**: one tab, or several.
-5. **Where it lives**: option A unless there is a reason against it.
+5. **Firefox branding**: unbranded, or official branding under the current trademark policy.
 
 ## Order
 
@@ -522,7 +586,8 @@ than a second subject.
    screendump test.
 4. The browser spike, Firefox vs WPE, and the decision.
 5. The browser, policies, kiosk unit and admin mode, with an escape test for each
-   lockdown item.
+   lockdown item, and the tty2 password test with `login.noauth` set. Kiosk boots drop
+   `login.noauth`; the root-password oneshot and its bind mount go in.
 6. Media: ffmpeg, audio, a playback test with an audio capture.
 7. Secrets: vTPM in the harness (`swtpm`), `tools/kiosk-secrets.py`, the AutoConfig
    loader, and a test that a login from the list autofills on its origin and nowhere
