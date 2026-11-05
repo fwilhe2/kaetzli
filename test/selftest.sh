@@ -166,6 +166,49 @@ expect fail "symbol-resolution: a missing symbol behind a symlink name is report
     foo_new ./test/check-symbol-resolution.py "$alias_old"
 
 # ---------------------------------------------------------------------------------
+# check-hardening.py reads a staging directory, staging/<pkg>/{rootfs,extensions}, and
+# names the package. One program with a local array (so the stack protector instruments
+# it) and a printf with an argument (which fortify always turns into __printf_chk),
+# built with builder/build-package.sh's flags, then with one of them undone per package.
+cat > "$src/hardened.c" <<'EOF'
+#include <stdio.h>
+#include <string.h>
+int main(int argc, char **argv) {
+    char buf[64];
+    strncpy(buf, argc > 1 ? argv[1] : "x", sizeof buf - 1);
+    buf[63] = 0;
+    printf("%s %d\n", buf, argc);
+    return 0;
+}
+EOF
+# shellcheck disable=SC2054 # -Wl,-z,now is one flag, commas and all
+hardened=(-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie
+          -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack)
+staged() { # <staging> <pkg> <extra gcc flags>...
+    local dir=$1/$2/rootfs/usr/bin
+    mkdir -p "$dir"
+    gcc "${hardened[@]}" "${@:3}" "$src/hardened.c" -o "$dir/$2" 2>/dev/null
+}
+hstage=$work/hardening-good
+staged "$hstage" good
+expect pass "hardening: a package built with every flag passes" "" \
+    ./test/check-hardening.py "$hstage" "$empty"
+while read -r pkg finding flags; do
+    cp -a "$hstage" "$work/hardening-$pkg"
+    # shellcheck disable=SC2086 # the flags are words
+    staged "$work/hardening-$pkg" "$pkg" $flags
+    expect fail "hardening: $finding is reported, with its package" "$pkg: $finding" \
+        ./test/check-hardening.py "$work/hardening-$pkg" "$empty"
+done <<'EOF'
+lazy      bind-now        -Wl,-z,lazy
+norelro   relro           -Wl,-z,norelro
+nopie     pie             -fno-PIE -no-pie
+execstack exec-stack      -Wl,-z,execstack
+nossp     stack-protector -fno-stack-protector
+nofortify fortify         -U_FORTIFY_SOURCE
+EOF
+
+# ---------------------------------------------------------------------------------
 # Kernel config
 #
 # A config that has every symbol kernel-caps.py requires, generated from its list,

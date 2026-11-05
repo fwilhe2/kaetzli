@@ -44,21 +44,49 @@ if [ -n "${SYSROOT:-}" ]; then
     # libaudit) are otherwise looked up in the sysrooted defaults.
     sysroot_ldflags+=" -Wl,-rpath-link,/usr/lib/$multiarch -Wl,-rpath-link,/usr/lib"
 
+    # Hardening, the set Fedora builds every package with. Debian's gcc defaults to PIE
+    # and nothing else — the rest comes from dpkg-buildflags, which is not here — so
+    # without these lines a package had no stack protector and a writable GOT.
+    #   _FORTIFY_SOURCE=3   bounds-checked libc calls where the size is known; -U first,
+    #                       so a build system's own -D is not a redefinition
+    #   stack-protector     a canary in every function with an array or an address taken
+    #   stack-clash         stack probes, so a large alloca cannot jump the guard page
+    #   cf-protection, branch-protection
+    #                       endbr64/BTI landing pads and SHSTK/PAC markings; inert until
+    #                       every object linked in has them, glibc's start files included
+    #   relro, now          the GOT read-only once the loader has resolved everything
+    # In CFLAGS, not CPPFLAGS: gcc's target libraries (packages/gcc) are built from
+    # CPPFLAGS alone, and libgcc_s must not call a stack protector. glibc and the kernel
+    # are NO_SYSROOT and never see these. test/check-hardening.py holds every package's
+    # binaries to them.
+    hardening="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection"
+    case "$(uname -m)" in
+        x86_64)  hardening+=" -fcf-protection=full" ;;
+        aarch64) hardening+=" -mbranch-protection=standard" ;;
+    esac
+
     export CPPFLAGS="$sysroot_cppflags${CPPFLAGS:+ $CPPFLAGS}"
-    export LDFLAGS="$sysroot_ldflags${LDFLAGS:+ $LDFLAGS}"
+    export LDFLAGS="$sysroot_ldflags -Wl,-z,relro -Wl,-z,now${LDFLAGS:+ $LDFLAGS}"
 
     # -O2 has to be said: autoconf only defaults to it when CFLAGS is unset, and setting
     # it is what the line above does, so everything was silently -O0. No -g, since the
     # image is stripped. SYSROOT_CFLAGS is the same without -O2, for meson, whose c_args
-    # come after its buildtype's optimization (see meson_install).
-    export SYSROOT_CFLAGS="$sysroot_cppflags"
-    export CFLAGS="$sysroot_cppflags -O2${CFLAGS:+ $CFLAGS}"
-    export CXXFLAGS="$sysroot_cppflags -O2${CXXFLAGS:+ $CXXFLAGS}"
+    # come after its buildtype's optimization (see meson_install). C++ also gets
+    # libstdc++'s cheap precondition checks (operator[] in bounds, front() of a non-empty
+    # container), as Fedora's builds do.
+    export SYSROOT_CFLAGS="$sysroot_cppflags $hardening"
+    export SYSROOT_CXXFLAGS="$SYSROOT_CFLAGS -D_GLIBCXX_ASSERTIONS"
+    export CFLAGS="$sysroot_cppflags -O2 $hardening${CFLAGS:+ $CFLAGS}"
+    export CXXFLAGS="$sysroot_cppflags -O2 $hardening -D_GLIBCXX_ASSERTIONS${CXXFLAGS:+ $CXXFLAGS}"
 fi
 
 # Go and Rust read none of the above, so they get the sysroot their own way, are pinned
 # offline (the build has no network), and keep paths out of the binary (reproducible).
-export GOTOOLCHAIN=local GOPROXY=off GOFLAGS="-mod=vendor -trimpath -buildvcs=false"
+# -buildmode=pie: Go's default on linux is a fixed-address executable, which ASLR cannot
+# move; a cgo program links through gcc with the LDFLAGS above, so it is RELRO and
+# BIND_NOW as well. A CGO_ENABLED=0 program meant to stay static says -buildmode=exe on
+# its own command line, which overrides this.
+export GOTOOLCHAIN=local GOPROXY=off GOFLAGS="-mod=vendor -trimpath -buildvcs=false -buildmode=pie"
 export GOPATH=/tmp/go GOCACHE=/tmp/go-cache CGO_ENABLED=1
 export CGO_CFLAGS="${CFLAGS:-}" CGO_LDFLAGS="${LDFLAGS:-}"
 # Rust: one -C link-arg per flag, because cargo splits RUSTFLAGS on whitespace and rustc
@@ -132,7 +160,7 @@ assert_not_linked() {
 # setup, compile and install. --buildtype=release because meson's default is -O0, and
 # CFLAGS without the -O2 so the buildtype decides. -Dlibdir=lib, not the multiarch path.
 meson_install() {
-    CFLAGS="${SYSROOT_CFLAGS:-}" CXXFLAGS="${SYSROOT_CFLAGS:-}" \
+    CFLAGS="${SYSROOT_CFLAGS:-}" CXXFLAGS="${SYSROOT_CXXFLAGS:-}" \
         meson setup --prefix /usr --buildtype=release -Dlibdir=lib "$@" build
     meson compile -C build
     meson install -C build --destdir "$ROOTFS"

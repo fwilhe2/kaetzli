@@ -2,7 +2,11 @@ mkdir -p build
 pushd build
 # --disable-werror: sid's linux-libc-dev redefines OPEN_TREE_CLONE etc. that glibc's
 # own sys/mount.h also defines, which -Werror turns into a fatal build error.
-../configure --prefix=/usr --disable-werror
+# The hardening every other package gets from builder/build-package.sh, which glibc
+# (NO_SYSROOT) does not see, by glibc's own switches, as Fedora configures it: a stack
+# protector, fortified internal calls, and BIND_NOW for the loader and every library.
+../configure --prefix=/usr --disable-werror \
+    --enable-stack-protector=strong --enable-fortify-source --enable-bind-now
 make
 make install DESTDIR=$ROOTFS
 popd

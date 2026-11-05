@@ -1,8 +1,9 @@
 # kubelet, kubeadm and kubectl, as upstream builds them (hack/lib/golang.sh): kubeadm and
-# kubectl static (CGO_ENABLED=0), kubelet with cgo, against our glibc through the
-# builder's CGO_CFLAGS/CGO_LDFLAGS like podman, and the tags upstream builds every
-# release binary with — notest, and grpcnotrace, which lets the linker drop gRPC's tracing
-# and is worth about a third of kubelet's size. Not selinux: the kernel has no SELinux.
+# kubectl static (CGO_ENABLED=0, and -buildmode=exe over build-package.sh's pie), kubelet
+# with cgo, against our glibc through the builder's CGO_CFLAGS/CGO_LDFLAGS like podman,
+# and the tags upstream builds every release binary with — notest, and grpcnotrace,
+# which lets the linker drop gRPC's tracing and is worth about a third of kubelet's size.
+# Not selinux: the kernel has no SELinux.
 # The rest of the release — the control plane, kube-proxy — runs as pods from
 # registry.k8s.io images, which is the version skew kubeadm manages and not something a
 # node ships.
@@ -24,7 +25,7 @@ done
 tags=notest,grpcnotrace
 CGO_ENABLED=1 go build -tags "$tags" -ldflags "$ldflags" -o "$ROOTFS/usr/bin/kubelet" ./cmd/kubelet
 for cmd in kubeadm kubectl; do
-    CGO_ENABLED=0 go build -tags "$tags" -ldflags "$ldflags" -o "$ROOTFS/usr/bin/$cmd" "./cmd/$cmd"
+    CGO_ENABLED=0 go build -buildmode=exe -tags "$tags" -ldflags "$ldflags" -o "$ROOTFS/usr/bin/$cmd" "./cmd/$cmd"
 done
 
 # What kubeadm compares against the cluster it joins.
