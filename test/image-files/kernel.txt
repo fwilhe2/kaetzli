@@ -6,3 +6,6 @@
 # through usr/lib/modules/<release>/config.
 absent        boot/bzImage
 present:erofs boot/config
+# The flavours (packages/kernel-display) likewise: the kernel goes, its config stays.
+absent        boot/bzImage-*
+present:erofs boot/config-display

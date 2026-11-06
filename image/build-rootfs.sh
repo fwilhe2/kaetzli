@@ -138,10 +138,11 @@ repro_tar() {
         --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime "$@"
 }
 
-# The kernel, from both flavours: every VMM is handed it from outside, and the tests and
-# tools/fetch-image.sh take it from rootfs/ or the kernel's package artifact. boot/config
-# stays for the disk image, which kubeadm reads through usr/lib/modules/<release>/config.
-rm -f boot/bzImage
+# The kernels (every kernel flavour, packages/kernel-*), from both image flavours: every
+# VMM is handed one from outside, and the tests and tools/fetch-image.sh take it from
+# rootfs/ or the kernel's package artifact. boot/config and boot/config-<flavour> stay
+# for the disk image, which kubeadm reads through usr/lib/modules/<release>/config.
+rm -f boot/bzImage boot/bzImage-*
 
 # ---------------------------------------------------------------------------------
 # The container flavour, as subtractions: a container gets its kernel from the host and

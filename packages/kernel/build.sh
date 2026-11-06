@@ -643,6 +643,41 @@ cat > kernel/configs/vm.config <<'EOF'
 EOF
 make vm.config
 
+# KERNEL_FLAVOUR=display (packages/kernel-display, docs/proposals/kiosk.md): a screen and
+# what points at it, for a guest with a GUI. The default kernel is headless and has none
+# of it; a flavour only ever adds. Every vm.config clear this undoes is named here, as
+# =y, including those only selected by what it turns on — so the vm.config part of the
+# check below is exempt for exactly these symbols, and a selection nobody named still
+# fails it. Written for every flavour, merged only for display, before parity.config so
+# the arches agree on these symbols too.
+#   DRM_VIRTIO_GPU   qemu's virtio-gpu and Virtualization.framework's graphics device
+#   DRM_FBDEV_EMULATION, FRAMEBUFFER_CONSOLE  the text console (tty1, tty2) on that screen
+#   USB_XHCI_HCD, USB_HID  qemu's usb-tablet and vz's USB keyboard and pointer;
+#                    virtio-input (keyboard, tablet) and i8042 are in default already
+#   I2C              selected by DRM itself (drivers/gpu/drm/Kconfig), for DDC
+cat > kernel/configs/display.config <<'EOF'
+CONFIG_LOCALVERSION="-display"
+CONFIG_DRM=y
+CONFIG_I2C=y
+CONFIG_DRM_VIRTIO_GPU=y
+CONFIG_DRM_FBDEV_EMULATION=y
+CONFIG_FB=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_USB_SUPPORT=y
+CONFIG_USB=y
+CONFIG_USB_XHCI_HCD=y
+CONFIG_HID_SUPPORT=y
+CONFIG_HID=y
+CONFIG_HID_GENERIC=y
+CONFIG_USB_HID=y
+EOF
+flavour=${KERNEL_FLAVOUR:-default}
+case "$flavour" in
+    default) ;;
+    display) make display.config ;;
+    *) echo "error: KERNEL_FLAVOUR=$flavour (expected default or display)" >&2; exit 1 ;;
+esac
+
 # What defconfig gives one architecture and not the other, decided once for both: a
 # feature userspace can see is the same on amd64 and arm64. Hardware and the arch's own
 # internals (ACPI, IOMMU defaults, clocks, pinctrl) still follow the arch; arm64's
@@ -727,6 +762,9 @@ CONFIG_FANOTIFY=y
 CONFIG_TASK_DELAY_ACCT=y
 CONFIG_SECURITY_NETWORK=y
 CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=y
+# AMD chipsets' USB host quirks, x86's default once USB is on (the display flavour); in
+# the default kernel there is no USB and this line does nothing.
+# CONFIG_USB_PCI_AMD is not set
 # Desktop and big-iron behaviour a VM has no use for: autogrouping by session, NUMA
 # balancing, the proc connector, configfs, NBD, pstore, crypto through netlink.
 # CONFIG_SCHED_AUTOGROUP is not set
@@ -790,8 +828,9 @@ make parity.config
 #     instead of quietly bringing a driver back (a clear for a symbol the pinned kernel
 #     does not have yet goes in with the bump);
 #   - everything the additive fragments turn on is =y;
-#   - nothing cleared came back =y.
+#   - nothing cleared came back =y, except a vm.config clear the flavour's fragment names.
 fragments=(kernel/configs/{container,rootfs,k8s,parity,guest,trace,kspp}.config)
+[ "$flavour" = default ] || fragments+=("kernel/configs/$flavour.config")
 unapplied=""
 
 kconfig_symbols=$(find . -name 'Kconfig*' -not -path './Documentation/*' -print0 \
@@ -802,19 +841,23 @@ while read -r sym; do
         unapplied="$unapplied  CONFIG_$sym  (no Kconfig in this kernel defines it — renamed or removed?)"$'\n'
     fi
 done < <(sed -n -E 's/^# CONFIG_([A-Z0-9_]+) is not set$/\1/p; s/^CONFIG_([A-Z0-9_]+)=.*/\1/p' \
-             "${fragments[@]}" kernel/configs/vm.config | sort -u)
+             "${fragments[@]}" kernel/configs/vm.config kernel/configs/display.config | sort -u)
 while read -r sym; do
     if ! grep -qx "$sym" .config; then
         unapplied="$unapplied  $sym  (asked for, not in .config)"$'\n'
     fi
 done < <(grep -hE '^CONFIG_[A-Z0-9_]+=y$' "${fragments[@]}")
 
+flavour_on=
+[ "$flavour" = default ] || flavour_on=$(grep -hoE '^CONFIG_[A-Z0-9_]+=y$' "kernel/configs/$flavour.config" | sed 's/=y$//')
 while read -r sym; do
     if grep -qx "$sym=y" .config; then
         unapplied="$unapplied  $sym  (cleared, came back =y)"$'\n'
     fi
 done < <(sed -n 's/^# \(CONFIG_[A-Z0-9_]*\) is not set$/\1/p' kernel/configs/container.config \
-             kernel/configs/parity.config kernel/configs/kspp.config kernel/configs/vm.config)
+             kernel/configs/parity.config kernel/configs/kspp.config
+         sed -n 's/^# \(CONFIG_[A-Z0-9_]*\) is not set$/\1/p' kernel/configs/vm.config |
+             grep -vxF -e "${flavour_on:-^}")
 
 if [ -n "$unapplied" ]; then
     echo "error: config fragments did not apply as written:" >&2
@@ -832,16 +875,22 @@ case "$(uname -m)" in
        exit 1 ;;
 esac
 
+# A flavour's files are suffixed with its name, so the packages install no path in
+# common (tools/merge-staging.sh fails on one); default keeps the plain names.
+suffix=
+[ "$flavour" = default ] || suffix="-$flavour"
+
 # Never loaded from the image (VMMs are passed the kernel), but it keeps the artifact
 # bootable on its own.
-install -D -m 644 "$kernel_image" $ROOTFS/boot/bzImage
+install -D -m 644 "$kernel_image" $ROOTFS/boot/bzImage$suffix
 
 # The resolved config, which test/kernel-caps.py reads.
-install -D -m 644 .config $ROOTFS/boot/config
+install -D -m 644 .config $ROOTFS/boot/config$suffix
 
 # There are no modules, but /usr/lib/modules/<release> has to exist: kubeadm's preflight
 # reads the config from there, and kube-proxy and CNI pods bind-mount /lib/modules, which
-# a read-only root cannot create at runtime.
+# a read-only root cannot create at runtime. A flavour's release has its LOCALVERSION
+# (7.3.1-display), so each has its own directory, and its link names its own config.
 release=$(make -s kernelrelease)
 install -d $ROOTFS/usr/lib/modules/$release
-ln -sfn ../../../../boot/config $ROOTFS/usr/lib/modules/$release/config
+ln -sfn ../../../../boot/config$suffix $ROOTFS/usr/lib/modules/$release/config
