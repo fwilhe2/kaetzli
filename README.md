@@ -182,10 +182,11 @@ The demo requires KVM, about 8 GB of RAM, and access to `registry.k8s.io` and `g
 
 The kiosk extension boots into a fullscreen Wayland session (cage running the foot
 terminal) on a virtual screen. It needs the `display` kernel, which adds virtio-gpu and
-USB input to the headless default:
+USB input to the headless default. From a local build (`./tools/build-image.sh`):
 
 ```sh
-KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk QEMU_GRAPHICS=window ./tools/boot-qemu.sh
+ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk \
+    QEMU_GRAPHICS=window ./tools/boot-qemu.sh
 ```
 [System extensions](docs/guides/sysext.md) explains how extensions are built, attached,
 and verified. The
