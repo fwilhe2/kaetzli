@@ -1,0 +1,132 @@
+From 87f87cfb2f75a02bcefbf73f3cf686a7a0d330c3 Mon Sep 17 00:00:00 2001
+From: Jonathan Wakely <jwakely@redhat.com>
+Date: Wed, 4 Nov 2026 12:25:46 +0000
+Subject: [PATCH] libstdc++: Use decltype(auto) for iter_move (LWG 3953)
+ [PR128413]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Use decltype(auto) instead of rvalue_reference_t<I> as per LWG 3953, so
+that types which model input_or_output_iterator but not input_iterator
+are not required to have a usable iter_rvalue_reference_t.
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/128413
+	* include/bits/stl_iterator.h (iter_move): Change return type to
+	decltype(auto) in overloads for common_iterator and
+	counted_iterator, as per LWG 3953.
+	* testsuite/24_iterators/common_iterator/lwg3953.cc: New test.
+	* testsuite/24_iterators/counted_iterator/lwg3953.cc: New test.
+
+Reviewed-by: Tomasz Kamiński <tkaminsk@redhat.com>
+(cherry picked from commit f7269223c11ba5c33789dd6f99a4fdec9c2b7fd4)
+---
+ libstdc++-v3/include/bits/stl_iterator.h      |  8 +++--
+ .../24_iterators/common_iterator/lwg3953.cc   | 30 +++++++++++++++++++
+ .../24_iterators/counted_iterator/lwg3953.cc  | 30 +++++++++++++++++++
+ 3 files changed, 66 insertions(+), 2 deletions(-)
+ create mode 100644 libstdc++-v3/testsuite/24_iterators/common_iterator/lwg3953.cc
+ create mode 100644 libstdc++-v3/testsuite/24_iterators/counted_iterator/lwg3953.cc
+
+diff --git a/libstdc++-v3/include/bits/stl_iterator.h b/libstdc++-v3/include/bits/stl_iterator.h
+index f16f591ad635..e552aa134c59 100644
+--- a/libstdc++-v3/include/bits/stl_iterator.h
++++ b/libstdc++-v3/include/bits/stl_iterator.h
+@@ -2219,8 +2219,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 	  }
+       }
+ 
++    // _GLIBCXX_RESOLVE_LIB_DEFECTS
++    // 3953. iter_move for common_iterator [...] should return decltype(auto)
+     [[nodiscard]]
+-    friend constexpr iter_rvalue_reference_t<_It>
++    friend constexpr decltype(auto)
+     iter_move(const common_iterator& __i)
+     noexcept(noexcept(ranges::iter_move(std::declval<const _It&>())))
+     requires input_iterator<_It>
+@@ -2576,8 +2578,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 		    const counted_iterator<_It2>& __y) noexcept
+ 	{ return __y._M_length <=> __x._M_length; }
+ 
++      // _GLIBCXX_RESOLVE_LIB_DEFECTS
++      // 3953. iter_move for [...] counted_iterator should return decltype(auto)
+       [[nodiscard]]
+-      friend constexpr iter_rvalue_reference_t<_It>
++      friend constexpr decltype(auto)
+       iter_move(const counted_iterator& __i)
+       noexcept(noexcept(ranges::iter_move(__i._M_current)))
+       requires input_iterator<_It>
+diff --git a/libstdc++-v3/testsuite/24_iterators/common_iterator/lwg3953.cc b/libstdc++-v3/testsuite/24_iterators/common_iterator/lwg3953.cc
+new file mode 100644
+index 000000000000..87a0f7761a62
+--- /dev/null
++++ b/libstdc++-v3/testsuite/24_iterators/common_iterator/lwg3953.cc
+@@ -0,0 +1,30 @@
++// { dg-do compile { target c++20 } }
++
++// LWG 3953. iter_move for common_iterator and counted_iterator should return
++// decltype(auto)
++
++// Bug 128413 - common_iterator's iter_move function uses
++// iter_rvalue_reference_t<I> as explicit return type
++
++#include <iterator>
++
++struct non_iter_movable_iterator
++{
++  using value_type      = int;
++  using difference_type = int;
++
++  non_iter_movable_iterator() = default;
++
++  int operator*() const { return 0; }
++
++  non_iter_movable_iterator& operator++() { return *this; }
++  void operator++(int) { }
++
++  // iter_move isn't required for output iterators, so this function using that
++  // name but returning a non-referenceable type should not cause errors.
++  friend void iter_move(const non_iter_movable_iterator&) {}
++};
++
++static_assert( std::input_or_output_iterator<non_iter_movable_iterator> );
++
++std::common_iterator<non_iter_movable_iterator, std::unreachable_sentinel_t> it;
+diff --git a/libstdc++-v3/testsuite/24_iterators/counted_iterator/lwg3953.cc b/libstdc++-v3/testsuite/24_iterators/counted_iterator/lwg3953.cc
+new file mode 100644
+index 000000000000..7f4f820b8455
+--- /dev/null
++++ b/libstdc++-v3/testsuite/24_iterators/counted_iterator/lwg3953.cc
+@@ -0,0 +1,30 @@
++// { dg-do compile { target c++20 } }
++
++// LWG 3953. iter_move for common_iterator and counted_iterator should return
++// decltype(auto)
++
++// Bug 128413 - common_iterator's iter_move function uses
++// iter_rvalue_reference_t<I> as explicit return type
++
++#include <iterator>
++
++struct non_iter_movable_iterator
++{
++  using value_type      = int;
++  using difference_type = int;
++
++  non_iter_movable_iterator() = default;
++
++  int operator*() const { return 0; }
++
++  non_iter_movable_iterator& operator++() { return *this; }
++  void operator++(int) {  }
++
++  // iter_move isn't required for output iterators, so this function using that
++  // name but returning a non-referenceable type should not cause errors.
++  friend void iter_move(const non_iter_movable_iterator&) {}
++};
++
++static_assert( std::input_or_output_iterator<non_iter_movable_iterator> );
++
++std::counted_iterator<non_iter_movable_iterator> it;

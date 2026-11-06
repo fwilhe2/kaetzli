@@ -1,0 +1,96 @@
+From 669e0f0b33030611339767283c12237f8b2a7231 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Wed, 21 Oct 2026 17:16:53 +0200
+Subject: [PATCH] tree-optimization/128069 - BB SLP and abnormal edges
+
+As vector SSA flow cannot cross abnormal edges we should split
+the BB SLP region on BBs with incoming abnormal edges.  That
+avoids the issue seen in the testcase.
+
+	PR tree-optimization/128069
+	* tree-vect-slp.cc (vect_slp_function): Split region
+	at blocks with incoming abnormal edges.
+
+	* gcc.dg/vect/bb-slp-pr128069.c: New testcase.
+
+(cherry picked from commit dd32b9d9d1d74650c0e67dce5c5eef539846638e)
+---
+ gcc/testsuite/gcc.dg/vect/bb-slp-pr128069.c | 48 +++++++++++++++++++++
+ gcc/tree-vect-slp.cc                        |  9 ++++
+ 2 files changed, 57 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/bb-slp-pr128069.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/bb-slp-pr128069.c b/gcc/testsuite/gcc.dg/vect/bb-slp-pr128069.c
+new file mode 100644
+index 000000000000..bd328cf34363
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/bb-slp-pr128069.c
+@@ -0,0 +1,48 @@
++#include "tree-vect.h"
++
++long o[2];
++
++__attribute__ ((noipa)) void
++f (long a, long b, int c)
++{
++  __label__ lab;
++  __attribute__ ((noinline)) void nest (int d)
++  {
++    if (d == c)
++      goto lab;
++  }
++  long x = a, y = b;
++  nest (0);
++  x = a + 1;
++  y = b + 2;
++  nest (1);
++  x = a + 3;
++  y = b + 4;
++  nest (2);
++  o[0] = 0;
++  o[1] = 0;
++  return;
++lab:
++  o[0] = x;
++  o[1] = y;
++}
++
++int
++main ()
++{
++  check_vect ();
++
++  f (10, 20, 0);
++  if (o[0] != 10 || o[1] != 20)
++    __builtin_abort ();
++  f (10, 20, 1);
++  if (o[0] != 11 || o[1] != 22)
++    __builtin_abort ();
++  f (10, 20, 2);
++  if (o[0] != 13 || o[1] != 24)
++    __builtin_abort ();
++  f (10, 20, 3);
++  if (o[0] != 0 || o[1] != 0)
++    __builtin_abort ();
++  return 0;
++}
+diff --git a/gcc/tree-vect-slp.cc b/gcc/tree-vect-slp.cc
+index cc26bb739a3b..e9ca2cd795f5 100644
+--- a/gcc/tree-vect-slp.cc
++++ b/gcc/tree-vect-slp.cc
+@@ -10636,6 +10636,15 @@ vect_slp_function (function *fun)
+ 			     bb->loop_father->num, bb->index);
+ 	  split = true;
+ 	}
++      else if (!bbs.is_empty ()
++	       && bb_has_abnormal_pred (bb))
++	{
++	  if (dump_enabled_p ())
++	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
++			     "splitting region at incoming abnormal edge "
++			     "at bb%d\n", bb->index);
++	  split = true;
++	}
+ 
+       if (split && !bbs.is_empty ())
+ 	{

@@ -1,0 +1,75 @@
+From 38f7fcc5ebd4d7900b1c6ceff2955046c224f7c4 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Mon, 19 Oct 2026 13:10:19 +0200
+Subject: [PATCH] tree-optimization/127966 - wrong niter with iteration over
+ STRING_CST
+
+The following fixes a sign-extension issue with loop_niter_by_eval
+simulating an iteration over a STRING_CST by performing the compare
+in uint8_t type.
+
+	PR tree-optimization/127966
+	* tree-ssa-loop-niter.cc (loop_niter_by_eval): Perform
+	the comparison of the STRING_CST element with the
+	terminating constant in uint8_t type.
+
+	* gcc.dg/torture/pr127966.c: New testcase.
+
+(cherry picked from commit ac27d2e11708eb999fab1b26c053df4f3bd8fd0c)
+---
+ gcc/testsuite/gcc.dg/torture/pr127966.c | 11 +++++++++++
+ gcc/tree-ssa-loop-niter.cc              |  9 +++++----
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr127966.c
+
+diff --git a/gcc/testsuite/gcc.dg/torture/pr127966.c b/gcc/testsuite/gcc.dg/torture/pr127966.c
+new file mode 100644
+index 000000000000..a8dd1d4d47bf
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr127966.c
+@@ -0,0 +1,11 @@
++/* { dg-do run } */
++
++int main()
++{
++  int i = 0;
++  while (((unsigned char *)"\x80\x80")[i] == 128)
++    i++;
++  if (i != 2)
++    __builtin_abort ();
++  return 0;
++}
+diff --git a/gcc/tree-ssa-loop-niter.cc b/gcc/tree-ssa-loop-niter.cc
+index c1a807db6cba..11f172c63329 100644
+--- a/gcc/tree-ssa-loop-niter.cc
++++ b/gcc/tree-ssa-loop-niter.cc
+@@ -3712,6 +3712,7 @@ loop_niter_by_eval (class loop *loop, edge exit)
+ 		  tree mem = gimple_assign_rhs1 (def);
+ 		  affine_iv iv;
+ 		  if (TYPE_MODE (TREE_TYPE (mem)) == TYPE_MODE (char_type_node)
++		      && CHAR_TYPE_SIZE == 8
+ 		      && simple_iv (loop, loop,
+ 				    TREE_OPERAND (mem, 0), &iv, false)
+ 		      && tree_fits_uhwi_p (TREE_OPERAND (mem, 1))
+@@ -3727,6 +3728,7 @@ loop_niter_by_eval (class loop *loop, edge exit)
+ 			{
+ 			  str = TREE_OPERAND (str, 0);
+ 			  unsigned i = 0;
++			  uint8_t op1 = TREE_INT_CST_LOW (op[1]);
+ 			  for (unsigned HOST_WIDE_INT idx
+ 			       = (tree_to_uhwi (TREE_OPERAND (mem, 1))
+ 				  + tree_to_uhwi (off));
+@@ -3734,10 +3736,9 @@ loop_niter_by_eval (class loop *loop, edge exit)
+ 			       && i < MAX_ITERATIONS_TO_TRACK;
+ 			       idx += tree_to_uhwi (iv.step), ++i)
+ 			    {
+-			      int res = compare_tree_int
+-				(op[1], TREE_STRING_POINTER (str)[idx]);
+-			      if ((cmp == NE_EXPR && res == 0)
+-				  || (cmp == EQ_EXPR && res != 0))
++			      uint8_t c = TREE_STRING_POINTER (str)[idx];
++			      if ((cmp == NE_EXPR && op1 == c)
++				  || (cmp == EQ_EXPR && op1 != c))
+ 				return build_int_cst (unsigned_type_node, i);
+ 			    }
+ 			}

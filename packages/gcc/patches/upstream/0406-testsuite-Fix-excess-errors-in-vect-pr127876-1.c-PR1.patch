@@ -1,0 +1,32 @@
+From be03233c56430c39e506006f76df5ab937ef16f9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
+Date: Mon, 19 Oct 2026 08:10:47 +0200
+Subject: [PATCH] testsuite: Fix excess errors in vect-pr127876-1.c [PR127876]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add -fno-associative-math to avoid a warning when -fsigned-zeros
+conflicts with the ARM NEON testsuite's -ffast-math.
+
+gcc/testsuite/ChangeLog:
+
+	PR tree-optimization/127876
+	* gcc.dg/vect/vect-pr127876-1.c: Add -fno-associative-math.
+
+Signed-off-by: Torbjörn SVENSSON <torbjorn.svensson@foss.st.com>
+(cherry picked from commit d80deed256650bf0b0ac14dc599b77500992115e)
+---
+ gcc/testsuite/gcc.dg/vect/vect-pr127876-1.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/testsuite/gcc.dg/vect/vect-pr127876-1.c b/gcc/testsuite/gcc.dg/vect/vect-pr127876-1.c
+index 5fd783383e32..5dc099b7e38d 100644
+--- a/gcc/testsuite/gcc.dg/vect/vect-pr127876-1.c
++++ b/gcc/testsuite/gcc.dg/vect/vect-pr127876-1.c
+@@ -1,4 +1,4 @@
+-/* { dg-additional-options "-fsigned-zeros" } */
++/* { dg-additional-options "-fno-associative-math -fsigned-zeros" } */
+ 
+ #include "tree-vect.h"
+ 
