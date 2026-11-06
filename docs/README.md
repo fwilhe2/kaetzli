@@ -17,6 +17,8 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Build dependencies](proposals/extension-dependencies.md): compile packages against
   other packages built in this repository.
 - [Image variants](proposals/image-variants.md): select package sets at assembly time.
+- [Distribution builder](proposals/distro-builder.md): an idea, undecided: profiles that
+  select packages, systemd and kernel features, and output formats.
 - [macOS container host](proposals/container-host.md): use the image as a Podman VM.
 - [Releases](proposals/release.md): rolling, expiring snapshots as GitHub releases; no supported versions.
 - [Launcher](proposals/launcher.md): one downloaded binary that runs machines on Linux,
