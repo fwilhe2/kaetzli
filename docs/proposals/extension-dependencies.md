@@ -1,8 +1,14 @@
 # Build dependencies between packages
 
-**Status: proposal.** Package builds do not currently consume other packages' outputs,
-except for glibc. This design describes how to add explicit build-time dependencies if an
-extension needs a library built in this repository.
+**Status: implemented** for the kiosk extension, the first real case (rather than the
+libpcap pilot suggested below). `DEPENDS=` in `env.sh`; `package_depends` in
+`tools/lib.sh` resolves and checks it (unknown packages, cycles, edges into another
+extension); `build.sh` merges the closure's staging trees over glibc into
+`staging/.sysroot-<pkg>`, rewrites their `.pc` files to point inside it, passes
+`PKG_CONFIG_PATH`, and fails a build whose installed files name that sysroot. The
+extension assembler drops link-time files. CI builds an extension's chained packages in
+one job (`tools/build-chain.sh`, ci.yml's `chain`), as suggested below; levels are not
+needed yet.
 
 ## Current model
 

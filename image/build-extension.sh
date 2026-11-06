@@ -146,6 +146,15 @@ case "$mode" in
             [ -L "$link" ] || { echo "error: /$link in extensions/$name is not the merged-/usr link" >&2; exit 1; }
             rm "$link"
         done
+        # Link-time files, as the image's own trim removes them (build-rootfs.sh): an
+        # extension's libraries are linked against in staging/ (DEPENDS=, build.sh), and
+        # there is no compiler in the guest. The unversioned lib*.so names are symlinks
+        # only; at run time the loader asks for the SONAME.
+        find . \( -name '*.a' -o -name '*.la' \) -delete
+        rm -rf usr/include usr/lib/pkgconfig usr/share/pkgconfig usr/share/aclocal usr/lib/cmake
+        find usr/lib -maxdepth 1 -name 'lib*.so' -type l -delete 2>/dev/null || true
+        rm -rf usr/share/man usr/share/doc usr/share/info
+
         # Stripped like the image's own ELF objects (build-rootfs.sh has why it is one
         # file at a time). Go binaries arrive with -s -w already; C ones do not.
         while IFS= read -r -d '' f; do

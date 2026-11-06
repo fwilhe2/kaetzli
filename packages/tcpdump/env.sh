@@ -2,11 +2,10 @@
 # on its veth, on podman's bridge and on the uplink is the one question about netavark,
 # pasta or a CNI that their own logs never answer.
 #
-# libpcap is a second tarball rather than a package of its own, and linked statically.
-# An extension's packages compile against the base's staging tree, never against each
-# other's (build.sh), so a libpcap package would have to put libpcap in the base for
-# every machine to carry — and tcpdump is its only consumer. The tcpdump project
-# releases both, from the same site, and documents building them side by side.
+# libpcap is a second tarball rather than a package of its own, and linked statically:
+# tcpdump is its only consumer, and a shared library with one consumer is not worth a
+# package and a DEPENDS= edge (build.sh). The tcpdump project releases both, from the
+# same site, and documents building them side by side.
 VERSION="4.99.7"
 PACKAGE="tcpdump-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"

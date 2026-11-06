@@ -59,10 +59,14 @@ load_env() {
 }
 
 # env_get <pkg> <VAR>... — print each variable from the package's env.sh on its own
-# line (empty when unset), without touching the caller's shell.
+# line (empty when unset), without touching the caller's shell. Unset first: the subshell
+# inherits the caller's variables, and a build.sh that has loaded its own package would
+# otherwise see that package's DEPENDS= in every env.sh that sets none.
 env_get() (
-    load_env "$1"
+    local pkg=$1
     shift
+    unset "$@"
+    load_env "$pkg"
     for var; do printf '%s\n' "${!var:-}"; done
 )
 
@@ -185,4 +189,54 @@ apply_patches() {
                         exit 1
                     fi
                 done'
+}
+
+# package_depends <pkg> — the packages <pkg> compiles against, from DEPENDS= in its env.sh
+# and theirs, one per line, each after everything it depends on itself; empty for a
+# package with none. Fails on an unknown package, a cycle, or an edge an extension may not
+# have: a dependency is a base package or one in the same extension, so an extension can
+# be attached without any other (docs/proposals/extension-dependencies.md).
+package_depends() {
+    local -A state=()
+    local deps_order=()
+    _package_depends_visit() { # pkg path
+        local pkg=$1 path=$2 dep ext dep_ext
+        case "${state[$pkg]:-}" in
+            "done") return 0 ;;
+            visiting) echo "error: DEPENDS has a cycle: $path" >&2; return 1 ;;
+        esac
+        state[$pkg]=visiting
+        ext=$(env_get "$pkg" EXTENSION)
+        for dep in $(env_get "$pkg" DEPENDS); do
+            if [ ! -f "packages/$dep/env.sh" ]; then
+                echo "error: $pkg: DEPENDS names $dep, which is not a package" >&2
+                return 1
+            fi
+            dep_ext=$(env_get "$dep" EXTENSION)
+            if [ -n "$dep_ext" ] && [ "$dep_ext" != "$ext" ]; then
+                echo "error: $pkg (${ext:-base}) depends on $dep, which is in the $dep_ext extension:" >&2
+                echo "       a dependency is a base package or one in the same extension" >&2
+                return 1
+            fi
+            if [ -n "$(env_get "$dep" NO_SYSROOT)" ]; then
+                echo "error: $pkg: DEPENDS names $dep, which is NO_SYSROOT and links nothing" >&2
+                return 1
+            fi
+            _package_depends_visit "$dep" "$path -> $dep" || return 1
+        done
+        state[$pkg]="done"
+        deps_order+=("$pkg")
+    }
+    _package_depends_visit "$1" "$1" || return 1
+    # The package itself comes last; it is not its own dependency.
+    unset 'deps_order[${#deps_order[@]}-1]'
+    [ ${#deps_order[@]} -eq 0 ] || printf '%s\n' "${deps_order[@]}"
+}
+
+# package_tree <pkg> — where a package's files are in staging/: its rootfs/, or
+# extensions/<name>/ for one with EXTENSION=.
+package_tree() {
+    local ext
+    ext=$(env_get "$1" EXTENSION)
+    if [ -n "$ext" ]; then echo "staging/$1/extensions/$ext"; else echo "staging/$1/rootfs"; fi
 }

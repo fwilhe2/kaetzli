@@ -18,7 +18,8 @@
 # they no longer race on a shared tree, but every build ends by re-merging rootfs/ from
 # all of them (tools/merge-staging.sh), and two merges at once would. glibc goes first
 # because everything else compiles against it; the rest follow in alphabetical order,
-# which is fine since CI builds them independently against a glibc-only sysroot too.
+# each after the packages its env.sh names in DEPENDS= (build.sh), which it compiles
+# against.
 #
 # ADDITIONAL FILES, opt-in per build: --extra DIR copies DIR over both assembled images,
 # laid out like the target filesystem. extra/ is gitignored for the purpose, but nothing
@@ -85,8 +86,12 @@ if [ "$image_only" = 0 ]; then
     if [ -n "$only" ]; then
         order=$(echo "$only" | tr ',' ' ')
     else
-        # glibc must be first; everything else in listing order.
-        order="glibc $(echo "$all" | grep -vx glibc | tr '\n' ' ')"
+        # glibc must be first; everything else in listing order, except that a package
+        # comes after what it DEPENDS= on (tools/lib.sh, package_depends).
+        order=$(for pkg in glibc $(echo "$all" | grep -vx glibc); do
+                    package_depends "$pkg"
+                    echo "$pkg"
+                done | awk '!seen[$0]++' | tr '\n' ' ')
     fi
     skip_list=",$skip,"
     total=$(echo $order | wc -w) n=0

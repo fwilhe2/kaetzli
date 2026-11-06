@@ -6,11 +6,14 @@
 # A package is two files:
 #
 #   packages/<pkg>/env.sh     VERSION, TARBALL, URL, SHA256, LICENSE, and optionally
-#                             NO_SYSROOT, LOCAL_SOURCE, EXTENSION, VENDOR_*, FOLLOWS.
+#                             NO_SYSROOT, LOCAL_SOURCE, EXTENSION, VENDOR_*, FOLLOWS,
+#                             DEPENDS (the packages it compiles against; below).
 #   packages/<pkg>/patches/   optional, applied to the source at extraction
 #                             (docs/guides/patches.md).
 #   packages/<pkg>/build.sh   configure/compile/install, sourced by
 #                             builder/build-package.sh in the unpacked source tree.
+#                             A FOLLOWS= package may have none, and runs the followed
+#                             package's.
 #
 # The compile runs --network=none against our glibc (staging/glibc/rootfs, or
 # SYSROOT_DIR), so glibc is built first. It installs into staging/<pkg>/, which replaces
@@ -54,9 +57,53 @@ if [ -z "$NO_SYSROOT" ]; then
         echo "       image's glibc)" >&2
         exit 1
     fi
+fi
+
+# DEPENDS=: the packages this one compiles against, merged over glibc into a sysroot of
+# this build's own, so their headers, libraries and pkg-config files come before the
+# builder's (docs/proposals/extension-dependencies.md). Each must be built already: its
+# staging tree is what goes in, the same tree its CI artifact holds. The .pc files say
+# prefix=/usr, which inside the container is the builder's; they are rewritten to point
+# into the sysroot, on this copy only.
+DEPS=$(package_depends "$PKG")
+DEP_SYSROOT=
+if [ -n "$DEPS" ]; then
+    [ -z "$NO_SYSROOT" ] || { echo "error: $PKG is NO_SYSROOT and has DEPENDS=, which needs a sysroot" >&2; exit 1; }
+    # In build order, since $DEPS is.
+    missing=$(for dep in $DEPS; do [ -d "$(package_tree "$dep")" ] || echo "$dep"; done)
+    if [ -n "$missing" ]; then
+        echo "error: $PKG depends on packages that are not built; build them first, in this order:" >&2
+        while read -r dep; do echo "    ./build.sh $dep" >&2; done <<< "$missing"
+        exit 1
+    fi
+    DEP_SYSROOT="staging/.sysroot-$PKG"
+    as_owner rm -rf "$DEP_SYSROOT"
+    mkdir -p "$DEP_SYSROOT"
+    as_owner cp -a "$SYSROOT_DIR/." "$DEP_SYSROOT/"
+    for dep in $DEPS; do
+        echo "dependency: $dep ($(package_tree "$dep"))"
+        as_owner cp -a "$(package_tree "$dep")/." "$DEP_SYSROOT/"
+    done
+    # Their pkg-config files, ahead of the builder's, which pkgconf still searches after.
+    pkg_config_path=
+    for dir in usr/lib/pkgconfig usr/share/pkgconfig; do
+        [ -d "$DEP_SYSROOT/$dir" ] || continue
+        pkg_config_path+="${pkg_config_path:+:}/usr/local/sysroot/$dir"
+        for pc in "$DEP_SYSROOT/$dir"/*.pc; do
+            [ -f "$pc" ] || continue
+            as_owner sed -i -E 's#^([A-Za-z0-9_.]+=)/usr(/|$)#\1/usr/local/sysroot/usr\2#' "$pc"
+        done
+    done
+    # A libtool archive names its dependencies by absolute path, the builder's /usr.
+    as_owner find "$DEP_SYSROOT" -name '*.la' -delete
+    SYSROOT_DIR=$DEP_SYSROOT
+fi
+
+if [ -z "$NO_SYSROOT" ]; then
     sysroot_abs=$(realpath "$SYSROOT_DIR")
     sysroot_mount=(--volume "$sysroot_abs":/usr/local/sysroot:ro
                    --env SYSROOT=/usr/local/sysroot)
+    [ -z "${pkg_config_path:-}" ] || sysroot_mount+=(--env "PKG_CONFIG_PATH=$pkg_config_path")
 fi
 
 mkdir -p output
@@ -154,6 +201,16 @@ else
     [ -z "$fix_list" ] || component_env+=(--env "KAETZLI_FIXES=$fix_list")
 fi
 
+# The package's build.sh, or the followed package's for a FOLLOWS= package with none of
+# its own (packages/kernel-display builds with packages/kernel/build.sh). KERNEL_FLAVOUR
+# is the one env.sh setting that build reads, so it crosses into the container.
+build_script="$PKG_DIR/build.sh"
+if [ ! -f "$build_script" ] && [ -n "${FOLLOWS:-}" ]; then
+    build_script="packages/$FOLLOWS/build.sh"
+fi
+[ -f "$build_script" ] || { echo "error: $PKG has no build.sh" >&2; exit 1; }
+[ -z "${KERNEL_FLAVOUR:-}" ] || component_env+=(--env "KERNEL_FLAVOUR=$KERNEL_FLAVOUR")
+
 # packages/<pkg>/licenses/: license texts for a source that carries none of its own,
 # which builder/build-package.sh ships with the rest.
 license_mount=()
@@ -167,11 +224,25 @@ podman run --rm \
     --security-opt label=disable \
     "${src_mount[@]}" \
     "${license_mount[@]}" \
-    --volume "$PWD/$PKG_DIR/build.sh":/package-build.sh:ro \
+    --volume "$PWD/$build_script":/package-build.sh:ro \
     --volume "$PWD/$DEST_DIR":/usr/local/rootfs \
     "${sysroot_mount[@]}" \
     "${component_env[@]}" \
     "$BUILDER" /build.sh
+
+# A path into the dependency sysroot that ended up in what was installed (an rpath, a
+# default data directory taken from a dependency's .pc file, a libtool archive) names a
+# directory no machine has.
+if [ -n "$DEP_SYSROOT" ]; then
+    leaked=$( (as_owner grep -rlaF /usr/local/sysroot "$BUILDING" || true
+               find "$BUILDING" -path '*/usr/local/sysroot*' -prune -print) | sort -u)
+    if [ -n "$leaked" ]; then
+        echo "error: $PKG installed files that name the build's sysroot, /usr/local/sysroot:" >&2
+        echo "$leaked" | sed "s|^$BUILDING/|    |" >&2
+        exit 1
+    fi
+    as_owner rm -rf "$DEP_SYSROOT"
+fi
 
 as_owner rm -rf "$STAGE"
 mv "$BUILDING" "$STAGE"

@@ -60,9 +60,14 @@ runs:
         #
         # A FOLLOWS package's VERSION, TARBALL and SHA256 are another package's env.sh,
         # sourced: $PACKAGE in the key catches a version bump, that file the rest.
+        #
+        # A FOLLOWS package without a build.sh of its own is built by the followed one's
+        # (packages/kernel-display by packages/kernel/build.sh), so that is in here.
         follows=
         [ -z "${FOLLOWS:-}" ] || follows="packages/$FOLLOWS/env.sh"
-        sum=$(cat build.sh tools/lib.sh builder/build-package.sh packages/glibc/env.sh packages/glibc/build.sh $PKG/build.sh $PKG/env.sh $follows <(./tools/image-tags.sh builder) <(./tools/patch-cves.sh "${{ inputs.package }}") <(find packages/glibc/patches $PKG/src $PKG/licenses $PKG/patches -type f -print0 2>/dev/null | sort -z | xargs -0r cat) | md5sum | cut -d ' ' -f 1)
+        script=$PKG/build.sh
+        [ -f "$script" ] || script=packages/$FOLLOWS/build.sh
+        sum=$(cat build.sh tools/lib.sh builder/build-package.sh packages/glibc/env.sh packages/glibc/build.sh $script $PKG/env.sh $follows <(./tools/image-tags.sh builder) <(./tools/patch-cves.sh "${{ inputs.package }}") <(find packages/glibc/patches $PKG/src $PKG/licenses $PKG/patches -type f -print0 2>/dev/null | sort -z | xargs -0r cat) | md5sum | cut -d ' ' -f 1)
         # And the half-month, so nothing is served from the cache for longer than about
         # two weeks. Every input above is pinned, but the claim that a pinned input still
         # builds is only tested by building it — a binary cached for a year says nothing
