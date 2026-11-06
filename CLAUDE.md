@@ -184,7 +184,7 @@ policy checks are done).
 ./test/sysext.sh $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.sh $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.sh $BOOT          # tampered image refused
-./test/kiosk.sh output/rootfs.erofs rootfs/boot/bzImage-display  # cage+foot on screen, keyboard
+./test/kiosk.sh output/rootfs.erofs rootfs/boot/bzImage-display  # cage+browser on screen, typed address fetched
 ./test/vmm.sh $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.sh $BOOT             # 3-node kubeadm via tools/k8s-demo.sh (KVM; skips without)
 ./test/node-conformance.sh $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
@@ -472,14 +472,22 @@ merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `Wante
   `NF_CONNTRACK_MARK`); a missing one is a bare *"nft" did not return successfully* — feed
   `nft` its rules one at a time.
 
-**The kiosk extension** (`EXTENSION=kiosk`; `docs/proposals/kiosk.md`, steps 1–3): cage
-(wlroots, pixman renderer, DRM dumb buffers — no mesa) running foot on tty1, built with
-`DEPENDS=` from libffi up. cage's `build.sh` ships the scaffolding: `kiosk.service`
+**The kiosk extension** (`EXTENSION=kiosk`; `docs/proposals/kiosk.md`, steps 1–3 and the
+WebKit spike): cage (wlroots, pixman renderer, DRM dumb buffers) running WPE WebKit's
+MiniBrowser on tty1, built with `DEPENDS=` from libffi up. WebKit paints with Skia on the
+CPU, no accelerated compositing; mesa (softpipe, no LLVM) is only its EGL display; `USE_GBM`
+off. `packages/wpewebkit` ships the start page (address field; MiniBrowser has no toolbar),
+a patch for Ctrl+L, and `kiosk.service.d/10-browser.conf` replacing foot's `ExecStart=`.
+No media, no bubblewrap sandbox. `packages/glib-libs` (`FOLLOWS=glib`) ships the gio,
+gobject, gmodule, gthread the base's glib deletes; glib-networking is GIO's TLS (OpenSSL).
+Its WebKit compile sizes `-j` by memory (2 GB a job). cage's `build.sh` ships the scaffolding: `kiosk.service`
 (`PAMName=kiosk`, `TTYPath=/dev/tty1`, `AssertPathExists=/dev/dri/card0`, Upheld by
 multi-user), a udev reload, the `kiosk` user as a `/usr/lib/userdb` record (nothing may
 write `/etc/passwd`), `etc/pam.d/kiosk` in the confext. fontconfig's `/etc/fonts` is
-confext too. Needs `bzImage-display` and `QEMU_GRAPHICS=1|window`; `test/kiosk.sh` drives
-qemu's monitor over a pipe chardev (screendump, sendkey). libinput's lua plugins are off
+confext too. Needs `bzImage-display` and `QEMU_GRAPHICS=1|window` (`QEMU_RESOLUTION`,
+default 1920x1080, is virtio-gpu's preferred mode); `test/kiosk.sh` drives qemu's monitor
+over a pipe chardev (screendump, sendkey: an address typed into the start page must reach
+a listener in the guest). libinput's lua plugins are off
 by name and its python helpers deleted (constraint 5).
 
 **The debug extension** (`EXTENSION=debug`; `docs/guides/debugging.md`):

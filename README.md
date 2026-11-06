@@ -180,14 +180,18 @@ storage for `/var`. To start the included three-node demo:
 
 The demo requires KVM, about 8 GB of RAM, and access to `registry.k8s.io` and `ghcr.io`.
 
-The kiosk extension boots into a fullscreen Wayland session (cage running the foot
-terminal) on a virtual screen. It needs the `display` kernel, which adds virtio-gpu and
-USB input to the headless default. From a local build (`./tools/build-image.sh`):
+The kiosk extension boots into a fullscreen web browser (WPE WebKit's MiniBrowser in
+cage) on a virtual screen. It needs the `display` kernel, which adds virtio-gpu and USB
+input to the headless default. From a local build (`./tools/build-image.sh`):
 
 ```sh
-ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk \
+ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk MEM=2048 \
     QEMU_GRAPHICS=window ./tools/boot-qemu.sh
 ```
+
+The screen is 1920x1080; set `QEMU_RESOLUTION=1280x800` for another. The start page has
+the address field: <kbd>Ctrl</kbd>+<kbd>L</kbd> returns to it, <kbd>Alt</kbd>+<kbd>←</kbd>
+goes back, <kbd>Ctrl</kbd>+<kbd>R</kbd> reloads.
 [System extensions](docs/guides/sysext.md) explains how extensions are built, attached,
 and verified. The
 [documentation index](docs/README.md) links to build guides and design proposals.

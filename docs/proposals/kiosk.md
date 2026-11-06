@@ -7,10 +7,16 @@ started as `kiosk.service`, with `test/kiosk.sh` (screendump and keyboard input 
 the qemu monitor). Where it differs from the plan below: the flavour has its own extracted
 source, like `linux-tools`, so the kernel build did not move to `O=`; `display` has no
 sound yet (step 6) and TPM stays out of `default` (its own PR); wlroots renders with
-pixman only, so there is no mesa at all; the session runs as a `kiosk` userdb record
-from the sysext. Not yet: the browser, lockdown, admin mode, dropping `login.noauth`,
-`vm.sh`/launcher kernel selection, kernel parity per flavour, the release asset and the
-extension's size budget.
+pixman only; the session runs as a `kiosk` userdb record from the sysext.
+
+Step 4 has started with a WebKit proof of concept, not the decision: WPE WebKit 2.54 and
+its MiniBrowser run in the session. The pinned WPE MiniBrowser has **no toolbar**
+(shortcuts only), so a start page carries the address field and a small patch maps
+Ctrl+L to it. WebKit needs an EGL display even when it paints on the CPU, so mesa is
+back, softpipe only, with no LLVM. There is no media, no sandbox (bubblewrap) and no
+lockdown. GTK MiniBrowser, Epiphany and Firefox are still unmeasured. Not yet: the
+browser decision, lockdown, admin mode, dropping `login.noauth`, `vm.sh`/launcher kernel
+selection, kernel parity per flavour, the release asset and the extension's size budget.
 
 It plans a `kiosk` system extension,
 which boots straight into a locked-down Firefox on a minimal Wayland stack. It plays audio

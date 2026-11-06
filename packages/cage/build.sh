@@ -4,7 +4,8 @@ meson_install -Dman-pages=disabled
 # The kiosk session (docs/proposals/kiosk.md): cage on tty1 as the unprivileged `kiosk`
 # user, with logind handing it the screen and the input devices. Shipped here, as the
 # other extensions' packages ship their units (packages/cri-o), since cage is what the
-# unit runs. The application is foot until there is a browser.
+# unit runs. The application here is foot; packages/wpewebkit replaces it with the
+# browser through a drop-in (kiosk.service.d/10-browser.conf).
 
 # The user, as a userdb record rather than a sysusers.d line: the extension is merged
 # after /etc was sealed at build time, so nothing may add it to /etc/passwd. nss-systemd

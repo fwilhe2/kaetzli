@@ -93,31 +93,46 @@ runs the cluster demo in CI.
 
 ## Kiosk
 
-The `kiosk` extension boots into a fullscreen Wayland session on tty1: cage running the
-foot terminal as the `kiosk` user (uid 1100). It needs the `display` kernel and a screen.
-From a local build:
+The `kiosk` extension boots into a fullscreen Wayland session on tty1: cage running WPE
+WebKit's MiniBrowser as the `kiosk` user (uid 1100). It needs the `display` kernel and a
+screen. From a local build:
 
 ```sh
-ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk \
+ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk MEM=2048 \
     QEMU_GRAPHICS=window ./tools/boot-qemu.sh
 ```
 
 `QEMU_GRAPHICS=1` adds the same devices without a window, as `test/kiosk.sh` uses them.
+`QEMU_RESOLUTION` (default `1920x1080`) is the mode the screen offers as preferred.
+
+The browser is a spike ([the kiosk proposal](../proposals/kiosk.md), *The spike*), not
+the kiosk:
+
+- **No toolbar.** MiniBrowser has none, so `/usr/share/kiosk/start.html` has the address
+  field and a patch makes <kbd>Ctrl</kbd>+<kbd>L</kbd> return to it. An address without a
+  dot or with spaces is a DuckDuckGo search.
+- **Software rendering.** Skia paints on the CPU with no accelerated compositing. Mesa
+  (softpipe, no LLVM) is there only because WebKit insists on an EGL display.
+- **Not built:** no media (GStreamer), no bubblewrap sandbox (the web process runs
+  unconfined as `kiosk`), no lockdown, and no password manager.
+
+foot is still in the extension. `kiosk.service.d/10-browser.conf` replaces its
+`ExecStart=`.
 On the default kernel `kiosk.service` fails, by design: there is no `/dev/dri/card0`.
 
 Where its state lives:
 
 | State | Location | `/var` in RAM | `/var` on a disk |
 | --- | --- | --- | --- |
-| The kiosk user's home: shell history, fontconfig cache | `/var/lib/kiosk` (`StateDirectory=`) | lost at each boot | kept |
+| The kiosk user's home: browser profile (cookies, cache, local storage), fontconfig cache | `/var/lib/kiosk` (`StateDirectory=`) | lost at each boot | kept |
 | Session runtime: Wayland socket | `/run/user/1100` | lost at each boot | lost at each boot |
 | The user | userdb record in the sysext | same uid every boot | same uid every boot |
-| Configuration: PAM, fonts, `foot.ini` | confext | from the image | from the image |
+| Configuration: PAM, fonts | confext | from the image | from the image |
 
 Nothing in the session writes `/etc`. The kiosk user can write only its home, `/tmp` and
 its runtime directory. Because the uid comes from the image, files on a `/var` disk keep
 the right owner across boots and image updates.
 
-With a `/var` disk, whatever a user does in the session persists in the home directory.
-That suits a terminal, but not a public browser: the browser profile is meant to live in
-RAM (see [the kiosk proposal](../proposals/kiosk.md), *Taking credentials in*).
+With a `/var` disk, whatever a user does in the session persists in the home directory,
+including the browser's cookies and logins. That does not suit a public browser: the
+profile is meant to live in RAM (see [the kiosk proposal](../proposals/kiosk.md), *Taking credentials in*).

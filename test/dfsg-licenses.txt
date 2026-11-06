@@ -44,6 +44,11 @@ Zlib
 Apache-2.0
 AFL-2.1                 # Academic Free License; one half of dbus's dual license
 ICU                     # MIT in all but wording; the decNumber library jq carries
+Unicode-3.0             # MIT-style, for Unicode data and ICU itself since ICU 74
+libpng-2.0              # zlib-style permissive notice; libpng's
+IJG                     # the Independent JPEG Group's permissive license; libjpeg-turbo
+blessing                # SQLite's public-domain dedication with a blessing instead of
+                        # conditions; Debian ships it in main
 curl                    # MIT plus the advertising clause, i.e. X11 in all but wording;
                         # SPDX gives it its own identifier because the text differs
 SSH-OpenSSH             # Tatu Ylonen's terms for the original ssh code, which openssh

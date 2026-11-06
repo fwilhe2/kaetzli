@@ -57,6 +57,7 @@ class Machine:
     display_args: list[str] | None = None  # replaces pc's -nographic, when not empty
     reboot: bool = False
     graphics: str = "0"  # QEMU_GRAPHICS: 0, 1 (devices, no window) or window
+    resolution: str = "1920x1080"  # QEMU_RESOLUTION: the screen's preferred mode
     virtiofs_socket: str = ""
     vsock_cid: str = ""
     hint: str = ""  # names the command that would make a missing file
@@ -87,6 +88,7 @@ class Machine:
             fwcfg_credentials=env.get("QEMU_FWCFG_CREDENTIALS", "").split(),
             reboot=env.get("QEMU_REBOOT", "0") == "1",
             graphics=env.get("QEMU_GRAPHICS") or "0",
+            resolution=env.get("QEMU_RESOLUTION") or "1920x1080",
             virtiofs_socket=env.get("VIRTIOFS_SOCKET", ""),
             vsock_cid=env.get("VSOCK_CID", ""),
         )
@@ -292,10 +294,15 @@ class Machine:
             # A screen, a keyboard and a tablet, for the display kernel and the kiosk
             # extension; "window" shows the screen, with the serial console kept.
             if self.graphics in ("1", "window"):
+                if not re.fullmatch(r"[1-9][0-9]*x[1-9][0-9]*", self.resolution):
+                    raise Refused(
+                        f"QEMU_RESOLUTION={self.resolution} (expected WIDTHxHEIGHT, e.g. 1920x1080)"
+                    )
+                width, height = self.resolution.split("x")
                 # -vga none: qemu's default VGA would be the first head otherwise.
                 devices += [
                     "-vga", "none",
-                    "-device", "virtio-gpu-pci",
+                    "-device", f"virtio-gpu-pci,xres={width},yres={height}",
                     "-device", "virtio-keyboard-pci",
                     "-device", "virtio-tablet-pci",
                 ]  # fmt: skip

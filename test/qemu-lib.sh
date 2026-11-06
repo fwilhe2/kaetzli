@@ -217,13 +217,21 @@ qemu_argv() {
             # for the display kernel (packages/kernel-display) and the kiosk extension.
             # 1 keeps the console on serial and shows the screen nowhere, for a test that
             # looks at it through the monitor (test/kiosk.sh); window shows it in qemu's
-            # own window, with the serial console still in the terminal.
+            # own window, with the serial console still in the terminal. QEMU_RESOLUTION
+            # (WxH, default 1920x1080) is the mode the screen reports as preferred, which
+            # is the one cage takes.
             case "${QEMU_GRAPHICS:-0}" in
                 0) ;;
                 1|window)
+                    local res="${QEMU_RESOLUTION:-1920x1080}"
+                    if ! [[ $res =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]]; then
+                        echo "error: QEMU_RESOLUTION=$res (expected WIDTHxHEIGHT, e.g. 1920x1080)" >&2
+                        exit 1
+                    fi
                     # -vga none: on pc, qemu's default VGA would be the first head, and
                     # the screen the guest draws on a second one nothing shows.
-                    devices+=(-vga none -device virtio-gpu-pci -device virtio-keyboard-pci -device virtio-tablet-pci)
+                    devices+=(-vga none -device "virtio-gpu-pci,xres=${res%x*},yres=${res#*x}"
+                              -device virtio-keyboard-pci -device virtio-tablet-pci)
                     [ "$QEMU_GRAPHICS" != window ] || display=(-serial mon:stdio -display default) ;;
                 *) echo "error: QEMU_GRAPHICS=$QEMU_GRAPHICS (expected 0, 1 or window)" >&2; exit 1 ;;
             esac ;;

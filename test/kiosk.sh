@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Boot the display kernel with the kiosk extension attached and a virtual screen, and
-# check that the session really is on that screen and takes keyboard input:
+# check that the browser session really is on that screen and takes keyboard input:
 #
 #     ./test/kiosk.sh [rootfs.erofs] [bzImage-display]
 #
@@ -11,14 +11,16 @@
 #   - the display kernel (uname -r ends in -display) and a DRM device
 #   - kiosk.service active, as a logind session of the kiosk user on seat0, tty1,
 #     of type wayland (beside the session of the user's own manager, which has no seat) — the session libseat takes the screen and input from
-#   - foot running under cage, and a boot that is `running`, nothing failed
-#   - the C.UTF-8 locale foot needs loads: compiled by the builder's localedef
-#     (packages/foot), its format has to be the one our glibc reads
+#   - MiniBrowser and its web process running under cage, and a boot that is
+#     `running`, nothing failed
+#   - the C.UTF-8 locale loads: compiled by the builder's localedef (packages/foot), its
+#     format has to be the one our glibc reads
 #   - a screen that is not blank: qemu's screendump, taken through the monitor, has to
 #     have more than a handful of colours, which only rendered text gives
-#   - keys reaching the terminal: `touch /tmp/kiosk-typed`, typed with the monitor's
-#     sendkey into the virtio keyboard, has to make a file owned by kiosk — keyboard,
-#     libinput, wlroots, cage, foot and the kiosk user's shell, end to end
+#   - keys reaching the browser: an address typed with the monitor's sendkey into the
+#     virtio keyboard, into the start page's address field, has to make the browser
+#     fetch it from a listener in the guest — keyboard, libinput, wlroots, cage, WebKit's
+#     input handling, the start page's script and libsoup, end to end
 #
 # The console is serial, as in every other test; the screen goes nowhere
 # (QEMU_GRAPHICS=1). The monitor is a second one, on a pipe chardev
@@ -26,6 +28,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# WebKit's processes and a 1080p screen painted in software want more than the default.
+MEM="${MEM:-2048}"
 source test/qemu-lib.sh
 
 ROOTFS="${1:-${ROOTFS:-output/rootfs.erofs}}"
@@ -61,7 +65,7 @@ monitor_reader=$!
 exec 4<> "$scratch/monitor.in"
 monitor() { printf '%s\n' "$1" >&4; }
 
-# sendkey names for what `touch /tmp/kiosk-typed` is made of.
+# sendkey names for what an address is made of.
 type_text() {
     local text=$1 i c key
     for ((i = 0; i < ${#text}; i++)); do
@@ -72,6 +76,7 @@ type_text() {
             /) key="slash" ;;
             -) key="minus" ;;
             .) key="dot" ;;
+            :) key="shift-semicolon" ;;
             *) fail "type_text: no key for '$c'" ;;
         esac
         monitor "sendkey $key"
@@ -109,20 +114,22 @@ check() { # name command — the command prints KIOSK-<name>-OK on success
 
 check KERNEL "uname -r | grep -q -- '-display\$' && test -c /dev/dri/card0 && echo KIOSK-KERNEL'-OK'"
 check SESSION "systemctl is-active --quiet kiosk.service && s=\$(loginctl --no-legend list-sessions | awk '\$3 == \"kiosk\" && \$4 == \"seat0\" { print \$1 }') && [ -n \"\$s\" ] && [ \"\$(loginctl show-session \"\$s\" -p Seat --value)\" = seat0 ] && [ \"\$(loginctl show-session \"\$s\" -p TTY --value)\" = tty1 ] && [ \"\$(loginctl show-session \"\$s\" -p Type --value)\" = wayland ] && echo KIOSK-SESSION'-OK'"
-check CLIENT "for i in \$(seq 60); do pgrep -u kiosk -x foot >/dev/null && break; sleep 1; done; pgrep -u kiosk -x cage >/dev/null && pgrep -u kiosk -x foot >/dev/null && echo KIOSK-CLIENT'-OK'"
+check CLIENT "for i in \$(seq 90); do pgrep -u kiosk -x WPEWebProcess >/dev/null && break; sleep 1; done; pgrep -u kiosk -x cage >/dev/null && pgrep -u kiosk -x MiniBrowser >/dev/null && pgrep -u kiosk -x WPEWebProcess >/dev/null && echo KIOSK-CLIENT'-OK'"
 check LOCALE "[ \"\$(LANG=C.UTF-8 locale charmap 2>&1)\" = UTF-8 ] && echo KIOSK-LOCALE'-OK'"
 check RUNNING "[ \"\$(systemctl is-system-running --wait)\" = running ] && echo KIOSK-RUNNING'-OK'"
 
-# foot draws its first frame once the shell has started; give it a moment.
-sleep 5
+# The start page draws once the web process is up; give it a moment.
+sleep 10
 echo ">> SCREEN"
 colours=$(screenshot screen)
 echo ">> the screen has $colours distinct values"
 [ "$colours" -gt 8 ] || fail "the screen is blank ($colours distinct values in $scratch/screen.ppm)"
 
 echo ">> KEYBOARD"
-type_text "touch /tmp/kiosk-typed"
-check KEYBOARD "for i in \$(seq 30); do [ -e /tmp/kiosk-typed ] && break; sleep 1; done; [ \"\$(stat -c %U /tmp/kiosk-typed)\" = kiosk ] && echo KIOSK-KEYBOARD'-OK'"
+# One process per connection, which writes down the request line and answers with a page.
+check LISTENER "systemd-run --quiet --unit kiosk-http systemd-socket-activate --inetd --accept -l 127.0.0.1:8080 bash -c 'read -r line; echo \"\$line\" >> /tmp/kiosk-request; printf \"HTTP/1.0 200 OK\\r\\nContent-Type: text/html\\r\\n\\r\\n<h1>typed</h1>\"' && for i in \$(seq 20); do ss -Htln 'sport = :8080' | grep -q . && break; sleep 0.5; done; ss -Htln 'sport = :8080' | grep -q . && echo KIOSK-LISTENER'-OK'"
+type_text "127.0.0.1:8080/kiosk-typed"
+check KEYBOARD "for i in \$(seq 60); do grep -qs 'GET /kiosk-typed ' /tmp/kiosk-request && break; sleep 1; done; grep -q 'GET /kiosk-typed ' /tmp/kiosk-request && echo KIOSK-KEYBOARD'-OK'"
 screenshot typed >/dev/null
 
-echo ">> kiosk OK: display kernel, logind session on seat0, cage and foot on screen, keyboard input"
+echo ">> kiosk OK: display kernel, logind session on seat0, cage and the browser on screen, keyboard input"
