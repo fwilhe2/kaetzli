@@ -437,6 +437,12 @@ both. Confexts on the `/var` disk are not used for a kiosk, because they are not
 - **Site logins**: an encrypted list, below.
 - **Network**: as today.
 
+**State today** (foot, no browser): the kiosk user's home is `/var/lib/kiosk`, a
+`StateDirectory=`, so it is per boot with `/var` in RAM and kept on a `/var` disk
+(`docs/guides/sysext.md`, *Kiosk*). For the browser, the profile, or the whole home, moves
+to a per-session tmpfs (`RuntimeDirectory=` or `TemporaryFileSystem=`), so a disk keeps
+only what is meant to outlive a visitor.
+
 **State:** the Firefox profile lives in RAM, so every boot and every idle reset starts a
 clean browser. **Idle reset** uses wlroots' idle-notify protocol + `swayidle` to restart
 the kiosk unit with a fresh profile. The secrets are injected again on each start, so

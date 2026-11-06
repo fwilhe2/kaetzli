@@ -90,3 +90,34 @@ Start the included three-node demo with:
 The demo uses KVM, about 8 GB of RAM, and container images from `registry.k8s.io` and
 `ghcr.io`. `test/sysext.sh` verifies extension merging and dm-verity behavior; `test/k8s.sh`
 runs the cluster demo in CI.
+
+## Kiosk
+
+The `kiosk` extension boots into a fullscreen Wayland session on tty1: cage running the
+foot terminal as the `kiosk` user (uid 1100). It needs the `display` kernel and a screen.
+From a local build:
+
+```sh
+ROOTFS=output/rootfs.erofs KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk \
+    QEMU_GRAPHICS=window ./tools/boot-qemu.sh
+```
+
+`QEMU_GRAPHICS=1` adds the same devices without a window, as `test/kiosk.sh` uses them.
+On the default kernel `kiosk.service` fails, by design: there is no `/dev/dri/card0`.
+
+Where its state lives:
+
+| State | Location | `/var` in RAM | `/var` on a disk |
+| --- | --- | --- | --- |
+| The kiosk user's home: shell history, fontconfig cache | `/var/lib/kiosk` (`StateDirectory=`) | lost at each boot | kept |
+| Session runtime: Wayland socket | `/run/user/1100` | lost at each boot | lost at each boot |
+| The user | userdb record in the sysext | same uid every boot | same uid every boot |
+| Configuration: PAM, fonts, `foot.ini` | confext | from the image | from the image |
+
+Nothing in the session writes `/etc`. The kiosk user can write only its home, `/tmp` and
+its runtime directory. Because the uid comes from the image, files on a `/var` disk keep
+the right owner across boots and image updates.
+
+With a `/var` disk, whatever a user does in the session persists in the home directory.
+That suits a terminal, but not a public browser: the browser profile is meant to live in
+RAM (see [the kiosk proposal](../proposals/kiosk.md), *Taking credentials in*).
