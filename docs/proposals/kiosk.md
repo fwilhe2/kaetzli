@@ -1,6 +1,18 @@
 # A kiosk extension
 
-**Status: proposal.** Nothing here is implemented. It plans a `kiosk` system extension,
+**Status: partly implemented.** Steps 1–3 of *Order* are in: `DEPENDS=` (CI builds the
+chain in one job rather than by level, which is enough without Firefox), the `display`
+kernel flavour (`packages/kernel-display`), and the Wayland stack up to cage running foot,
+started as `kiosk.service`, with `test/kiosk.sh` (screendump and keyboard input through
+the qemu monitor). Where it differs from the plan below: the flavour has its own extracted
+source, like `linux-tools`, so the kernel build did not move to `O=`; `display` has no
+sound yet (step 6) and TPM stays out of `default` (its own PR); wlroots renders with
+pixman only, so there is no mesa at all; the session runs as a `kiosk` userdb record
+from the sysext. Not yet: the browser, lockdown, admin mode, dropping `login.noauth`,
+`vm.sh`/launcher kernel selection, kernel parity per flavour, the release asset and the
+extension's size budget.
+
+It plans a `kiosk` system extension,
 which boots straight into a locked-down Firefox on a minimal Wayland stack. It plays audio
 and video, takes per-deployment configuration and secrets from outside, and offers a
 password-protected root terminal. It also covers where the work should live.

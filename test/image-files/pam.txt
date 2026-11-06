@@ -22,3 +22,9 @@ present:erofs usr/share/pam/security/namespace.conf
 absent:oci usr/bin/unix_chkpwd
 absent:oci usr/bin/pwhistory_helper
 absent:oci usr/bin/pam_namespace_helper
+
+# The kiosk extension's confext names these in pam.d/kiosk (packages/cage). The module
+# trim only reads the image's own pam.d, so nothing else would keep them if the base ever
+# stopped naming them.
+present:erofs usr/lib/security/pam_unix.so
+present:erofs usr/lib/security/pam_systemd.so

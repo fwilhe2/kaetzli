@@ -27,6 +27,14 @@
 # --- permissive ---------------------------------------------------------------------
 MIT
 X11                     # MIT plus the "not to be used in advertising" clause; ncurses
+MIT-open-group          # The Open Group's MIT, with its no-endorsement paragraph; X.Org code
+MIT-Modern-Variant      # MIT in other words; HarfBuzz's, which fontconfig carries
+HPND                    # Historical Permission Notice and Disclaimer: the X.Org-era
+HPND-sell-variant       # permissive notices, the "and sell" one and DEC's, under
+HPND-DEC                # libxkbcommon, xkeyboard-config and fontconfig
+XFree86-1.0             # XFree86's MIT-style license; hwdata's alternative to the GPL
+FTL                     # The FreeType License, BSD-style with credit; freetype's
+                        # alternative to the GPL
 BSD-2-Clause
 BSD-3-Clause
 BSD-4-Clause-UC         # the UC advertising clause, which Berkeley rescinded in 1999
@@ -56,6 +64,7 @@ LGPL-2.1-or-later
 LGPL-3.0-or-later
 EUPL-1.2                # European Union Public Licence; parts of util-linux
 MPL-2.0                 # Mozilla Public License; certdata.txt, the root certificate list
+OFL-1.1                 # SIL Open Font License: fonts, which Debian ships in main
 
 # --- exceptions, used on the right of a WITH ----------------------------------------
 Linux-syscall-note      # what keeps userspace off the kernel's GPL

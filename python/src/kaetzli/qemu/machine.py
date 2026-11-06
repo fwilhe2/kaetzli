@@ -56,6 +56,7 @@ class Machine:
     nic_args: list[str] | None = None  # replaces pc's user-mode NIC
     display_args: list[str] | None = None  # replaces pc's -nographic, when not empty
     reboot: bool = False
+    graphics: str = "0"  # QEMU_GRAPHICS: 0, 1 (devices, no window) or window
     virtiofs_socket: str = ""
     vsock_cid: str = ""
     hint: str = ""  # names the command that would make a missing file
@@ -85,6 +86,7 @@ class Machine:
             extensions=env.get("EXTENSIONS", ""),
             fwcfg_credentials=env.get("QEMU_FWCFG_CREDENTIALS", "").split(),
             reboot=env.get("QEMU_REBOOT", "0") == "1",
+            graphics=env.get("QEMU_GRAPHICS") or "0",
             virtiofs_socket=env.get("VIRTIOFS_SOCKET", ""),
             vsock_cid=env.get("VSOCK_CID", ""),
         )
@@ -287,6 +289,20 @@ class Machine:
                 "-device", "virtio-blk-pci,drive=root",
                 *var_drive, *ext_drives, *nic, *fwcfg,
             ]  # fmt: skip
+            # A screen, a keyboard and a tablet, for the display kernel and the kiosk
+            # extension; "window" shows the screen, with the serial console kept.
+            if self.graphics in ("1", "window"):
+                # -vga none: qemu's default VGA would be the first head otherwise.
+                devices += [
+                    "-vga", "none",
+                    "-device", "virtio-gpu-pci",
+                    "-device", "virtio-keyboard-pci",
+                    "-device", "virtio-tablet-pci",
+                ]  # fmt: skip
+                if self.graphics == "window":
+                    display = ["-serial", "mon:stdio", "-display", "default"]
+            elif self.graphics != "0":
+                raise Refused(f"QEMU_GRAPHICS={self.graphics} (expected 0, 1 or window)")
             # Empty is unset, as bash's ${QEMU_DISPLAY_ARGS+set} has it for an empty array.
             if self.display_args:
                 display = list(self.display_args)

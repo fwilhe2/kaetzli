@@ -165,7 +165,7 @@ Use `./tools/vm.sh --help` for commands.
 ## System extensions
 
 Extensions add software to a machine without rebuilding the base. The repository provides
-`podman`, `kubernetes`, and `debug` extensions. Attach one or more at boot with
+`podman`, `kubernetes`, `debug`, and `kiosk` extensions. Attach one or more at boot with
 `--ext podman,debug` when starting a VM.
 
 Podman includes Quadlet and rootless container support. The Kubernetes extension includes
@@ -179,6 +179,14 @@ storage for `/var`. To start the included three-node demo:
 ```
 
 The demo requires KVM, about 8 GB of RAM, and access to `registry.k8s.io` and `ghcr.io`.
+
+The kiosk extension boots into a fullscreen Wayland session (cage running the foot
+terminal) on a virtual screen. It needs the `display` kernel, which adds virtio-gpu and
+USB input to the headless default:
+
+```sh
+KERNEL=rootfs/boot/bzImage-display SYSEXTS=kiosk QEMU_GRAPHICS=window ./tools/boot-qemu.sh
+```
 [System extensions](docs/guides/sysext.md) explains how extensions are built, attached,
 and verified. The
 [documentation index](docs/README.md) links to build guides and design proposals.

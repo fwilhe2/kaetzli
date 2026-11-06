@@ -17,6 +17,11 @@ rebuilding extensions.
 - **`kubernetes`**: kubelet, kubeadm, kubectl, CRI-O, crictl, and CNI plugins. Its
   configuration extension supplies the matching `/etc` entries.
 - **`debug`**: strace, perf, bpftool, tcpdump, gdbserver, socat, and jq.
+- **`kiosk`**: a fullscreen Wayland session on tty1: cage (wlroots, software rendering)
+  running foot, as the `kiosk` user. Needs the `display` kernel
+  (`rootfs/boot/bzImage-display`) and a screen (`QEMU_GRAPHICS=1` or `window` in
+  `test/qemu-lib.sh`); on the default kernel `kiosk.service` fails, by design.
+  `test/kiosk.sh` checks it.
 
 The base provides the kernel, `crun`, `conmon`, and libraries used by the extensions.
 Extensions can be combined if they do not install conflicting paths.
@@ -50,7 +55,11 @@ extensions remain verified.
 ## Build extensions
 
 Packages declare `EXTENSION=<name>` in `env.sh` and install into
-`extensions/<name>/`. `./tools/build-image.sh` assembles each staged tree into a sysext and,
+`extensions/<name>/`. A package may compile against base packages and packages of its own
+extension, named in `DEPENDS=`: `build.sh` merges their staging trees over glibc into the
+build's sysroot. CI builds such an extension's chained packages in one job
+(`tools/build-chain.sh`). The extension assembler removes headers, `.pc` files and other
+link-time files. `./tools/build-image.sh` assembles each staged tree into a sysext and,
 when it contains `/etc` files, a confext. Outputs are written under `output/extensions/`
 and `output/confexts/`; each `.raw` image has a corresponding `.dm-verity` table.
 

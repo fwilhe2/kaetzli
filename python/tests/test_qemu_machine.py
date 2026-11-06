@@ -110,6 +110,10 @@ CASES = {
     "pc, extensions": {"SYSEXTS": "podman debug"},
     "pc, extensions elsewhere": {"SYSEXTS": "debug", "EXTENSIONS": "{image}"},
     "pc, cmdline elsewhere": {"ROOT_CMDLINE": "{image}/rootfs.cmdline"},
+    "pc, graphics": {"QEMU_GRAPHICS": "1"},
+    "pc, graphics in a window": {"QEMU_GRAPHICS": "window"},
+    "pc, graphics off": {"QEMU_GRAPHICS": "0"},
+    "pc, graphics on arm64": {"QEMU_GRAPHICS": "1", "ARCH": "arm64"},
     "microvm": {"QEMU_PROFILE": "microvm"},
     "microvm, arm64": {"QEMU_PROFILE": "microvm", "ARCH": "arm64"},
     "vz": {"QEMU_PROFILE": "vz"},
@@ -164,6 +168,20 @@ def test_arrays_replace_the_nic_and_the_display(image):
     assert python(env, nic_args=nic, display_args=display) == want
 
 
+def test_graphics_adds_a_screen_and_input_and_keeps_the_serial_console(image):
+    want, rc, err = bash(base(image, QEMU_GRAPHICS="1"))
+    assert rc == 0, err
+    for device in ("virtio-gpu-pci", "virtio-keyboard-pci", "virtio-tablet-pci"):
+        assert device in want
+    assert "-nographic" in want
+    # The only head, so a screendump shows what the guest draws.
+    assert want[want.index("-vga") + 1] == "none"
+    window, rc, err = bash(base(image, QEMU_GRAPHICS="window"))
+    assert rc == 0, err
+    assert "-nographic" not in window
+    assert "mon:stdio" in window
+
+
 def test_an_empty_display_is_the_default(image):
     env = base(image)
     want, rc, err = bash(env, arrays="QEMU_DISPLAY_ARGS=()")
@@ -208,6 +226,7 @@ REFUSALS = {
     "a cmdline": ({}, "rootfs.cmdline"),
     "an extension": ({"SYSEXTS": "nope"}, ""),
     "a verity table": ({"SYSEXTS": "podman"}, "extensions/podman.dm-verity"),
+    "a graphics mode": ({"QEMU_GRAPHICS": "vnc"}, ""),
 }
 
 

@@ -184,6 +184,7 @@ policy checks are done).
 ./test/sysext.sh $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.sh $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.sh $BOOT          # tampered image refused
+./test/kiosk.sh output/rootfs.erofs rootfs/boot/bzImage-display  # cage+foot on screen, keyboard
 ./test/vmm.sh $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.sh $BOOT             # 3-node kubeadm via tools/k8s-demo.sh (KVM; skips without)
 ./test/node-conformance.sh $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
@@ -287,7 +288,17 @@ compile, install); CI's `build` matrix is generated from `packages/`. Shared mac
   `TARBALL`/`URL`/`SHA256`, mounted **read-only** — compile to `DESTDIR` or `/tmp`. The CI cache
   key hashes `src/`. fetch-sources, prep, image-tags and check-updates skip it.
 - **`FOLLOWS=<pkg>`**: build from another package's tarball (`linux-tools` from the kernel).
-  `check-updates.py` skips it; `bump-version.sh` refuses it.
+  `check-updates.py` skips it; `bump-version.sh` refuses it. One with no `build.sh` runs the
+  followed package's (`kernel-display`); `KERNEL_FLAVOUR` is passed into the container.
+- **`DEPENDS="a b"`**: compile against those packages' staging trees (base, or the same
+  extension; `package_depends` checks cycles and edges). `build.sh` merges the closure over
+  glibc into `staging/.sysroot-<pkg>`, rewrites its `.pc` files to `/usr/local/sysroot/usr`,
+  passes `PKG_CONFIG_PATH`, and fails if an installed file or path names
+  `/usr/local/sysroot` (a `.pc` variable used as a runtime default: say the path explicitly,
+  as libxkbcommon's `-Dxkb-config-root`). Dependencies must be built first;
+  `build-image.sh` orders by them. CI: the matrix skips chained packages, the `chain` job
+  builds each such extension in order (`tools/build-chain.sh`). `env_get` unsets what it
+  reads first, so the caller's own `DEPENDS` does not show through.
 - **`packages/gcc`** ships only `libgcc_s.so.1` (glibc dlopens it; no `NEEDED` names it, so the
   deps check cannot see it missing) and `libstdc++.so.6`. Coupled to the builder's gcc: its
   `build.sh` fails when ours lacks a `GCC_*`/`GLIBCXX_*` node Debian's has, so a snapshot that
@@ -461,10 +472,20 @@ merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `Wante
   `NF_CONNTRACK_MARK`); a missing one is a bare *"nft" did not return successfully* — feed
   `nft` its rules one at a time.
 
+**The kiosk extension** (`EXTENSION=kiosk`; `docs/proposals/kiosk.md`, steps 1–3): cage
+(wlroots, pixman renderer, DRM dumb buffers — no mesa) running foot on tty1, built with
+`DEPENDS=` from libffi up. cage's `build.sh` ships the scaffolding: `kiosk.service`
+(`PAMName=kiosk`, `TTYPath=/dev/tty1`, `AssertPathExists=/dev/dri/card0`, Upheld by
+multi-user), a udev reload, the `kiosk` user as a `/usr/lib/userdb` record (nothing may
+write `/etc/passwd`), `etc/pam.d/kiosk` in the confext. fontconfig's `/etc/fonts` is
+confext too. Needs `bzImage-display` and `QEMU_GRAPHICS=1|window`; `test/kiosk.sh` drives
+qemu's monitor over a pipe chardev (screendump, sendkey). libinput's lua plugins are off
+by name and its python helpers deleted (constraint 5).
+
 **The debug extension** (`EXTENSION=debug`; `docs/guides/debugging.md`):
 
-- **An extension's packages cannot link against each other**: a single-consumer library is
-  that consumer's `VENDOR_TARBALL`, built static under `/tmp`, with `assert_not_linked`.
+- **A single-consumer library is that consumer's `VENDOR_TARBALL`**, built static under
+  `/tmp`, with `assert_not_linked`; `DEPENDS=` is for libraries with several consumers.
 - What a tool attaches to must already be in the kernel (`trace.config`).
 - kbuild's tools Makefiles reset `CFLAGS`: perf and bpftool get the sysroot via
   `EXTRA_CFLAGS`/`EXTRA_LDFLAGS`. bpftool has no skeletons (they would use the host's BTF).
@@ -494,6 +515,12 @@ and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board li
   `FTRACE` (`BPF_EVENTS`); `SECURITYFS` lets systemd see bpf-lsm.
 - No `VT` (needs `EXPERT`), no `tinyconfig`: subtract from defconfig so upstream keeps arch
   requirements current.
+- **Flavours**: `KERNEL_FLAVOUR=display` (`packages/kernel-display`, `FOLLOWS=kernel`)
+  merges `display.config` after `vm.config`, before `parity.config`: virtio-gpu, fbdev
+  console, USB HID. It only adds, and must name, as `=y`, every `vm.config` clear it
+  undoes, including what its symbols select (`I2C` by `DRM`); those and only those are
+  exempt from the came-back check. Installs `boot/{bzImage,config}-display`,
+  `LOCALVERSION=-display`. Its own extracted tree, so no `O=`.
 - **The kernel follows latest stable from x.y.1.** New `default y` drivers are reported, not
   gated (`kernel-config-diff.py` posted on the PR); clear them or label `hold` between the 17:00
   UTC update run and the 20:00 UTC merge window.
