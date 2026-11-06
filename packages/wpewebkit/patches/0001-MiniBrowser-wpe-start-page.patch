@@ -1,17 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Florian Wilhelm <fwilhelm.wgt@gmail.com>
 Date: Fri, 6 Nov 2026 19:20:49 +0100
-Subject: [PATCH] MiniBrowser (WPE): Ctrl+L opens a start page, and a switch
- for accelerated compositing
+Subject: [PATCH] MiniBrowser (WPE): Ctrl+L opens a start page
 
 WPE's MiniBrowser has no toolbar, so nothing to type an address into. Ctrl+L
 loads the page MINIBROWSER_START_PAGE names, with the current address as its
-u= parameter; that page has the address field. MINIBROWSER_HARDWARE_ACCELERATION=never
-sets the hardware acceleration policy to never, for a display whose only GL
-is a software rasterizer.
+u= parameter; that page has the address field.
 ---
- Tools/MiniBrowser/wpe/main.cpp | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ Tools/MiniBrowser/wpe/main.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
 diff --git a/Tools/MiniBrowser/wpe/main.cpp b/Tools/MiniBrowser/wpe/main.cpp
 index 035bc54..af314b2 100644
@@ -36,17 +33,6 @@ index 035bc54..af314b2 100644
          if ((modifiers & WPE_MODIFIER_KEYBOARD_SHIFT) && keyval == WPE_KEY_I) {
              webkit_web_view_toggle_inspector(webView);
              return TRUE;
-@@ -654,6 +666,10 @@ static void activate(GApplication* application, gpointer)
-         "display", wpeDisplay,
- #endif
-         nullptr));
-+    // MINIBROWSER_HARDWARE_ACCELERATION=never: no accelerated compositing, for a
-+    // display whose only GL is a software one.
-+    if (!g_strcmp0(g_getenv("MINIBROWSER_HARDWARE_ACCELERATION"), "never"))
-+        webkit_settings_set_hardware_acceleration_policy(webkit_web_view_get_settings(webView), WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER);
-     g_object_unref(settings);
-     g_object_unref(defaultWebsitePolicies);
- #if ENABLE_WPE_PLATFORM_HEADLESS
 -- 
 2.56.0
 

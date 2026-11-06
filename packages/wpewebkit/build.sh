@@ -68,6 +68,20 @@ cmake -S . -B build -G Ninja \
 cmake --build build -j"$jobs"
 DESTDIR=$ROOTFS cmake --install build
 
+# The license texts: WebKit has none at the top level, where build-package.sh looks, but
+# one per component under Source/ (WebCore, JavaScriptCore, WTF) and per bundled library
+# (ThirdParty/: ANGLE, Skia, pdf.js; the inspector's). All of them, by the name pattern
+# build-package.sh uses, under the path each has in the source.
+licenses=$ROOTFS/usr/share/licenses/wpewebkit
+install -d "$licenses"
+find Source -xtype f \( -iname 'copying*' -o -iname 'licen[cs]e*' -o -iname 'notice*' \
+        -o -iname 'copyright*' -o -iname 'unlicense*' \) \
+    ! \( -name '*.[ch]' -o -name '*.cpp' -o -name '*.py' -o -name '*.json' -o -name '*.html' \
+        -o -name '*.js' -o -name '*.gn' -o -name '*.md' -o -name '*.xml' -o -name '*.in' \) \
+    ! -path '*/test/*' ! -path '*/tests/*' ! -path '*/testdata/*' -print0 \
+    | LC_ALL=C sort -z \
+    | xargs -0 cp -L --parents -t "$licenses"
+
 # ---------------------------------------------------------------------------------
 # The kiosk session runs the browser instead of foot (packages/cage ships the unit).
 # MiniBrowser has no toolbar: the start page has the address field, and the patch in
@@ -123,7 +137,6 @@ HTML
 cat > "$ROOTFS/usr/lib/systemd/system/kiosk.service.d/10-browser.conf" <<'UNIT'
 [Service]
 Environment=MINIBROWSER_START_PAGE=file:///usr/share/kiosk/start.html
-Environment=MINIBROWSER_HARDWARE_ACCELERATION=never
 Environment=WEBKIT_SKIA_ENABLE_CPU_RENDERING=1
 Environment=LIBGL_ALWAYS_SOFTWARE=1
 ExecStart=
