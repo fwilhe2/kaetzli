@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from kaetzli.boot import container, listeners, network, ssh, systemd
+from kaetzli.boot import container, listeners, network, podman, ssh, systemd
 from kaetzli.qemu import console, machine
 
 TESTS = {
@@ -29,6 +29,7 @@ TESTS = {
     "listeners": listeners,
     "ssh": ssh,
     "container": container,
+    "podman": podman,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -50,10 +51,11 @@ def image(tmp_path, monkeypatch):
         'root=/dev/dm-0 ro dm-mod.create="root,,,ro,0 8 verity" dm-mod.waitfor=/dev/vda\n'
     )
     (tmp_path / "img" / "extensions").mkdir()
-    (tmp_path / "img" / "extensions" / "kubernetes.raw").touch()
-    (tmp_path / "img" / "extensions" / "kubernetes.dm-verity").write_text(
-        "0 8 verity 1 @DEV@ @DEV@\n"
-    )
+    for name in ("kubernetes", "podman"):
+        (tmp_path / "img" / "extensions" / f"{name}.raw").touch()
+        (tmp_path / "img" / "extensions" / f"{name}.dm-verity").write_text(
+            "0 8 verity 1 @DEV@ @DEV@\n"
+        )
     (tmp_path / "bin").mkdir()
     monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:{__import__('os').environ['PATH']}")
     monkeypatch.setenv("LOG", str(tmp_path / "console.log"))

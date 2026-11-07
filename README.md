@@ -194,7 +194,7 @@ OCI image as `latest` and by commit. Run an individual test with the image and k
 it requires, for example:
 
 ```sh
-./test/podman.sh output/rootfs.erofs rootfs/boot/bzImage
+./test/podman.py output/rootfs.erofs rootfs/boot/bzImage
 ```
 
 Every build on main signs what it publishes: the OCI images get a SLSA provenance and

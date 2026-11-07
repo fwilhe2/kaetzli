@@ -67,7 +67,7 @@ extension all leave the guest running, and no test fails unless a unit ends up f
 5. `test/boot.py` runs `/bin/bash` as PID 1 and exits through a poweroff; check that it
    still reaches the cleanup path that runs the check.
 
-**Verification:** run `test/systemd.py` and `test/podman.sh` on a good build: they must
+**Verification:** run `test/systemd.py` and `test/podman.py` on a good build: they must
 still pass. Then prove the check works with a throwaway line in one test's guest
 commands, `echo 'WARNING: CPU: 0 PID: 1 at fake' > /dev/kmsg`, which must fail the test
 with the pattern's description. Do not commit that line. Since the check lives in the
@@ -266,7 +266,7 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    values back with `sysctl -n` in the guest, because a shipped file that systemd-sysctl
    failed to apply looks the same as one that worked.
 
-**Verification:** `test/systemd.py`, `test/rootless.sh`, `test/podman.sh`, `test/debug.sh`
+**Verification:** `test/systemd.py`, `test/rootless.sh`, `test/podman.py`, `test/debug.sh`
 and `test/k8s.sh` all pass. `test/debug.sh` is the one most likely to notice.
 
 ## 6. Limits that containers and Kubernetes need

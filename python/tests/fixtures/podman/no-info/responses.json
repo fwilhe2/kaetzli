@@ -1,0 +1,10 @@
+[
+ [
+  "podman info; podman ps -a",
+  "host:\n  ociRuntime: crun\n"
+ ],
+ [
+  "podman import",
+  "PODMAN-IMPORT-OK\n"
+ ]
+]

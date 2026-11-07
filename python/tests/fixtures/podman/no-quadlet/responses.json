@@ -1,0 +1,26 @@
+[
+ [
+  "podman info; podman ps -a",
+  "host:\n  ociRuntime: crun\n"
+ ],
+ [
+  "podman info --format",
+  "PODMAN-INFO:crun/netavark/true/overlay\n"
+ ],
+ [
+  "podman import",
+  "PODMAN-IMPORT-OK\n"
+ ],
+ [
+  "/proc/self/status",
+  "pid=1 seccomp=2\nPODMAN-RUN-OK\n"
+ ],
+ [
+  "-p 8080:80",
+  "93.184.215.14   example.com\nPODMAN-NET-OK\n"
+ ],
+ [
+  "hello.container",
+  "Failed to start hello.service: Unit hello.service not found.\n"
+ ]
+]

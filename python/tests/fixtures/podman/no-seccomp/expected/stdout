@@ -1,0 +1,6 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 10s
+>> got a login prompt, logging in as root
+>> logged in, asking podman what it is built on
+>> podman OK: crun/netavark/true/overlay
+>> importing a test image from the guest's own files
+>> running a container

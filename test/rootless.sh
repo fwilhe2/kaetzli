@@ -3,7 +3,7 @@
 #
 #     ./test/rootless.sh [rootfs.erofs] [bzImage]
 #
-# Overrides: TIMEOUT, MEM/CPUS, LOG, as in test/podman.sh. LOGIN_USER is fixed to the
+# Overrides: TIMEOUT, MEM/CPUS, LOG, as in test/podman.py. LOGIN_USER is fixed to the
 # uid-1000 account image/files/etc/passwd ships, because that is the point.
 #
 # Rootless needs three things the rootful path does not, and each round checks one:
@@ -17,7 +17,7 @@
 #      connection opens from inside the container, and a published port's forwarding is
 #      set up (rootlessport).
 #
-# The same imported test image as test/podman.sh, made by the user into the user's own
+# The same imported test image as test/podman.py, made by the user into the user's own
 # storage under ~/.local/share/containers.
 set -euo pipefail
 

@@ -718,7 +718,7 @@ jobs:
         run: ./test/container.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check podman
-        run: ./test/podman.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/podman.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check rootless containers
         run: ./test/rootless.sh artifacts/rootfs.erofs rootfs/boot/bzImage
