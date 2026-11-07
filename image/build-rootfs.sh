@@ -160,6 +160,9 @@ repro_tar() {
 # tools/fetch-image.sh take it from rootfs/ or the kernel's package artifact. boot/config
 # stays for the disk image, which kubeadm reads through usr/lib/modules/<release>/config.
 rm -f boot/bzImage
+# systemd's EFI stub and boot loader: the stub goes into the unified kernel image below,
+# from /usr/local/src, and nothing in the image boots through either.
+rm -rf usr/lib/systemd/boot
 
 # ---------------------------------------------------------------------------------
 # The container flavour, as subtractions: a container gets its kernel from the host and
@@ -840,6 +843,23 @@ if [ "$flavour" = erofs ]; then
     printf '%s\n' "root=/dev/dm-0 ro rootfstype=erofs dm-mod.waitfor=/dev/vda dm-mod.create=\"root,,,ro,0 $sectors verity 1 /dev/vda /dev/vda 4096 4096 $data_blocks $data_blocks sha256 $root_hash $salt\"" \
         > /usr/local/output/rootfs.cmdline
     cat /usr/local/output/rootfs.cmdline
+
+    # The unified kernel image: the kernel, this command line and the console, and our
+    # systemd's EFI stub, in one PE binary (docs/guides/secure-boot.md). Unsigned here, so
+    # it is reproducible like everything else; tools/sign-uki.sh signs it. Signed and booted
+    # by firmware with our key under Secure Boot, the stub ignores any command line the VMM
+    # passes: the root hash cannot be swapped without breaking the signature.
+    case "$(uname -m)" in
+        x86_64)  efi_arch=x64  uki_console=ttyS0 ;;
+        aarch64) efi_arch=aa64 uki_console=ttyAMA0 ;;
+        *) echo "error: no EFI stub for $(uname -m)" >&2; exit 1 ;;
+    esac
+    ukify build \
+        --linux /usr/local/src/boot/bzImage \
+        --stub "/usr/local/src/usr/lib/systemd/boot/efi/linux$efi_arch.efi.stub" \
+        --cmdline "$(cat /usr/local/output/rootfs.cmdline) console=$uki_console" \
+        --os-release @"$IMAGE/usr/lib/os-release" \
+        --output /usr/local/output/kaetzli.efi
 
     echo "disk $(stat -c %s "$erofs")" >> "$report"
 

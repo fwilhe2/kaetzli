@@ -21,8 +21,9 @@ class Boot:
 
     def guest(self, name: str, **kwargs) -> Guest:
         m = self.machine
+        kernel = os.path.join(m.secureboot, "kaetzli.efi") if m.secureboot else m.kernel
         print(
-            f">> booting {m.rootfs} with {m.kernel} (init={m.init}), waiting up to {self.timeout}s",
+            f">> booting {m.rootfs} with {kernel} (init={m.init}), waiting up to {self.timeout}s",
             flush=True,
         )
         return Guest(m.qemu, m.argv(), self.log, float(self.timeout), name=name, **kwargs)

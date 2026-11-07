@@ -26,6 +26,10 @@ ARG SNAPSHOT
 # setcap, for the two file capabilities the image grants (newuidmap, newgidmap).
 # python3 runs image/sbom.py, which writes the SBOM with the standard library's json: a
 # builder-side interpreter, as perl is in the builder, and nothing of it reaches a tree.
+# systemd-ukify joins the kernel, its command line and our EFI stub into the unified kernel
+# image (python too, and outside the tree like sbom.py); sbsigntool signs one, and ovmf and
+# python3-virt-firmware are the firmware a signed one is booted by under Secure Boot and the
+# tool that enrols our key in its variables (tools/sign-uki.sh, docs/guides/secure-boot.md).
 # The retries are for snapshot.debian.org, which answers 503 under load; apt backs off
 # between them.
 RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
@@ -34,4 +38,5 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
     && printf 'Acquire::Retries "10";\n' > /etc/apt/apt.conf.d/80-retries \
     && apt-get update \
     && apt-get install -y --no-install-recommends erofs-utils cryptsetup-bin libcap2-bin binutils python3 \
+       systemd-ukify sbsigntool ovmf python3-virt-firmware \
     && rm -rf /var/lib/apt/lists/*

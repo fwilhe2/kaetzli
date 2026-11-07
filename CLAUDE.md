@@ -184,6 +184,7 @@ policy checks are done).
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
+./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot; unsigned refused (tools/sign-uki.sh first)
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
@@ -210,6 +211,7 @@ policy checks are done).
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
 ./tools/k8s-demo.py up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
+./tools/sign-uki.sh [--key K --cert C] [UKI]  # → output/secureboot/: signed UKI + OVMF with our key
 ./tools/build-launcher.sh [OUT] [VERSION]
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
 ./tools/release.py name|publish [--dry-run]
@@ -372,7 +374,10 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   package; a `LicenseRef-` carries its text in `hasExtractedLicensingInfos`.
 - **Root is EROFS on dm-verity, read-only.** The hash tree is appended; `output/rootfs.cmdline`
   is **half of the image** (the only place the root hash is): `root=/dev/dm-0` and a
-  `dm-mod.create=` table. No initrd (`CONFIG_DM_INIT`). Extensions likewise (`<name>.dm-verity`,
+  `dm-mod.create=` table. No initrd (`CONFIG_DM_INIT`), so the kernel cannot check a
+  signature on the hash; `output/kaetzli.efi` (UKI: kernel, that command line, our
+  systemd's stub; unsigned, reproducible) does, once `tools/sign-uki.sh` signs it and OVMF
+  enforces Secure Boot (`docs/guides/secure-boot.md`). Extensions likewise (`<name>.dm-verity`,
   joined by `qemu_sysexts`); `image/files/etc/udev/rules.d/10-dm-init.rules` names dm-init's
   devices, or systemd waits forever.
 - **Everything writable is RAM** (`/var` via `var.mount`, `/tmp`); mount points ship empty, so

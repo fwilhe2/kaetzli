@@ -1,3 +1,13 @@
 # bootctl manages an EFI system partition and boot loader variables; every VMM here is
 # handed the kernel, so there is neither (packages/systemd/build.sh).
 absent usr/bin/bootctl
+# systemd's EFI stub and boot loader are built for the unified kernel image, which carries
+# the stub outside the image (image/build-rootfs.sh); nothing in the image boots through
+# either.
+absent usr/lib/systemd/boot
+# What -Dbootloader brings besides the stub (packages/systemd/build.sh): boot counting and
+# the services and socket that run bootctl.
+absent usr/lib/systemd/systemd-bless-boot
+absent usr/lib/systemd/system-generators/systemd-bless-boot-generator
+absent usr/lib/systemd/system/systemd-boot-random-seed.service
+absent usr/lib/systemd/system/systemd-bootctl.socket
