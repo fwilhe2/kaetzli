@@ -93,7 +93,7 @@ image contents and size, reproducibility, real boots, networking, SSH, container
 extensions. Individual scripts live in `test/`; for example:
 
 ```sh
-./test/podman.sh output/rootfs.erofs rootfs/boot/bzImage
+./test/podman.py output/rootfs.erofs rootfs/boot/bzImage
 ```
 
 ## Common build issues

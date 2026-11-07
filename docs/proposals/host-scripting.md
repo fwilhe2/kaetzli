@@ -3,8 +3,8 @@
 **Status: proposal, partly implemented.** Implemented: items 1 to 5, the CVE reports,
 the SBOM, the size reports, the library checks and the policy checks, and item 6. Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
-`test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py` and
-`test/container.py`. CLAUDE.md (*Host-side code*)
+`test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
+`test/container.py` and `test/podman.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -233,6 +233,13 @@ bash version's to the byte (the bundle is still patched with bash's own `${c/…
 the guest, which has no jq). Its golden is five guests (clean, no memory controller, a
 bundle that fails, a container that is not isolated, a panic); on a local image it
 agrees in 11 seconds where bash took 20.
+
+`test/podman.sh` is `test/podman.py`, its four rounds as before. Its golden is six
+guests (clean, the wrong build in `podman info`, no answer, no seccomp filter, a panic
+on the network round, a Quadlet unit that does not come up); on a local image it agrees
+in 16 seconds where bash took 27. One difference, in what is typed rather than what is
+printed: bash's line continuation left seven spaces between two of `cp`'s arguments,
+and there is one now.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`
