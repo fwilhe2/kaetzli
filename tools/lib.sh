@@ -101,7 +101,8 @@ mib() {
 # The payload is the first gzip stream after the setup code — packages/kernel/build.sh
 # leaves the compression at defconfig's gzip — and gzip stops at the end of it, ignoring
 # the trailer the bzImage carries after. arm64's Image is already uncompressed and needs
-# none of this. Used by tools/boot-firecracker.sh and test/vmm.sh.
+# none of this. Used by tools/boot-firecracker.sh
+# (test/vmm.py has its own, kaetzli.boot.vmm.extract_vmlinux).
 extract_vmlinux() {
     local off
     off=$(grep -abo $'\x1f\x8b\x08' "$1" | head -1 | cut -d: -f1)

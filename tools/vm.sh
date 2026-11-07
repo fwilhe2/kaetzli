@@ -409,7 +409,7 @@ EOF
 }
 
 # The same machine in the foreground, console in this terminal: qemu's own mux, so Ctrl-a
-# x quits and Ctrl-a c is the monitor, as with tools/boot-qemu.sh — and logged as well.
+# x quits and Ctrl-a c is the monitor, as with tools/boot-qemu.py — and logged as well.
 cmd_run() {
     prepare "$@"
     QEMU_DISPLAY_ARGS=(

@@ -1,0 +1,3 @@
+OUT=<tmp>/img
+SSH_PORT=2299
+SSH_DIR=<tmp>/ssh

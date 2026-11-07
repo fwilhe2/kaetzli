@@ -1,9 +1,10 @@
 """kaetzli.qemu.machine against test/qemu-lib.sh, live.
 
-The two harnesses are side by side until every boot test has moved, and
-tools/boot-qemu.sh, on the bash one, must boot the machine CI booted: so each case here
-runs the bash harness's qemu_setup, qemu_ssh_setup and qemu_argv with the same settings
-and requires the same binary, argv and ssh_config back. Both read the host's /dev/kvm.
+The two harnesses are side by side until the last tools on the bash one (vm.sh,
+boot-firecracker.sh, boot-vz.sh) have moved, and those must boot the machine CI booted:
+so each case here runs the bash harness's qemu_setup, qemu_ssh_setup and qemu_argv with
+the same settings and requires the same binary, argv and ssh_config back. Both read
+the host's /dev/kvm.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from kaetzli import repo
-from kaetzli.qemu import console, machine
+from kaetzli.qemu import machine
 from kaetzli.qemu.machine import Machine, Refused, refuse
 
 CMDLINE = (
@@ -223,18 +224,3 @@ def test_what_is_refused_says_the_same(case, image, capsys):
         python(env)
     assert refuse(e.value) == 1
     assert capsys.readouterr().err == err
-
-
-def test_the_patterns_are_the_bash_harnesses():
-    out = subprocess.run(
-        ["bash", "-c", 'source test/qemu-lib.sh; printf "%s\\0" "$QEMU_DIED" "$CONSOLE_BAD" '
-         '"$READY" "$PROBE" "$QUIET"'],
-        cwd=repo.ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split("\0")[:-1]  # fmt: skip
-    assert out == [
-        console.QEMU_DIED,
-        console.CONSOLE_BAD,
-        console.READY,
-        console.PROBE,
-        console.QUIET,
-    ]

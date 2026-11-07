@@ -19,7 +19,7 @@ has: its container storage is RAM, capped at half of 1 GiB. Boot the VM with mem
 `/var` disk; container storage then lives on that disk, root's and `user`'s alike:
 
 ```sh
-MEM=4096 VAR_DISK=output/var.img VAR_SIZE=20G SYSEXTS=podman ./tools/boot-qemu.sh
+MEM=4096 VAR_DISK=output/var.img VAR_SIZE=20G SYSEXTS=podman ./tools/boot-qemu.py
 ./tools/ssh.sh --root    # or without --root: /home is a symlink into /var
 ```
 

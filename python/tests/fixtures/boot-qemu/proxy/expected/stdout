@@ -1,0 +1,1 @@
+>> ssh: ./tools/ssh.sh  (through socat - VSOCK-CONNECT:3:22, key in <tmp>/ssh, gone when qemu exits)

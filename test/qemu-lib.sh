@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-# The qemu plumbing shared by the boot tests and tools/boot-qemu.sh.
+# The qemu plumbing of tools/vm.sh, tools/boot-firecracker.sh and tools/boot-vz.sh; the
+# boot tests and tools/boot-qemu.py use its Python twin, kaetzli.qemu.
 #
-# Sourced, never executed, so that debugging a failed boot with tools/boot-qemu.sh boots
-# the same machine CI did. The caller sets ROOTFS/KERNEL/INIT and whatever else it needs, then:
+# Sourced, never executed, so that those boot the same machine CI did. The caller sets ROOTFS/KERNEL/INIT and whatever else it needs, then:
 #
 #   qemu_setup       normalize $ARCH; pick the binary, console device and accel flags
 #   qemu_preflight   refuse now if the binary or the images are missing
 #   qemu_ssh_setup   optional: an ephemeral key, a port forward to the guest's sshd and
 #                    the credential that authorizes the one over the other (see below)
 #   qemu_argv        build the common command line into $QEMU_ARGV
-#   qemu_boot        run it in the background on a fifo, logging to $LOG
 #
-# ...and then drives the console with console_send / console_mark / await /
-# console_login. tools/boot-qemu.sh stops after qemu_argv and execs it instead, handing
-# the console to the terminal.
+# ...and then run it, handing the console to the terminal (or daemonized, tools/vm.sh).
 #
-# kaetzli.qemu (python/) is the same harness in Python, which test/boot.py uses; the two
-# are side by side until every boot test has moved (docs/proposals/host-scripting.md,
-# item 7). A change here is a change there: python/tests/test_qemu_machine.py runs both
-# and requires the same command line, and the same QEMU_DIED, CONSOLE_BAD and login.
+# kaetzli.qemu (python/) is the same plumbing in Python, plus the console driver the boot
+# tests use; the two stay side by side until these tools move (docs/proposals/
+# host-scripting.md, item 7). A change here is a change there:
+# python/tests/test_qemu_machine.py runs both and requires the same command line.
 
 source tools/lib.sh   # normalize_arch
 
@@ -26,19 +23,6 @@ source tools/lib.sh   # normalize_arch
 TIMEOUT="${TIMEOUT:-300}"   # generous: CI has no KVM
 MEM="${MEM:-1024}"
 CPUS="${CPUS:-2}"
-LOGIN_USER="${LOGIN_USER:-root}"
-
-# What a guest looks like on its way out. Matched by await; kaetzli.qemu.console has the same list.
-QEMU_DIED='Kernel panic|Attempted to kill init|Requesting system (poweroff|reboot)'
-
-# What must never appear on a console, whatever the test is about: a guest that logs one
-# of these usually keeps running, so nothing else would fail. Matched over the whole log
-# when a boot ends without the test having failed (cleanup, below). A test that provokes
-# one on purpose sets CONSOLE_BAD_EXEMPT to an extended regex of the lines it expects.
-# From Flatcar's kola, which runs the same kind of list over every test's console.
-CONSOLE_BAD='Oops:|BUG: |WARNING: CPU: [0-9]+ PID: [0-9]+ at |general protection fault|'\
-'Call Trace:|segfault at |=11/SEGV|[Cc]ore dump|EXT4-fs error|Remounting filesystem read-only|'\
-'device-mapper: verity: .* is corrupted|You are in emergency mode|Starting Emergency Shell'
 
 # ARCH defaults to the host's. QEMU_PROFILE picks the machine's shape, approximating the
 # VMMs the kernel is built for by the devices they give a guest:
@@ -256,22 +240,6 @@ qemu_argv() {
     [ "${QEMU_REBOOT:-0}" = 1 ] || QEMU_ARGV+=(-no-reboot)
 }
 
-# A /var disk seeded with <tree> (tools/k8s-demo.py; test/sysext.py uses its twin,
-# kaetzli.qemu.machine.seed_var_disk). mkfs.ext4 -d records
-# owners, and a /var/lib not owned by root makes tmpfiles refuse it ("unsafe path
-# transition"), hence podman unshare.
-qemu_seed_var_disk() { # disk size tree
-    local disk="$1" size="$2" tree="$3" run=()
-    command -v mkfs.ext4 >/dev/null || { echo "error: mkfs.ext4 not found (install e2fsprogs)" >&2; exit 1; }
-    if [ "$(id -u)" != 0 ]; then
-        command -v podman >/dev/null || { echo "error: podman not found, which seeds a /var disk owned by root" >&2; exit 1; }
-        run=(podman unshare)
-    fi
-    rm -f "$disk"
-    truncate -s "$size" "$disk"
-    "${run[@]}" mkfs.ext4 -q -F -d "$tree" "$disk"
-}
-
 # SYSEXTS: each <name> is a read-only disk of $EXTENSIONS/{extensions,confexts}/<name>.raw
 # (default: beside the image), verified like the root — its <name>.dm-verity table joins
 # the root's dm-mod.create=, naming its disk by position — and mounted under
@@ -327,112 +295,4 @@ qemu_var_disk() {
     QEMU_VAR_DRIVE=(-drive "id=var,file=$VAR_DISK,format=raw,if=none" -device virtio-blk-pci,drive=var)
     QEMU_VAR_APPEND=" systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs"
     QEMU_VAR_APPEND+=" systemd.machine_id=$(cat "$VAR_DISK.machine-id")"
-}
-
-# Launch it in the background with its console on a fifo we hold open, and its output in
-# $LOG. Sets $qemu_pid and $deadline, installs the cleanup trap, and opens fd 3 as the way
-# to type at the guest.
-qemu_boot() {
-    qemu_argv
-
-    work=$(mktemp -d)
-    console="$work/console-in"
-    mkfifo "$console"
-    mkdir -p "$(dirname "$LOG")"
-    : > "$LOG"
-
-    "$QEMU" "${QEMU_ARGV[@]}" < "$console" > "$LOG" 2>&1 &
-    qemu_pid=$!
-
-    # Also callable by hand between boots. $? is the status
-    # the script is exiting with, or the last command's on a call by hand (a trap that
-    # runs something first passes it as $1): only a boot that has not already failed is
-    # held to the console check, so a failure reports its own reason first.
-    cleanup() {
-        local rc=${1:-$?}
-        { exec 3>&-; } 2>/dev/null || true
-        kill "$qemu_pid" 2>/dev/null || true
-        wait "$qemu_pid" 2>/dev/null || true
-        rm -rf "$work"
-        [ -z "${QEMU_SSH_DIR:-}" ] || rm -rf "$QEMU_SSH_DIR"
-        [ "$rc" != 0 ] || console_check
-    }
-    trap cleanup EXIT
-
-    # Read-write, so opening never blocks on qemu having got as far as its stdin.
-    exec 3<> "$console"
-
-    deadline=$((SECONDS + TIMEOUT))
-    echo ">> booting $ROOTFS with $KERNEL (init=$INIT), waiting up to ${TIMEOUT}s"
-}
-
-console_send() { printf '%s\n' "$1" >&3; }
-
-# How much console output there is so far, as a byte offset into the log — the caller takes
-# one of these before it types something and passes it to await, so that only the guest's
-# answer can satisfy the wait. See console_login below for why that matters.
-console_mark() { wc -c < "$LOG"; }
-
-# $TEST_NAME names the test in the failure line; $DIAGNOSE, when set, is typed at the guest
-# first so its answer lands in the transcript below. If the guest never got as far as a
-# shell that just scrolls past, and the console log is what there is to go on.
-fail() {
-    echo ">> ${TEST_NAME:-boot} test FAILED: $1" >&2
-    [ -n "${DIAGNOSE:-}" ] && { console_send "$DIAGNOSE" 2>/dev/null || true; sleep 5; }
-    echo ">> last 80 lines of the console:" >&2
-    tail -80 "$LOG" >&2
-    exit 1
-}
-
-# The $CONSOLE_BAD lines in $LOG, minus $CONSOLE_BAD_EXEMPT; exits 1 naming them. Not
-# through fail: the guest is gone by now, so there is nothing to DIAGNOSE.
-console_check() {
-    local bad
-    bad=$(tr -d '\r' < "$LOG" | grep -aE "$CONSOLE_BAD" |
-          { if [ -n "${CONSOLE_BAD_EXEMPT:-}" ]; then grep -avE "$CONSOLE_BAD_EXEMPT"; else cat; fi; } || true)
-    [ -n "$bad" ] || return 0
-    echo ">> ${TEST_NAME:-boot} test FAILED: the console shows a kernel warning, a crash or an emergency shell (CONSOLE_BAD in test/qemu-lib.sh):" >&2
-    printf '%s\n' "$bad" | head -10 | sed 's/^/   /' >&2
-    echo ">> the whole console is in $LOG" >&2
-    exit 1
-}
-
-# Wait for a pattern to show up on the console, keeping an eye on the guest being alive and
-# on the overall deadline. Returns 1 on the local timeout so the caller can retry. With a
-# third argument, output before that offset is ignored.
-await() { # pattern seconds [since]
-    local until=$((SECONDS + $2)) since="${3:-0}"
-    while [ "$SECONDS" -lt "$until" ]; do
-        tail -c "+$((since + 1))" "$LOG" | grep -qaE "$1" && return 0
-        grep -qaE "$QEMU_DIED" "$LOG" && fail "the guest died"
-        kill -0 "$qemu_pid" 2>/dev/null || fail "qemu exited"
-        [ "$SECONDS" -lt "$deadline" ] || fail "timed out waiting for: $1"
-        sleep 2
-    done
-    return 1
-}
-
-# The marker is split by quotes so the echo of what we typed cannot match it.
-READY="SHELL-IS-UP"
-PROBE="echo SHELL-IS'-UP'"
-# Echo off, prompt and colours off: the log is read as text.
-QUIET="stty -echo; PS1=; export SYSTEMD_COLORS=0"
-
-# Log in at the serial getty and leave a quiet shell on fd 3. The username is the whole
-# login: qemu_argv passes the login.noauth credential. Retried, since agetty loses what is
-# typed while it sets the line up; only output after the username satisfies the wait.
-console_login() {
-    await 'login:' "$TIMEOUT" || fail "no login prompt"
-    echo ">> got a login prompt, logging in as $LOGIN_USER"
-
-    until grep -qaF "$READY" "$LOG"; do
-        [ "$SECONDS" -lt "$deadline" ] || fail "could not get a shell (login rejected?)"
-        local prompt
-        prompt=$(console_mark)
-        console_send "$LOGIN_USER"
-        sleep 3
-        console_send "$QUIET"
-        console_send "$PROBE"
-        await "$READY" 10 "$prompt" || true
-    done
 }

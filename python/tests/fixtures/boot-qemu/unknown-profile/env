@@ -1,0 +1,2 @@
+QEMU_PROFILE=xen
+OUT=<tmp>/img

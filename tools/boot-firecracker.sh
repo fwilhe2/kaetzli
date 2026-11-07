@@ -4,7 +4,7 @@
 #     ./tools/boot-firecracker.sh
 #     ./tools/ssh.sh                      # from another terminal, over vsock
 #
-# Overrides, as for tools/boot-qemu.sh:
+# Overrides, as for tools/boot-qemu.py:
 #   ARCH, OUT, KERNEL, ROOTFS, INIT, MEM, CPUS, SSH, SSH_DIR, VAR_DISK, VAR_SIZE
 #   FIRECRACKER   the binary                       (default: firecracker on PATH)
 #   TAP           a tap device to give the guest a network (default: none, see below)

@@ -1,10 +1,9 @@
 """The machine a boot test starts: test/qemu-lib.sh's qemu_setup, qemu_preflight,
 qemu_ssh_setup, qemu_sysexts, qemu_var_disk and qemu_argv, as one dataclass.
 
-Until every boot test has moved, the bash harness and this one are side by side, and
-python/tests/test_qemu_machine.py holds them to the same command line for the same
-settings: tools/boot-qemu.sh, which still sources the bash one, has to boot the machine
-CI booted.
+tools/vm.sh, boot-firecracker.sh and boot-vz.sh still source the bash one, and must boot
+the machine CI booted: python/tests/test_qemu_machine.py holds the two to the same
+command line for the same settings.
 
 Settings come from the environment, under the names the bash harness reads, through
 `Machine.from_env`; what bash held in arrays (QEMU_NIC_ARGS, QEMU_DISPLAY_ARGS) are lists
@@ -206,9 +205,10 @@ class Machine:
             "-drive", f"id=var,file={self.var_disk},format=raw,if=none",
             "-device", "virtio-blk-pci,drive=var",
         ]  # fmt: skip
+        machine_id = mid.read_text().rstrip("\n")  # as bash's $(cat) reads it
         append = (
             " systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs"
-            f" systemd.machine_id={mid.read_text()}"
+            f" systemd.machine_id={machine_id}"
         )
         return drive, append
 
@@ -337,7 +337,7 @@ class Machine:
 
 
 def seed_var_disk(disk: str | Path, size: str, tree: str | Path) -> None:
-    """test/qemu-lib.sh's qemu_seed_var_disk: a new ext4 disk of `size` holding `tree`,
+    """A new ext4 disk of `size` holding `tree`,
     made under `podman unshare` when not root, so that what is in it is owned by root.
     x-systemd.makefs leaves a disk that already has a filesystem alone, so this is what
     /var is at boot."""

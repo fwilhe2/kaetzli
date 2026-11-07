@@ -1,0 +1,3 @@
+OUT=<tmp>/img
+SSH=0
+QEMU_RC=3

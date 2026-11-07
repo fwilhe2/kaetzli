@@ -1,0 +1,8 @@
+OUT=<tmp>/img
+SSH_PORT=2299
+SSH_DIR=<tmp>/ssh
+VAR_DISK=<tmp>/var.img
+SYSEXTS=podman debug
+MEM=2048
+CPUS=4
+INIT=/bin/bash

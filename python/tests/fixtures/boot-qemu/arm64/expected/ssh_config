@@ -1,0 +1,10 @@
+Host kaetzli
+    HostName 127.0.0.1
+    Port 2299
+    User root
+    IdentityFile <tmp>/ssh/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR

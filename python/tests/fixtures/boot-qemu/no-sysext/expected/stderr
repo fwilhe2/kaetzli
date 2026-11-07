@@ -1,0 +1,2 @@
+error: SYSEXTS names kubernetes, but there is no <tmp>/img/extensions/kubernetes.raw
+       (tools/build-image.sh builds it, tools/fetch-image.sh downloads CI's)

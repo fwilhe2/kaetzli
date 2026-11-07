@@ -7,7 +7,7 @@
 #     ./tools/boot-vz.sh
 #     ./tools/ssh.sh                        # from another terminal, over vsock
 #
-# Overrides, as for tools/boot-qemu.sh:
+# Overrides, as for tools/boot-qemu.py:
 #   OUT, KERNEL, ROOTFS, INIT, MEM, CPUS, SSH, SSH_DIR, VAR_DISK, VAR_SIZE
 #   VFKIT    the binary                         (default: vfkit on PATH)
 #   SHARE    a host directory to share; in the guest: mount -t virtiofs share /mnt
@@ -36,7 +36,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source test/qemu-lib.sh
 
-[ "$(uname -s)" = Darwin ] || { echo "error: Virtualization.framework is macOS-only; on Linux use tools/boot-qemu.sh or tools/boot-firecracker.sh" >&2; exit 1; }
+[ "$(uname -s)" = Darwin ] || { echo "error: Virtualization.framework is macOS-only; on Linux use tools/boot-qemu.py or tools/boot-firecracker.sh" >&2; exit 1; }
 ARCH=$(normalize_arch "${ARCH:-}")
 [ "$ARCH" = arm64 ] || { echo "error: only Apple silicon (arm64) is supported" >&2; exit 1; }
 fetched_image_defaults
