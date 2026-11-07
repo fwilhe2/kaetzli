@@ -1,0 +1,3 @@
+OUT=<tmp>/img
+SSH_PROXY=socat - VSOCK-CONNECT:3:22
+SSH_DIR=<tmp>/ssh

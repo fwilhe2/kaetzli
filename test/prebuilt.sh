@@ -202,7 +202,7 @@ run_oci() {
 }
 
 # Over the ssh_config qemu_ssh_setup wrote, the one tools/ssh.sh uses — so this runs in
-# whichever guest SSH_DIR describes, test/ssh.py's or tools/boot-qemu.sh's.
+# whichever guest SSH_DIR describes, test/ssh.py's or tools/boot-qemu.py's.
 run_ssh() {
     local dir="$1" config="${SSH_DIR:-output/ssh}/config" bin name out rc fail=0
     [ -f "$config" ] || { echo "error: no $config — is a guest running?" >&2; return 1; }

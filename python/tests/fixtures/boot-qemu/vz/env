@@ -1,0 +1,6 @@
+QEMU_PROFILE=vz
+OUT=<tmp>/img
+SSH_PORT=2299
+SSH_DIR=<tmp>/ssh
+VIRTIOFS_SOCKET=/run/vfs.sock
+VSOCK_CID=7

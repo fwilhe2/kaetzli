@@ -7,8 +7,8 @@ changing the base image.
 Attach it when booting QEMU:
 
 ```sh
-SYSEXTS=debug ./tools/boot-qemu.sh
-SYSEXTS="podman debug" ./tools/boot-qemu.sh
+SYSEXTS=debug ./tools/boot-qemu.py
+SYSEXTS="podman debug" ./tools/boot-qemu.py
 ./tools/ssh.sh --root
 ```
 
@@ -20,7 +20,7 @@ QEMU can pass extra systemd credentials through fw_cfg without placing them on t
 command line:
 
 ```sh
-QEMU_FWCFG_CREDENTIALS="example=value" ./tools/boot-qemu.sh
+QEMU_FWCFG_CREDENTIALS="example=value" ./tools/boot-qemu.py
 ```
 
 The guest reads the credential at `/run/credentials/@system/example`. This variable applies

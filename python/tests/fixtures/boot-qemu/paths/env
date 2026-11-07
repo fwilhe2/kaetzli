@@ -1,0 +1,5 @@
+KERNEL=<tmp>/img/bzImage
+ROOTFS=<tmp>/img/rootfs.erofs
+SSH=0
+QEMU_FWCFG_CREDENTIALS=a=1 b=two
+QEMU_REBOOT=1

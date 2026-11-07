@@ -26,7 +26,7 @@ Extensions can be combined if they do not install conflicting paths.
 For QEMU, attach extensions at boot with `SYSEXTS`, a space-separated list:
 
 ```sh
-SYSEXTS="podman debug" ./tools/boot-qemu.sh
+SYSEXTS="podman debug" ./tools/boot-qemu.py
 ./tools/ssh.sh --root
 ```
 

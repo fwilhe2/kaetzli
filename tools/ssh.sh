@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Log into the guest tools/boot-qemu.sh (or boot-firecracker.sh, boot-vz.sh) is running,
+# Log into the guest tools/boot-qemu.py (or boot-firecracker.sh, boot-vz.sh) is running,
 # as `user`, without a password:
 #
 #     ./tools/ssh.sh                      # interactive shell
@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.."
 
 SSH_DIR="${SSH_DIR:-output/ssh}"
 if [ ! -f "$SSH_DIR/config" ]; then
-    echo "error: no $SSH_DIR/config — is a guest running? Start one with ./tools/boot-qemu.sh (or boot-firecracker.sh, boot-vz.sh)" >&2
+    echo "error: no $SSH_DIR/config — is a guest running? Start one with ./tools/boot-qemu.py (or boot-firecracker.sh, boot-vz.sh)" >&2
     echo "       (a machine started with ./tools/vm.sh is ./tools/vm.sh ssh [name])" >&2
     exit 1
 fi

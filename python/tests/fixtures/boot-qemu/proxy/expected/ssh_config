@@ -1,0 +1,9 @@
+Host kaetzli
+    ProxyCommand socat - VSOCK-CONNECT:3:22
+    User root
+    IdentityFile <tmp>/ssh/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR

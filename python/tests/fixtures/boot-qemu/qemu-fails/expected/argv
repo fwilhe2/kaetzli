@@ -1,0 +1,19 @@
+-enable-kvm
+-cpu
+host
+-m
+1024
+-smp
+2
+-kernel
+<tmp>/img/bzImage
+-drive
+id=root,file=<tmp>/img/rootfs.erofs,format=raw,if=none,readonly=on
+-device
+virtio-blk-pci,drive=root
+-nic
+user,model=virtio-net-pci
+-append
+root=/dev/dm-0 ro dm-mod.create="root,,,ro,0 8 verity 1 /dev/vda /dev/vda 4096 4096 1 1 sha256 ab cd" dm-mod.waitfor=/dev/vda rootfstype=erofs console=ttyS0 init=/usr/lib/systemd/systemd systemd.set_credential=login.noauth:yes
+-nographic
+-no-reboot

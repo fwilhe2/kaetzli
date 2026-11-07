@@ -6,7 +6,8 @@ has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
 `test/persistent-var.py`, `test/sysext.py`, `test/verity.py`, `test/debug.py`,
-`test/vmm.py`, `test/node-conformance.py` and `test/k8s.py` with `tools/k8s-demo.py`. CLAUDE.md (*Host-side code*)
+`test/vmm.py`, `test/node-conformance.py` and `test/k8s.py` with `tools/k8s-demo.py`;
+and `tools/boot-qemu.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -301,8 +302,17 @@ are the test's own children, so one that exits is a zombie `kill -0` still finds
 `down` waited for it forever; `alive` reaps it first. The cluster itself (kubeadm,
 flannel, the demo) is checked live, by CI's `k8s` job and a local two-node run.
 
-Next: `tools/boot-qemu.sh` takes its command line from `kaetzli.qemu` (`boot-vz.sh`
-keeps what it needs of the bash, for macOS). `tools/vm.sh` is not ported: it becomes a
+`tools/boot-qemu.sh` is `tools/boot-qemu.py` (`kaetzli.qemu.interactive`): the same
+overrides, the machine from `kaetzli.qemu`, the console in the terminal. Its golden is the
+bash version's argv, ssh_config and output for a stand-in qemu in twelve shapes (each
+profile, arm64, a `/var` disk with extensions, fw_cfg, explicit paths, three refusals, a
+failing qemu). One case is a fix: with `SSH_PROXY` the bash died on an unset `SSH_PORT`
+and left the key behind. Two came with it: a SIGTERM or hangup is passed to qemu rather
+than orphaning it with its key deleted, and `kaetzli.qemu` reads a machine-id file with a
+trailing newline as bash's `$(cat)` did, not into the kernel command line.
+
+What remains on the bash harness: `tools/boot-firecracker.sh` and `boot-vz.sh` (which
+keeps what it needs of the bash, for macOS), and `tools/vm.sh`, which is not ported: it becomes a
 wrapper around the Go launcher once that has its remaining commands
 ([launcher.md](launcher.md)), and until then it keeps the bash harness alive. Whether the tests become pytest functions sharing a booted machine
 is decided when there are enough of them to share one.
@@ -327,7 +337,7 @@ Dependencies: `pexpect` (and `ptyprocess` through it), `pytest`.
 | `tools/prep.sh`, `fetch-sources.sh`, `build-image.sh`, `build-extension.sh`, `publish-oci.sh`, `merge-staging.sh`, `clean.sh`, `image-tags.sh`, `build-node-e2e.sh` | podman, tar and file operations in sequence |
 | `tools/dispatch-ci.sh` | `gh` and `git` in sequence: a check run, a dispatch, finding the run |
 | `tools/check-patches.sh`, `sync-patches.sh`, `patch-cves.sh` | patch and git invocations; `sync-patches.sh` is the largest and could move later |
-| `tools/boot-qemu.sh`, `boot-firecracker.sh`, `boot-vz.sh`, `ssh.sh`, `demo.sh` | thin wrappers that exec a VMM or ssh; `boot-vz.sh` must run on macOS's bash 3.2 |
+| `tools/boot-firecracker.sh`, `boot-vz.sh`, `ssh.sh`, `demo.sh` | thin wrappers that exec a VMM or ssh; `boot-vz.sh` must run on macOS's bash 3.2 |
 | `test/check-tree-hygiene.sh` | runs inside the assembly image; a few `find` calls |
 | `test/reproducible.sh`, `prebuilt.sh`, `oci.sh` | podman and git orchestration; they move only if the harness (item 7) gives them something |
 | inline `run:` steps in `.github/workflows/` | short; a step that outgrows a few lines becomes a script, and then this page applies |

@@ -1,0 +1,1 @@
+root=/dev/dm-0 ro dm-mod.create="root,,,ro,0 8 verity 1 /dev/vda /dev/vda 4096 4096 1 1 sha256 ab cd" dm-mod.waitfor=/dev/vda rootfstype=erofs

@@ -3,7 +3,7 @@ qemu_ssh_setup, qemu_sysexts, qemu_var_disk and qemu_argv, as one dataclass.
 
 Until every boot test has moved, the bash harness and this one are side by side, and
 python/tests/test_qemu_machine.py holds them to the same command line for the same
-settings: tools/boot-qemu.sh, which still sources the bash one, has to boot the machine
+settings: tools/vm.sh, which still sources the bash one, has to boot the machine
 CI booted.
 
 Settings come from the environment, under the names the bash harness reads, through
@@ -206,9 +206,10 @@ class Machine:
             "-drive", f"id=var,file={self.var_disk},format=raw,if=none",
             "-device", "virtio-blk-pci,drive=var",
         ]  # fmt: skip
+        machine_id = mid.read_text().rstrip("\n")  # as bash's $(cat) reads it
         append = (
             " systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs"
-            f" systemd.machine_id={mid.read_text()}"
+            f" systemd.machine_id={machine_id}"
         )
         return drive, append
 

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# A stand-in for qemu in python/tests/test_boot_qemu.py: it writes its arguments,
+# NUL-separated, to $RECORD/argv, and the ssh_config the guest would be reached by (which
+# is deleted once qemu exits) to $RECORD/ssh_config, then exits $QEMU_RC.
+printf '%s\0' "$@" > "$RECORD/argv"
+[ ! -f "${SSH_DIR:-}/config" ] || cp "$SSH_DIR/config" "$RECORD/ssh_config"
+exit "${QEMU_RC:-0}"

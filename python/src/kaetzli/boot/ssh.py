@@ -213,7 +213,7 @@ def main(argv: list[str]) -> int:
         b.machine.setup()
         b.machine.preflight()
         # Its own directory rather than output/ssh, so running this does not take the key
-        # out from under a guest tools/boot-qemu.sh is running. Gone with the guest.
+        # out from under a guest tools/boot-qemu.py is running. Gone with the guest.
         ssh_dir = tempfile.mkdtemp()
         try:
             port = b.machine.ssh_setup(

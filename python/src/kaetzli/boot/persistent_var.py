@@ -112,7 +112,7 @@ class Boots:
         self.ssh_dir = ""
 
     def guest(self, name: str, diagnose: str) -> Guest:
-        """A boot of the machine with its own transcript and, as tools/boot-qemu.sh makes
+        """A boot of the machine with its own transcript and, as tools/boot-qemu.py makes
         one, a new ssh key, gone with the guest."""
         m = self.b.machine
         m.setup()

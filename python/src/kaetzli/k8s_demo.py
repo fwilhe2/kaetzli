@@ -49,7 +49,7 @@ Overrides, from the environment:
   ROOTFS, KERNEL the image to boot. By default this checkout's own build when there is
                  one (output/rootfs.erofs from tools/build-image.sh, with the kernel it was
                  assembled from in rootfs/boot), and otherwise the one tools/fetch-image.sh
-                 downloaded from CI (OUT, ARCH as for tools/boot-qemu.sh)
+                 downloaded from CI (OUT, ARCH as for tools/boot-qemu.py)
   EXTENSIONS     where extensions/kubernetes.raw and confexts/kubernetes.raw are: by
                  default next to ROOTFS, which is where both tools/build-image.sh and
                  tools/fetch-image.sh put them
@@ -323,7 +323,7 @@ class Cluster:
             retry(10, f"test -S {sock}", lambda sock=sock: _is_socket(sock))
 
     def node_machine(self, n: int) -> tuple[Machine, list[str]]:
-        """One node: the same machine tools/boot-qemu.sh boots, plus a /var disk, a
+        """One node: the same machine tools/boot-qemu.py boots, plus a /var disk, a
         hostname and the kubernetes extension, with its one NIC on the router's segment
         instead of a NAT of its own. Nothing about the network is configured on the node:
         the image's own 20-wired.network asks for DHCP, and the router's static lease

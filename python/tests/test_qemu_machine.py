@@ -1,9 +1,10 @@
 """kaetzli.qemu.machine against test/qemu-lib.sh, live.
 
-The two harnesses are side by side until every boot test has moved, and
-tools/boot-qemu.sh, on the bash one, must boot the machine CI booted: so each case here
-runs the bash harness's qemu_setup, qemu_ssh_setup and qemu_argv with the same settings
-and requires the same binary, argv and ssh_config back. Both read the host's /dev/kvm.
+The two harnesses are side by side until the last tools on the bash one (vm.sh,
+boot-firecracker.sh, boot-vz.sh) have moved, and those must boot the machine CI booted:
+so each case here runs the bash harness's qemu_setup, qemu_ssh_setup and qemu_argv with
+the same settings and requires the same binary, argv and ssh_config back. Both read
+the host's /dev/kvm.
 """
 
 from __future__ import annotations

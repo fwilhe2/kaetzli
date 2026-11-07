@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The qemu plumbing shared by the boot tests and tools/boot-qemu.sh.
+# The qemu plumbing of tools/vm.sh, tools/boot-firecracker.sh and tools/boot-vz.sh; the
+# boot tests and tools/boot-qemu.py use its Python twin, kaetzli.qemu.
 #
-# Sourced, never executed, so that debugging a failed boot with tools/boot-qemu.sh boots
-# the same machine CI did. The caller sets ROOTFS/KERNEL/INIT and whatever else it needs, then:
+# Sourced, never executed, so that those boot the same machine CI did. The caller sets ROOTFS/KERNEL/INIT and whatever else it needs, then:
 #
 #   qemu_setup       normalize $ARCH; pick the binary, console device and accel flags
 #   qemu_preflight   refuse now if the binary or the images are missing
@@ -12,8 +12,8 @@
 #   qemu_boot        run it in the background on a fifo, logging to $LOG
 #
 # ...and then drives the console with console_send / console_mark / await /
-# console_login. tools/boot-qemu.sh stops after qemu_argv and execs it instead, handing
-# the console to the terminal.
+# console_login. The tools stop after qemu_argv and run it instead, handing the console to
+# the terminal.
 #
 # kaetzli.qemu (python/) is the same harness in Python, which test/boot.py uses; the two
 # are side by side until every boot test has moved (docs/proposals/host-scripting.md,

@@ -74,7 +74,7 @@ builder/          the one builder image, deps.txt (its entire contents), the sys
 image/            staging → image (disk or OCI): Containerfile, build-rootfs.sh, files/ (the
                   shipped /etc), build-extension.sh (tree → system extension)
 test/             everything CI runs, plus known-*.txt and size-budget.txt; qemu-lib.sh is the
-                  boot harness tests and tools/boot-qemu.sh source
+                  bash boot harness tools/vm.sh and boot-firecracker/vz.sh source
 tools/            local conveniences and maintenance, not a build — except lib.sh, sourced by
                   build.sh, tools/ and test/
 docs/             design notes, each saying at the top whether it is implemented; how-it-works.md,
@@ -204,7 +204,7 @@ policy checks are done).
 ./test/cve-context.py [dir]           # findings + EPSS, KEV, distro verdicts (RUN=, ARCH=)
 
 # running and maintenance
-./tools/boot-qemu.sh                  # interactive (Ctrl-a x); boot-firecracker.sh (KVM, ssh over vsock), boot-vz.sh (macOS, vfkit)
+./tools/boot-qemu.py                  # interactive (Ctrl-a x); boot-firecracker.sh (KVM, ssh over vsock), boot-vz.sh (macOS, vfkit)
 ./tools/ssh.sh [--root] [cmd...]      # passwordless ssh into any of those
 ./tools/vm.sh start|ssh|stop|list|run|console|update|snapshot [name]  # named machines keeping /var
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
@@ -397,8 +397,8 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 `running`, no taint, nothing ≥ `err` in the journal, exposure (`systemd-analyze security`)
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
-`test/qemu-lib.sh`**, also sourced by `tools/boot-qemu.sh`. Its Python twin `kaetzli.qemu`
-(pexpect) runs every boot test and `tools/k8s-demo.py`; the bash harness remains for
+`kaetzli.qemu`** (pexpect), or its bash twin `test/qemu-lib.sh`. The Python one runs every
+boot test, `tools/boot-qemu.py` and `tools/k8s-demo.py`; the bash harness remains for
 `tools/vm.sh` and the `boot-*.sh` wrappers (host-scripting.md item 7). Until they move, a
 change to one is a change to both;
 `python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
@@ -445,7 +445,7 @@ match or `mark()`) — suspect the handshake before `shadow` when a login fails.
 (`docs/guides/sysext.md`): podman, netavark, aardvark-dns, passt, shadow are
 `EXTENSION=podman`; CRI-O and kubelet `kubernetes`. The base keeps the kernel features, crun,
 conmon (glib, pcre2), nftables, libseccomp and `/etc/containers`, so `crun run` works alone.
-Attach with `SYSEXTS=podman ./tools/boot-qemu.sh`. Units from an extension appear when the
+Attach with `SYSEXTS=podman ./tools/boot-qemu.py`. Units from an extension appear when the
 merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `WantedBy=`.
 
 - netavark 2.x needs `nft -j` (no iptables driver), so nftables `--with-json` (jansson). glib
@@ -544,4 +544,4 @@ job goes in its `needs:`.
   older; `--run`: a CI run's artifacts) and **installs nothing unverified**: the rootfs job's
   `bundle-<arch>` (run, commit, arch, SHA-256 of every rootfs, kernel and extensions file) must
   match exactly, as must a snapshot's `SHA256SUMS` (and attestations, where `gh` can check). A
-  change to those artifacts or assets is a change to that step too. `tools/boot-qemu.sh` boots what it fetched.
+  change to those artifacts or assets is a change to that step too. `tools/boot-qemu.py` boots what it fetched.

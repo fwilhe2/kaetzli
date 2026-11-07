@@ -136,9 +136,9 @@ install_bundle() {
     echo "Downloaded and verified into $OUT/ ($what):"
     ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
     if [ "$ARCH" = "$host_arch" ]; then
-        echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.sh"
+        echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.py"
     else
-        echo "Boot it with: ARCH=$ARCH ./tools/boot-qemu.sh"
+        echo "Boot it with: ARCH=$ARCH ./tools/boot-qemu.py"
     fi
 }
 
