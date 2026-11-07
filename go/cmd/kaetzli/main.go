@@ -2,19 +2,27 @@
 // repository: one file, and qemu (docs/proposals/launcher.md). It is tools/vm.sh's
 // commands and defaults, with images from the latest snapshot release.
 //
-//	kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G] [--image DIR]
+//	kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G]
+//	              [--image DIR | --snapshot NAME|latest]
 //	kaetzli ssh [--root] [NAME] [command...]
 //	kaetzli console [NAME]           the serial console (Ctrl-] to leave)
 //	kaetzli stop [NAME] [--force]
-//	kaetzli list | info [NAME] | update | rm [NAME] [--yes] | version
+//	kaetzli list | info [NAME] | update | rollback [NAME] | rm [NAME] [--yes] | version
 //
 // A machine is a directory under the platform's data directory: its /var disk and machine
 // ID, an ssh key made once, its remembered options and this boot's console log. Images are
 // snapshots, cached once each, verified against SHA256SUMS before anything boots them.
+//
+// Updates roll back (go/internal/rollout): a machine remembers the last snapshot it came
+// up on, and one that does not come up (no ssh before the timeout, or qemu exits) is
+// marked bad for that machine and the machine is started again on the last good one.
+// `update` keeps the newest two and whatever a machine needs; `rollback` pins the one
+// before.
 package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +40,7 @@ import (
 	"time"
 
 	"github.com/fwilhe2/kaetzli/go/internal/qemu"
+	"github.com/fwilhe2/kaetzli/go/internal/rollout"
 	"github.com/fwilhe2/kaetzli/go/internal/snapshot"
 )
 
@@ -43,11 +52,12 @@ const defaultName = "kaetzli"
 var nameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)
 
 type config struct {
-	Arch  string   `json:"arch"`
-	Exts  []string `json:"exts"`
-	Mem   string   `json:"mem"`
-	CPUs  string   `json:"cpus"`
-	Image string   `json:"image"` // "" for the newest snapshot, else a directory
+	Arch          string   `json:"arch"`
+	Exts          []string `json:"exts"`
+	Mem           string   `json:"mem"`
+	CPUs          string   `json:"cpus"`
+	Image         string   `json:"image"` // "" for snapshots, else a directory
+	rollout.State          // which snapshot: pinned, last good, failed here
 }
 
 type ports struct {
@@ -166,11 +176,18 @@ func freePort() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// image is the directory a machine boots: a snapshot from the cache (fetched when there
-// is none yet), or the directory it was given.
-func image(c config) string {
+// image is the directory a machine boots and, for a snapshot, its name: the one
+// rollout.Choose picks from the cache (fetching the newest when there is none yet, and a
+// pin that is not cached), or the directory it was given.
+func image(c config) (string, string) {
 	if c.Image != "" {
-		return c.Image
+		return c.Image, ""
+	}
+	if c.Pin != "" && !contains(snapshot.Cached(cacheDir(), c.Arch), c.Pin) {
+		say("fetching snapshot %s (%s)", c.Pin, c.Arch)
+		if _, err := releases().Fetch(cacheDir(), c.Pin, c.Arch, os.Stdout); err != nil {
+			die("%v", err)
+		}
 	}
 	cached := snapshot.Cached(cacheDir(), c.Arch)
 	latest, err := releases().Latest()
@@ -179,11 +196,10 @@ func image(c config) string {
 			say("snapshot %s is newer than %s: `kaetzli update` fetches it", latest, cached[0])
 		} else {
 			say("fetching snapshot %s (%s)", latest, c.Arch)
-			dir, ferr := releases().Fetch(cacheDir(), latest, c.Arch, os.Stdout)
-			if ferr != nil {
+			if _, ferr := releases().Fetch(cacheDir(), latest, c.Arch, os.Stdout); ferr != nil {
 				die("%v", ferr)
 			}
-			return dir
+			cached = snapshot.Cached(cacheDir(), c.Arch)
 		}
 	}
 	if len(cached) == 0 {
@@ -192,8 +208,14 @@ func image(c config) string {
 		}
 		die("no snapshot is published yet; boot a local build with --image DIR")
 	}
-	return filepath.Join(cacheDir(), cached[0]+"-"+c.Arch)
+	name, cerr := rollout.Choose(cached, c.State)
+	if cerr != nil {
+		die("%v", cerr)
+	}
+	return snapDir(name, c.Arch), name
 }
+
+func snapDir(name, arch string) string { return filepath.Join(cacheDir(), name+"-"+arch) }
 
 // sshConfig is the machine's ssh_config, as test/qemu-lib.sh writes it.
 func sshConfig(dir string, port int) error {
@@ -254,7 +276,7 @@ func sshTo(dir, login string, args ...string) *exec.Cmd {
 func cmdStart(args []string) {
 	name, rest := nameArg(args)
 	var exts []string
-	setExts, imageArg, mem, cpus, size := false, "", "", "", "8G"
+	setExts, imageArg, snapArg, mem, cpus, size := false, "", "", "", "", "8G"
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
 			if i+1 >= len(rest) {
@@ -278,6 +300,11 @@ func cmdStart(args []string) {
 			setExts, exts = true, nil
 		case "--image":
 			imageArg = next()
+		case "--snapshot":
+			snapArg = next()
+			if snapArg != "latest" && !snapshot.IsName(snapArg) {
+				die("--snapshot %s: not a snapshot name (YYYYMMDD.HHMMSS-N) or latest", snapArg)
+			}
 		case "--mem":
 			mem = next()
 		case "--cpus":
@@ -287,6 +314,9 @@ func cmdStart(args []string) {
 		default:
 			die("unknown option '%s' (kaetzli help)", rest[i])
 		}
+	}
+	if imageArg != "" && snapArg != "" {
+		die("--image and --snapshot are two different things to boot; give one")
 	}
 	for _, n := range []string{mem, cpus} {
 		if _, err := strconv.Atoi(n); n != "" && err != nil {
@@ -300,7 +330,7 @@ func cmdStart(args []string) {
 		}
 		create(name, size)
 	} else if pid, ok := running(dir); ok {
-		if !setExts && imageArg == "" && mem == "" && cpus == "" {
+		if !setExts && imageArg == "" && snapArg == "" && mem == "" && cpus == "" {
 			var p ports
 			_ = readJSON(filepath.Join(dir, "ports.json"), &p)
 			say("'%s' is running already (pid %d, ssh 127.0.0.1:%d): kaetzli ssh%s", name, pid, p.SSH, hint(name))
@@ -322,13 +352,19 @@ func cmdStart(args []string) {
 		}
 		c.Image = abs
 	}
+	if snapArg != "" {
+		c.Image, c.Pin = "", ""
+		if snapArg != "latest" {
+			c.Pin = snapArg
+		}
+	}
 	if mem != "" {
 		c.Mem = mem
 	}
 	if cpus != "" {
 		c.CPUs = cpus
 	}
-	img := image(c)
+	img, snap := image(c)
 	if c.Image != "" {
 		// A copy, as tools/vm.sh makes: qemu reads the root for as long as the guest runs,
 		// and a rebuild writing over the file under it would fail dm-verity's reads.
@@ -339,70 +375,109 @@ func cmdStart(args []string) {
 		}
 		img = copied
 	}
-	p := ports{SSH: freePort(), Console: freePort(), QMP: freePort(), Image: img}
-	m := machine(name, c, img, p)
-	argv, err := m.Argv()
-	if err != nil {
-		die("%v", err)
-	}
-	if _, err := exec.LookPath(m.Binary()); err != nil {
-		die("%s not found: install qemu", m.Binary())
-	}
-	if !m.KVM {
-		fmt.Println("note: /dev/kvm not available, emulating (slow)")
-	}
-	// Remembered once they are known to make a command line: a typo must not stick.
-	if err := writeJSON(filepath.Join(dir, "config.json"), c); err != nil {
-		die("%v", err)
-	}
-	if err := sshConfig(dir, p.SSH); err != nil {
-		die("%v", err)
-	}
+	cfgPath := filepath.Join(dir, "config.json")
 	log := filepath.Join(dir, "console.log")
-	if isFile(log) {
-		_ = os.Rename(log, log+".1")
-	}
-	if err := writeJSON(filepath.Join(dir, "ports.json"), p); err != nil {
-		die("%v", err)
-	}
-	pid, err := detach(m.Binary(), append(argv, qmpArgs(p.QMP)...), filepath.Join(dir, "qemu.log"))
-	if err != nil {
-		die("could not start %s: %v", m.Binary(), err)
-	}
-	_ = os.WriteFile(filepath.Join(dir, "qemu.pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
-	say("'%s' started (pid %d, %s MB, %s CPUs, extensions: %s, image: %s)", name, pid, c.Mem, c.CPUs,
-		orNone(strings.Join(c.Exts, " ")), describe(img))
+	for first := true; ; first = false {
+		p := ports{SSH: freePort(), Console: freePort(), QMP: freePort(), Image: img}
+		m := machine(name, c, img, p)
+		argv, err := m.Argv()
+		if err != nil {
+			die("%v", err)
+		}
+		if _, err := exec.LookPath(m.Binary()); err != nil {
+			die("%s not found: install qemu", m.Binary())
+		}
+		if !m.KVM && first {
+			fmt.Println("note: /dev/kvm not available, emulating (slow)")
+		}
+		// Remembered once they are known to make a command line: a typo must not stick.
+		if err := writeJSON(cfgPath, c); err != nil {
+			die("%v", err)
+		}
+		if err := sshConfig(dir, p.SSH); err != nil {
+			die("%v", err)
+		}
+		if isFile(log) {
+			_ = os.Rename(log, log+".1")
+		}
+		if err := writeJSON(filepath.Join(dir, "ports.json"), p); err != nil {
+			die("%v", err)
+		}
+		pid, err := detach(m.Binary(), append(argv, qmpArgs(p.QMP)...), filepath.Join(dir, "qemu.log"))
+		if err != nil {
+			die("could not start %s: %v", m.Binary(), err)
+		}
+		_ = os.WriteFile(filepath.Join(dir, "qemu.pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+		say("'%s' started (pid %d, %s MB, %s CPUs, extensions: %s, image: %s)", name, pid, c.Mem, c.CPUs,
+			orNone(strings.Join(c.Exts, " ")), describe(img))
 
+		werr := waitUp(dir, p.SSH, log)
+		if werr == nil {
+			if snap != "" {
+				c.State = c.Up(snap)
+				_ = writeJSON(cfgPath, c)
+			}
+			break
+		}
+		tail(log, 40)
+		if snap == "" {
+			die("%v; the console is above (%s)", werr, log)
+		}
+		c.State = c.Down(snap)
+		_ = writeJSON(cfgPath, c)
+		to, ok := rollout.Revert(c.State, snap, snapshot.Cached(cacheDir(), c.Arch))
+		if !ok {
+			die("%v; the console is above (%s). Snapshot %s is marked bad for '%s'", werr, log, snap, name)
+		}
+		if pid, ok := running(dir); ok {
+			killAndWait(pid)
+		}
+		_ = os.Remove(filepath.Join(dir, "qemu.pid"))
+		say("snapshot %s did not come up (%v; its console is %s.1): marked bad for '%s', back to %s, its last good one",
+			snap, werr, log, name, to)
+		img, snap = snapDir(to, c.Arch), to
+	}
+	h := hint(name)
+	fmt.Printf("   kaetzli ssh%s [--root]   a shell (or: ssh -F %s kaetzli)\n", h, filepath.Join(dir, "ssh", "config"))
+	fmt.Printf("   kaetzli console%s        the serial console (Ctrl-] to leave)\n", h)
+	fmt.Printf("   kaetzli stop%s\n", h)
+}
+
+// waitUp waits for the guest's sshd to let root in: nil once it does, else why not. A
+// kernel panic on the console ends the wait at once: qemu outlives it and its port
+// forward still accepts, so a probe would only ever time out.
+func waitUp(dir string, port int, log string) error {
 	timeout := 300 * time.Second
 	if t, err := strconv.Atoi(os.Getenv("TIMEOUT")); err == nil {
 		timeout = time.Duration(t) * time.Second
 	}
 	until := time.Now().Add(timeout)
-	fmt.Printf(">> waiting for ssh on 127.0.0.1:%d ", p.SSH)
+	fmt.Printf(">> waiting for ssh on 127.0.0.1:%d ", port)
 	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		probe := sshTo(dir, "root", "true")
-		probe.Stdin, probe.Stdout, probe.Stderr = nil, nil, nil
-		if probe.Run() == nil {
-			break
+		probe = exec.CommandContext(ctx, probe.Path, probe.Args[1:]...) // ConnectTimeout does not bound the banner wait
+		err := probe.Run()
+		cancel()
+		if err == nil {
+			fmt.Println(" up")
+			return nil
 		}
 		if _, ok := running(dir); !ok {
 			fmt.Println()
-			tail(log, 40)
-			die("qemu exited; the console is above (%s)", log)
+			return errors.New("qemu exited")
+		}
+		if b, _ := os.ReadFile(log); qemu.Panicked(b) {
+			fmt.Println()
+			return errors.New("the guest's kernel panicked")
 		}
 		if time.Now().After(until) {
 			fmt.Println()
-			tail(log, 40)
-			die("no ssh after %s; the console is above (%s)", timeout, log)
+			return fmt.Errorf("no ssh after %s", timeout)
 		}
 		fmt.Print(".")
 		time.Sleep(2 * time.Second)
 	}
-	fmt.Println(" up")
-	h := hint(name)
-	fmt.Printf("   kaetzli ssh%s [--root]   a shell (or: ssh -F %s kaetzli)\n", h, filepath.Join(dir, "ssh", "config"))
-	fmt.Printf("   kaetzli console%s        the serial console (Ctrl-] to leave)\n", h)
-	fmt.Printf("   kaetzli stop%s\n", h)
 }
 
 // syncImage makes dst a copy of the bootable files of src, copying only what changed
@@ -706,6 +781,15 @@ func cmdInfo(args []string) {
 		if cached := snapshot.Cached(cacheDir(), c.Arch); len(cached) > 0 {
 			fmt.Printf("newest      %s, cached\n", cached[0])
 		}
+		if c.Pin != "" {
+			fmt.Printf("pinned to   %s (kaetzli start%s --snapshot latest unpins)\n", c.Pin, hint(name))
+		}
+		if c.Good != "" {
+			fmt.Printf("last good   %s\n", c.Good)
+		}
+		if len(c.Bad) > 0 {
+			fmt.Printf("failed here %s (skipped)\n", strings.Join(c.Bad, " "))
+		}
 	}
 }
 
@@ -726,25 +810,68 @@ func cmdUpdate() {
 		if _, err := releases().Fetch(cacheDir(), latest, a, os.Stdout); err != nil {
 			die("%v", err)
 		}
-		say("verified and cached; a machine boots it at its next start (kaetzli stop, then start)")
+		say("verified and cached; a machine boots it at its next start (kaetzli stop, then start),")
+		say("and goes back to the snapshot it last came up on if this one does not come up")
 	}
-	// Older snapshots go, but for any a running machine boots from.
-	inUse := map[string]bool{}
+	// Older snapshots go, but for the one before the newest (a way back), and any a machine
+	// is pinned to, last came up on, or is running now (rollout.Keep).
+	var states []rollout.State
+	var inUse []string
 	entries, _ := os.ReadDir(filepath.Join(dataDir(), "machines"))
 	for _, e := range entries {
 		dir := machineDir(e.Name())
+		var c config
+		if readJSON(filepath.Join(dir, "config.json"), &c) == nil && c.Arch == a {
+			states = append(states, c.State)
+		}
 		var p ports
 		if _, ok := running(dir); ok && readJSON(filepath.Join(dir, "ports.json"), &p) == nil {
-			inUse[p.Image] = true
+			inUse = append(inUse, strings.TrimSuffix(filepath.Base(p.Image), "-"+a))
 		}
 	}
-	for _, old := range snapshot.Cached(cacheDir(), a) {
-		d := filepath.Join(cacheDir(), old+"-"+a)
-		if old != latest && !inUse[d] {
-			_ = os.RemoveAll(d)
+	cached = snapshot.Cached(cacheDir(), a)
+	keep := rollout.Keep(cached, states, inUse)
+	for _, old := range cached {
+		if !contains(keep, old) {
+			_ = os.RemoveAll(snapDir(old, a))
 			say("removed snapshot %s from the cache", old)
 		}
 	}
+}
+
+// cmdRollback pins a machine to the cached snapshot before the one it boots now.
+func cmdRollback(args []string) {
+	name, extra := nameArg(args)
+	if len(extra) > 0 {
+		die("unknown option '%s'", extra[0])
+	}
+	mustExist(name)
+	dir := machineDir(name)
+	var c config
+	if err := readJSON(filepath.Join(dir, "config.json"), &c); err != nil {
+		die("%v", err)
+	}
+	if c.Image != "" {
+		die("'%s' boots %s, not a snapshot", name, c.Image)
+	}
+	cached := snapshot.Cached(cacheDir(), c.Arch)
+	current, err := rollout.Choose(cached, c.State)
+	if err != nil {
+		die("%v", err)
+	}
+	prev := rollout.Previous(cached, current)
+	if prev == "" {
+		die("'%s' boots %s and no older snapshot is cached", name, current)
+	}
+	c.Pin = prev
+	if err := writeJSON(filepath.Join(dir, "config.json"), c); err != nil {
+		die("%v", err)
+	}
+	say("'%s' is pinned to snapshot %s (was %s); it boots it at its next start", name, prev, current)
+	if _, ok := running(dir); ok {
+		say("it is running now: kaetzli stop%s, then kaetzli start%s", hint(name), hint(name))
+	}
+	say("back to the newest: kaetzli start%s --snapshot latest", hint(name))
 }
 
 func cmdRm(args []string) {
@@ -896,13 +1023,16 @@ func tail(path string, n int) {
 
 const usage = `kaetzli: kaetzli virtual machines, from the latest snapshot release
 
-  kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G] [--image DIR]
+  kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G]
+                [--image DIR | --snapshot NAME|latest]
   kaetzli ssh [--root] [NAME] [command...]
   kaetzli console [NAME]           the serial console (Ctrl-] to leave)
   kaetzli stop [NAME] [--force]
   kaetzli list
   kaetzli info [NAME]
-  kaetzli update                   fetch the newest snapshot; machines boot it at their next start
+  kaetzli update                   fetch the newest snapshot; machines boot it at their next start,
+                                   and go back to their last good one if it does not come up
+  kaetzli rollback [NAME]          pin NAME to the snapshot before the one it boots
   kaetzli rm [NAME] [--yes]
   kaetzli version
 
@@ -931,6 +1061,8 @@ func main() {
 		cmdInfo(args)
 	case "update":
 		cmdUpdate()
+	case "rollback":
+		cmdRollback(args)
 	case "rm":
 		cmdRm(args)
 	case "print-argv":

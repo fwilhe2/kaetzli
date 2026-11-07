@@ -54,6 +54,12 @@ kaetzli ssh
 It downloads and verifies the latest snapshot, keeps each machine's `/var`, and has
 `vm.sh`'s commands (`start`, `ssh`, `console`, `stop`, `list`, `info`, `update`, `rm`).
 
+Updates roll back: `kaetzli update` fetches the newest snapshot, which each machine boots
+at its next start. A machine whose new snapshot does not come up (a kernel panic, or no ssh
+before the timeout) is restarted on the snapshot it last came up on, and skips the failed
+one from then on. `kaetzli rollback` pins a machine to the snapshot before;
+`kaetzli start --snapshot latest` follows the newest again.
+
 From a checkout, `tools/vm.sh` does the same and more. Fetch the latest snapshot and start
 the default VM with Podman:
 

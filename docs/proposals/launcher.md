@@ -1,7 +1,8 @@
 # A launcher without a checkout
 
 **Status: partly implemented.** Step 2 of *Order* below: the launcher for Linux
-(`go/cmd/kaetzli`: `start`, `ssh`, `console`, `stop`, `list`, `info`, `update`, `rm`),
+(`go/cmd/kaetzli`: `start`, `ssh`, `console`, `stop`, `list`, `info`, `update`, `rollback`,
+`rm`; updates roll back, `go/internal/rollout`),
 `print-argv` held to the harness by `python/tests/test_launcher.py`, and its binaries in
 every snapshot. Not yet: `run`, `restart`, `snapshot`, `restore`, `resize`; macOS and
 Windows; `/var` as qcow2 (raw, as `vm.sh`'s, until Windows needs sparse files); `vm.sh` as
