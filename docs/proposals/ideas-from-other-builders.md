@@ -202,7 +202,7 @@ fixtures.
 ## 5. Hardening sysctls and kernel arguments
 
 *Implemented:* `image/files/etc/sysctl.d/50-hardening.conf`, read back by
-`test/systemd.py`. `kernel.kptr_restrict = 2` broke `perf probe` in `test/debug.sh` as
+`test/systemd.py`. `kernel.kptr_restrict = 2` broke `perf probe` in `test/debug.py` as
 predicted, so it is 1. There is no `vm.unprivileged_userfaultfd` to set (`USERFAULTFD`
 is off). Step 3 is in the kernel config, as preferred: `kspp.config` in
 `packages/kernel/build.sh` turns on `SECURITY_YAMA` (for `kernel.yama.ptrace_scope`) and
@@ -248,8 +248,8 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    - `user.max_user_namespaces = 0` (Talos) is **not** set: rootless podman and
      `test/rootless.py` need user namespaces (project constraint 3).
    - `kernel.kptr_restrict = 1` rather than Talos's `2`: at `2` even root sees zeroed
-     addresses in `/proc/kallsyms`, which can break `perf probe` in `test/debug.sh`.
-     Try `2` and keep it only if `test/debug.sh` passes.
+     addresses in `/proc/kallsyms`, which can break `perf probe` in `test/debug.py`.
+     Try `2` and keep it only if `test/debug.py` passes.
    - `kernel.yama.ptrace_scope = 1` rather than `2`: `2` restricts ptrace to
      `CAP_SYS_PTRACE`, so `strace` and `gdbserver` would stop working for `user`.
    - `kernel.perf_event_paranoid` is left at the kernel default (`2`); `3` is a
@@ -266,8 +266,8 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    values back with `sysctl -n` in the guest, because a shipped file that systemd-sysctl
    failed to apply looks the same as one that worked.
 
-**Verification:** `test/systemd.py`, `test/rootless.py`, `test/podman.py`, `test/debug.sh`
-and `test/k8s.sh` all pass. `test/debug.sh` is the one most likely to notice.
+**Verification:** `test/systemd.py`, `test/rootless.py`, `test/podman.py`, `test/debug.py`
+and `test/k8s.sh` all pass. `test/debug.py` is the one most likely to notice.
 
 ## 6. Limits that containers and Kubernetes need
 
@@ -461,7 +461,7 @@ hardening options come and go with upstream defaults unnoticed.
 
 **Verification:** both architectures build; the boot, container, debug and k8s tests pass.
 Watch `test/rootfs-size.py` (randomization and init-on-alloc cost little space but some
-boot time) and `test/debug.sh` (`PROC_KCORE` off affects `perf` only for kernel symbol
+boot time) and `test/debug.py` (`PROC_KCORE` off affects `perf` only for kernel symbol
 reads through `/proc/kcore`; BTF and kallsyms remain).
 
 ## 10. Additions for the macOS container host proposal

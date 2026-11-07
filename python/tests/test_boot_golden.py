@@ -24,6 +24,7 @@ import pytest
 
 from kaetzli.boot import (
     container,
+    debug,
     listeners,
     network,
     persistent_var,
@@ -47,6 +48,7 @@ TESTS = {
     "persistent-var": persistent_var,
     "sysext": sysext,
     "verity": verity,
+    "debug": debug,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -68,7 +70,7 @@ def image(tmp_path, monkeypatch):
         'root=/dev/dm-0 ro dm-mod.create="root,,,ro,0 8 verity" dm-mod.waitfor=/dev/vda\n'
     )
     (tmp_path / "img" / "extensions").mkdir()
-    for name in ("kubernetes", "podman"):
+    for name in ("kubernetes", "podman", "debug"):
         (tmp_path / "img" / "extensions" / f"{name}.raw").touch()
         (tmp_path / "img" / "extensions" / f"{name}.dm-verity").write_text(
             "0 8 verity 1 @DEV@ @DEV@\n"

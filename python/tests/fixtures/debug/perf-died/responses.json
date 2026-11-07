@@ -1,0 +1,38 @@
+[
+ [
+  "systemd-sysext status; ls -l",
+  "debug sysext\n"
+ ],
+ [
+  "strace -qq",
+  "DEBUG-STRACE-OK\n"
+ ],
+ [
+  "tcpdump -n -i lo",
+  "DEBUG-TCPDUMP-OK\n"
+ ],
+ [
+  "gdbserver --once",
+  "DEBUG-GDBSERVER-OK\n"
+ ],
+ [
+  "socat UNIX-LISTEN",
+  "DEBUG-SOCAT-OK\n"
+ ],
+ [
+  "networkctl list --json",
+  "DEBUG-JQ-OK\n"
+ ],
+ [
+  "bpftool -j cgroup",
+  "DEBUG-BPFTOOL-OK\n"
+ ],
+ [
+  "perf trace -e uname",
+  "[   9.0] Kernel panic - not syncing: oops\n"
+ ],
+ [
+  "perf probe -q -a",
+  "DEBUG-PERF_PROBE-OK\n"
+ ]
+]

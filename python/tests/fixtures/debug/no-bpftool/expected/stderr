@@ -1,0 +1,14 @@
+>> debug test FAILED: timed out waiting for: DEBUG-BPFTOOL-OK
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+DEBUG-STRACE-OK
+DEBUG-TCPDUMP-OK
+DEBUG-GDBSERVER-OK
+DEBUG-SOCAT-OK
+DEBUG-JQ-OK
+debug sysext
