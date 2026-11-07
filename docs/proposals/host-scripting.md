@@ -5,7 +5,8 @@ the SBOM, the size reports, the library checks and the policy checks, and item 6
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
-`test/persistent-var.py`, `test/sysext.py`, `test/verity.py` and `test/debug.py`. CLAUDE.md (*Host-side code*)
+`test/persistent-var.py`, `test/sysext.py`, `test/verity.py`, `test/debug.py` and
+`test/vmm.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -271,6 +272,16 @@ kernel's timestamps.
 `test/debug.sh` is `test/debug.py`, a round per tool in the debug extension as before.
 Its golden is three guests (clean, bpftool seeing nothing, a panic under perf); on a
 local image it agrees in 19 seconds where bash took 33.
+
+`test/vmm.sh` is `test/vmm.py`, its microvm and vz rounds as before, with
+`extract_vmlinux` in Python beside it (`tools/lib.sh` keeps its own for
+`tools/boot-firecracker.sh`). Its golden is seven runs (both rounds, degraded, PCI on a
+microvm, no entropy device, a login not on hvc0, a vmlinux without a PVH note, an unknown
+profile) against a fixture bzImage, a gzip payload holding a tiny ELF with (or without)
+the Xen note; it was recorded without the host's virtiofsd and vsock, by a worktree whose
+copy of the bash test had those two probes turned off, and the Python test replaces the
+same two. On a local image, virtiofs and ssh over vsock included, it agrees in 23
+seconds where bash took 41.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

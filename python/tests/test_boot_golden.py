@@ -3,7 +3,8 @@
 Each fixtures/<test>/<case>/ is a guest, as fixtures/qemu/fake_guest.py plays it from
 responses.json (and with ssh.json the host's ssh client, as fixtures/qemu/fake_ssh.py
 answers): a clean boot, and one broken in each way the test looks for; `timeout`
-and `env` (KEY=VALUE lines), when there, are its TIMEOUT and more of its environment.
+and `env` (KEY=VALUE lines), when there, are its TIMEOUT and more of its environment;
+`args`, more of its command line; a bzImage in the case or beside it, its kernel.
 expected/ is what test/<test>.sh printed and returned against that same fake qemu (at
 its last commit, with <tmp> for the temporary directory and <machine-id> for a random
 machine ID), console tail and all; the
@@ -22,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from kaetzli import repo
 from kaetzli.boot import (
     container,
     debug,
@@ -34,6 +36,7 @@ from kaetzli.boot import (
     sysext,
     systemd,
     verity,
+    vmm,
 )
 from kaetzli.qemu import console, machine
 
@@ -49,6 +52,7 @@ TESTS = {
     "sysext": sysext,
     "verity": verity,
     "debug": debug,
+    "vmm": vmm,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -133,7 +137,20 @@ def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
         fake_ssh.chmod(0o755)
     if test == "sysext":
         fake_extensions(image, monkeypatch)
-    rc = TESTS[test].main([str(image / "img" / "rootfs.erofs"), str(image / "img" / "bzImage")])
+    if test == "vmm":
+        # Its transcripts and vmlinux are under output/, relative to where it runs, and
+        # the host's virtiofsd and vsock are what the golden was recorded without.
+        monkeypatch.setattr(repo, "enter_root", lambda: None)
+        monkeypatch.setattr(vmm, "find_virtiofsd", lambda: "")
+        monkeypatch.setattr(vmm, "vsock_usable", lambda: False)
+    for kernel in (fixture / "bzImage", fixture.parent / "bzImage"):
+        if kernel.exists():
+            (image / "img" / "bzImage").write_bytes(kernel.read_bytes())
+            break
+    args = (fixture / "args").read_text().split() if (fixture / "args").exists() else []
+    rc = TESTS[test].main(
+        [str(image / "img" / "rootfs.erofs"), str(image / "img" / "bzImage"), *args]
+    )
     out, err = capfd.readouterr()
     expected = fixture / "expected"
     assert (

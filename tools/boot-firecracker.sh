@@ -19,7 +19,7 @@
 # it boots an uncompressed vmlinux through its PVH entry point — so the vmlinux inside the
 # bzImage is extracted at every boot (extract_vmlinux, tools/lib.sh); arm64's Image is
 # already uncompressed. The devices are virtio over MMIO, which packages/kernel/build.sh's
-# guest.config builds in and test/vmm.sh checks on qemu's equivalent machine.
+# guest.config builds in and test/vmm.py checks on qemu's equivalent machine.
 #
 # ssh needs no network: the guest has a vsock device, systemd's ssh generator puts sshd on
 # vsock port 22 by itself, and Firecracker exposes the guest's vsock ports to the host as

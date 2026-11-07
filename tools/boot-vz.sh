@@ -12,7 +12,7 @@
 #   VFKIT    the binary                         (default: vfkit on PATH)
 #   SHARE    a host directory to share; in the guest: mount -t virtiofs share /mnt
 #
-# Untested by CI, which has no Mac: test/vmm.sh boots the image with the same devices on
+# Untested by CI, which has no Mac: test/vmm.py boots the image with the same devices on
 # qemu (QEMU_PROFILE=vz) — an hvc0 console with no UART, virtiofs and ssh over vsock — and
 # packages/kernel/build.sh's guest.config is what makes them work. The vfkit flags below
 # are the part that has not been run, and are each marked where that matters.

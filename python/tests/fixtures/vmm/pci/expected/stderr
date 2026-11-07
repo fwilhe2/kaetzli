@@ -1,0 +1,16 @@
+>> vmm-microvm test FAILED: the microvm guest has 2 PCI devices, expected none
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+VMM-STATE:running
+VMM-PCI-BEGIN
+2
+VMM-PCI-END
+VMM-DRIVERS-BEGIN
+virtio_balloon virtio_blk virtio_console virtio_net virtio_rng 
+VMM-DRIVERS-END
+UNIT LOAD ACTIVE SUB

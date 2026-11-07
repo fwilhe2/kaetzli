@@ -344,7 +344,7 @@ qemu_boot() {
     "$QEMU" "${QEMU_ARGV[@]}" < "$console" > "$LOG" 2>&1 &
     qemu_pid=$!
 
-    # Also called by hand between boots (test/vmm.sh). $? is the status
+    # Also callable by hand between boots. $? is the status
     # the script is exiting with, or the last command's on a call by hand (a trap that
     # runs something first passes it as $1): only a boot that has not already failed is
     # held to the console check, so a failure reports its own reason first.

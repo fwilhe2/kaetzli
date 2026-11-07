@@ -1,0 +1,12 @@
+>> booting <tmp>/img/rootfs.erofs with output/vmlinux (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> microvm: system is running
+>> microvm: virtio drivers bound: virtio_balloon virtio_blk virtio_console virtio_net virtio_rng 
+>> microvm: no PCI, 3 virtio-mmio devices from the command line, PVH boot
+note: no virtiofsd on this host, skipping the virtiofs check
+note: no /dev/vhost-vsock or socat on this host, skipping the vsock check
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> vz: system is running
+>> vz: virtio drivers bound: virtio_balloon virtio_blk virtio_console virtio_net virtio_rng 
+>> vmm OK: microvm vz

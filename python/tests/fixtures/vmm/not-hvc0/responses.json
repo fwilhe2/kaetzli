@@ -1,0 +1,26 @@
+[
+ [
+  "systemctl --failed --no-pager --plain",
+  "UNIT LOAD ACTIVE SUB\n"
+ ],
+ [
+  "is-system-running --wait",
+  "VMM-STATE:running\n"
+ ],
+ [
+  "ls /sys/bus/pci/devices",
+  "VMM-PCI-BEGIN\n0\nVMM-PCI-END\n"
+ ],
+ [
+  "for d in /sys/bus/virtio",
+  "VMM-DRIVERS-BEGIN\nvirtio_balloon virtio_blk virtio_console virtio_net virtio_rng \nVMM-DRIVERS-END\n"
+ ],
+ [
+  "virtio_mmio.device=",
+  "VMM-CMDLINE-BEGIN\n3\nVMM-CMDLINE-END\n"
+ ],
+ [
+  "echo VMM-TTY",
+  "VMM-TTY-BEGIN\n/dev/ttyS0\nVMM-TTY-END\n"
+ ]
+]
