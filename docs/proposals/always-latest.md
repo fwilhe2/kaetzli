@@ -107,19 +107,42 @@ Version skew is the largest of them.
 
 8. **Version skew.** `packages/kubernetes` follows upstream's newest release, minor
    versions included. Kubernetes does not support a kubelet newer than its API server,
-   and upgrades the control plane one minor version at a time, so a snapshot that moves
-   from 1.37 to 1.38 produces worker images that a 1.37 cluster must not take. Needed,
-   one of:
-   - the control plane goes first: replace control-plane nodes (which needs three of
-     them and a stacked etcd that tolerates a member at a time), then `kubeadm upgrade
-     apply` for the cluster's configuration, then the workers
-   - or a kubernetes extension per minor version (`kubernetes-1.37`, `kubernetes-1.38`
-     in the same snapshot), so the base updates nightly while the cluster chooses when to
-     move to the next minor. This keeps "latest base" separate from "latest Kubernetes",
-     which are different decisions
-9. **No control-plane replacement.** `k8s-demo.py` has one control-plane node. Replacing
-   it means a new cluster. An HA control plane (three nodes, `kubeadm join
-   --control-plane`) is needed before the workflow covers the whole cluster.
+   and moves the control plane one minor version at a time, so a snapshot that goes
+   from 1.37 to 1.38 produces node images that a 1.37 cluster must not take as they are.
+   Replacing nodes does not upgrade the control plane either. With kubeadm, the API
+   server, controller manager, scheduler and etcd are static pods pulled from
+   registry.k8s.io at the version in the cluster's `ClusterConfiguration`; the image's
+   `kubernetes` extension only supplies kubelet, kubeadm, kubectl and CRI-O. Only
+   `kubeadm upgrade apply` moves the control plane, so a minor upgrade goes:
+   1. The newer kubeadm runs `kubeadm upgrade apply v1.38.x` once, which rolls the
+      static pods on every control-plane node and updates the cluster's configuration,
+      kube-proxy and CoreDNS.
+   2. Then every node is replaced with the new image, control plane first, then the
+      workers. Their kubelets are no longer newer than the API server.
+
+   The awkward part is step 1 on immutable nodes, since the newer kubeadm exists only in
+   the new image. Either the first replaced control-plane node runs it, with a kubelet
+   one minor ahead for the length of the upgrade (kubeadm's own guide upgrades kubeadm
+   before the kubelet too), or the new kubeadm runs on an old node from `/var` or a
+   container. Needed, as well as one of those: a kubernetes extension per supported
+   minor version (`kubernetes-1.37`, `kubernetes-1.38` in the same snapshot), so the base
+   updates nightly while the cluster decides when to move to the next minor. "Latest
+   base" and "latest Kubernetes" are different decisions, and patch releases within a
+   minor can then follow nightly like everything else.
+9. **No HA control plane in the tooling.** kubeadm supports several control-plane nodes,
+   and replacing them one at a time needs that. `k8s-demo.py` makes one, so replacing it
+   means a new cluster. What it would take:
+   - **three control-plane nodes with stacked etcd**, so quorum survives one member
+     being replaced (five survive two)
+   - **a stable API address**, `kubeadm init --control-plane-endpoint`, set when the
+     cluster is created, since it is hard to add later. The demo's router already
+     forwards the API port to `k8s-1` and could balance across every control-plane node.
+     kube-vip, a floating IP run as a static pod, is the usual alternative and needs
+     nothing in the image
+   - **joining** with `kubeadm init --upload-certs` and `kubeadm join --control-plane
+     --certificate-key`
+   - **replacing one node at a time**: join the new node (four etcd members for a moment),
+     then remove the old node's etcd member and Node object, then power the old node off
 10. **No orchestrator integration.** Nothing turns "a new snapshot exists" into "roll the
     nodes". Candidates, in increasing size: a script on top of `k8s-demo.py` (`roll`),
     a Cluster API infrastructure provider for qemu or Firecracker, or the images as
@@ -168,5 +191,6 @@ latest" claim will be asked about first.
    snapshot before each switch (gap 3), in `vm.sh` and the launcher.
 2. `update --min-age` (gap 6) and an unattended mode of the launcher (gap 1).
 3. A user confext for persistent configuration (gap 4).
-4. A kubernetes extension per supported minor version (gap 8), then `k8s-demo.py roll`
-   with three control-plane nodes (gaps 9, 10), tested in CI against a live Deployment.
+4. An HA control plane in `k8s-demo.py` (gap 9), a kubernetes extension per supported
+   minor version and the upgrade order above (gap 8), then `k8s-demo.py roll` (gap 10),
+   tested in CI against a live Deployment.
