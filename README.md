@@ -222,3 +222,12 @@ tests in seconds whether they apply. See [Patches](docs/guides/patches.md).
 To add a package, create `packages/<name>/env.sh` and `packages/<name>/build.sh`; declare
 its version, source URL, checksum, and license in `env.sh`. See `CLAUDE.md` for build-system
 constraints and common pitfalls.
+
+## License
+
+This repository is under the [MIT License](LICENSE). The images are free software built
+from other projects, each under its own license: the texts ship in
+`/usr/share/licenses/<package>/`, the SBOM (`/usr/share/kaetzli/sbom.json`, and each
+release's assets) lists every package's license and source, and each release names the
+sources image with every tarball and patch the build used. The images come with
+ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.

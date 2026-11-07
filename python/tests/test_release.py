@@ -310,6 +310,13 @@ def test_notes_carry_the_notice_provenance_and_boot_instructions():
     assert "20261101.000000-41" in text
 
 
+def test_notes_say_free_software_where_the_licenses_are_and_no_warranty():
+    text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
+    assert "## License" in text
+    assert "ABSOLUTELY NO WARRANTY" in text
+    assert "/usr/share/licenses/" in text and "sbom" in text
+
+
 # --- the whole run, dry -----------------------------------------------------------------
 
 

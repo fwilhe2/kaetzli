@@ -33,6 +33,24 @@ ref=${loaded##*: }
 [ -n "$ref" ] || { echo "error: could not tell what podman loaded: $loaded" >&2; exit 1; }
 echo "loaded $ref"
 
+# The labels registries and scanners read (image/build-rootfs.sh): the licenses come from
+# the SBOM, so one the image has must be in them; revision is the build, as BUILD_ID is.
+label() { podman image inspect --format "{{index .Labels \"org.opencontainers.image.$1\"}}" "$ref"; }
+labels_ok=1
+case "$(label licenses)" in
+    *GPL-2.0-only*MIT*) echo "  ok    the licenses label is the SBOM's" ;;
+    *) echo "  FAIL  the licenses label is the SBOM's: '$(label licenses)'"; labels_ok=0 ;;
+esac
+case "$(label source)" in
+    https://*) echo "  ok    the source label names the repository" ;;
+    *) echo "  FAIL  the source label names the repository: '$(label source)'"; labels_ok=0 ;;
+esac
+if [ "$(label revision)" = "${KAETZLI_BUILD:-$(label revision)}" ]; then
+    echo "  ok    the revision label is what the build was given"
+else
+    echo "  FAIL  the revision label is '$(label revision)', the build was ${KAETZLI_BUILD}"; labels_ok=0
+fi
+
 # Everything below runs inside the image, with nothing but bash builtins and coreutils —
 # that is all a base image has, and asking for more is how a test starts depending on the
 # host. --network=none because none of it needs a network, and an image that quietly did
@@ -114,4 +132,4 @@ echo
 fetch || echo "(fetch is not in this image)"
 
 exit $fail
-'
+' && [ "$labels_ok" = 1 ]

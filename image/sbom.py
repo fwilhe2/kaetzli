@@ -3,6 +3,7 @@
 
     sbom.py image     --name N --created T [--extra FILE] [--unresolved FILE] TREE > sbom.json
     sbom.py extension --name N --created T TREE > sbom.json
+    sbom.py licenses  SBOM     # one SPDX expression for the whole image, as a JSON string
 
 Run by image/build-rootfs.sh, for the image, and image/build-extension.sh, for each
 extension, in the assembly container: its python3 is builder-side, and this file is
@@ -355,7 +356,46 @@ def dumps(doc: dict) -> str:
     return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
 
 
+def _and_terms(expr: str) -> list[str]:
+    """The operands of an expression's top-level ANDs."""
+    terms, depth, start = [], 0, 0
+    for i, c in enumerate(expr):
+        depth += (c == "(") - (c == ")")
+        if depth == 0 and expr.startswith(" AND ", i):
+            terms.append(expr[start:i].strip())
+            start = i + 5
+    return [*terms, expr[start:].strip()]
+
+
+def _wrapped(t: str) -> bool:
+    """Whether one pair of parentheses encloses all of t."""
+    depth = 0
+    for i, c in enumerate(t):
+        depth += (c == "(") - (c == ")")
+        if depth == 0:
+            return i == len(t) - 1
+    return False
+
+
+def image_licenses(doc: dict) -> str:
+    """One SPDX expression for everything a document describes, for the OCI image's
+    org.opencontainers.image.licenses: each package's declared expression, AND-ed, every
+    operand once. NOASSERTION when no package declares one."""
+    terms = set()
+    for p in doc.get("packages", []):
+        declared = p.get("licenseDeclared") or NOASSERTION
+        if declared in (NOASSERTION, "NONE"):
+            continue
+        for t in _and_terms(declared):
+            terms.add(f"({t})" if " OR " in t and not _wrapped(t) else t)
+    return " AND ".join(sorted(terms)) or NOASSERTION
+
+
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["licenses"] and len(argv) == 2:
+        doc = json.loads(Path(argv[1]).read_text())
+        sys.stdout.write(json.dumps(image_licenses(doc)) + "\n")
+        return 0
     ap = argparse.ArgumentParser(prog="sbom.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("kind", choices=KINDS)
     ap.add_argument("tree", type=Path)

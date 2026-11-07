@@ -150,5 +150,8 @@ account    required   pam_unix.so
 session    required   pam_unix.so
 # Optional: a broken pam_systemd.so should cost session tracking, not the login.
 session    optional   pam_systemd.so
+# The image's notice (image/build-rootfs.sh), as login shows it on the console. Only
+# that file: sshd's PrintMotd shows /etc/motd after it. Interactive sessions only.
+session    optional   pam_motd.so motd=/usr/share/misc/motd
 password   required   pam_unix.so
 EOF
