@@ -224,6 +224,14 @@ gh attestation verify output/boot-image/rootfs.erofs -R fwilhe2/kaetzli
 `tools/fetch-image.sh` checks the bundle's signature itself; `REQUIRE_ATTESTATION=1`
 makes it refuse a run that has none.
 
+You need not trust CI either: a release rebuilds from its commit on your machine, and the
+tool says whether every asset is byte-identical to the published one (hours the first time;
+see [Build reproduction](docs/proposals/reproducing-a-build.md)):
+
+```sh
+./tools/rebuild-release.py 20261107.171105-764
+```
+
 `./tools/check-updates.py` checks pinned package versions, vendored second tarballs and
 upstream patch series. `./tools/bump-version.sh <package> <version>` updates a package pin
 and checksum. The update workflow opens pull requests for available updates at 17:00 UTC,
