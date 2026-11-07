@@ -179,7 +179,7 @@ EOF
 }
 
 # The root is attached read-only too, so one file can back any number of guests.
-# QEMU_NIC_ARGS replaces pc's user-mode NIC (tools/k8s-demo.sh's own segment).
+# QEMU_NIC_ARGS replaces pc's user-mode NIC (tools/k8s-demo.py's own segment).
 qemu_argv() {
     local root_args devices=() display=(-nographic) nic fwcfg=() cred
     root_args=$(cat "$(root_cmdline_file)")
@@ -256,7 +256,7 @@ qemu_argv() {
     [ "${QEMU_REBOOT:-0}" = 1 ] || QEMU_ARGV+=(-no-reboot)
 }
 
-# A /var disk seeded with <tree> (tools/k8s-demo.sh; test/sysext.py uses its twin,
+# A /var disk seeded with <tree> (tools/k8s-demo.py; test/sysext.py uses its twin,
 # kaetzli.qemu.machine.seed_var_disk). mkfs.ext4 -d records
 # owners, and a /var/lib not owned by root makes tmpfiles refuse it ("unsafe path
 # transition"), hence podman unshare.

@@ -73,11 +73,11 @@ A node needs a persistent `/var` disk for its identity and state.
 Start the included three-node demo with:
 
 ```sh
-./tools/k8s-demo.sh up
-./tools/k8s-demo.sh kubectl get pods -A
-./tools/k8s-demo.sh down
+./tools/k8s-demo.py up
+./tools/k8s-demo.py kubectl get pods -A
+./tools/k8s-demo.py down
 ```
 
 The demo uses KVM, about 8 GB of RAM, and container images from `registry.k8s.io` and
-`ghcr.io`. `test/sysext.py` verifies extension merging and dm-verity behavior; `test/k8s.sh`
+`ghcr.io`. `test/sysext.py` verifies extension merging and dm-verity behavior; `test/k8s.py`
 runs the cluster demo in CI.

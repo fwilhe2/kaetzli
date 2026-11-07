@@ -173,9 +173,9 @@ kubelet, kubeadm, kubectl, CRI-O, crictl, and CNI plugins. A Kubernetes node nee
 storage for `/var`. To start the included three-node demo:
 
 ```sh
-./tools/k8s-demo.sh up
-./tools/k8s-demo.sh kubectl get pods -A
-./tools/k8s-demo.sh down
+./tools/k8s-demo.py up
+./tools/k8s-demo.py kubectl get pods -A
+./tools/k8s-demo.py down
 ```
 
 The demo requires KVM, about 8 GB of RAM, and access to `registry.k8s.io` and `ghcr.io`.

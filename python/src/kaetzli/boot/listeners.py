@@ -8,7 +8,7 @@ test/image-files/ holds the files to a list; this holds the sockets to one.
 One boot per round: the base image, then with each extension that starts a daemon at
 boot attached (SYSEXTS): kubernetes, for CRI-O. podman's starts nothing at boot, so a
 round of its own would boot the base again. kubelet runs only once kubeadm has
-configured it, so its :10250 is test/k8s.sh's.
+configured it, so its :10250 is test/k8s.py's.
 
 Overrides, from the environment:
   ROUNDS     which rounds          (default: base kubernetes)

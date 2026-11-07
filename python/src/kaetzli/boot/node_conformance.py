@@ -12,7 +12,7 @@ CRI-O. This is how upstream's node e2e jobs run it, and what replaced the contai
 node-test image the Kubernetes documentation still describes, which expects the API
 server's long-gone insecure port.
 
-One node, booted like a tools/k8s-demo.sh node: the kubernetes extension attached, a
+One node, booted like a tools/k8s-demo.py node: the kubernetes extension attached, a
 /var disk, user-mode networking for the images the specs pull from registry.k8s.io.
 Before the suite, the guest gets what upstream's test nodes have and a real node would
 get from its cluster, all of it under /run or /var, so nothing the image ships is
@@ -39,7 +39,7 @@ Overrides, from the environment:
   KEEP=1          leave the guest running afterwards, to look around (it says how)
 
 It needs KVM: under emulation a run would take most of a day. Without a writable
-/dev/kvm it skips, with a note, as test/k8s.sh does.
+/dev/kvm it skips, with a note, as test/k8s.py does.
 """
 
 from __future__ import annotations
