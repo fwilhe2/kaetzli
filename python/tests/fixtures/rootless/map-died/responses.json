@@ -1,0 +1,22 @@
+[
+ [
+  "id; getcap",
+  "uid=1000(user) gid=1000(user)\n"
+ ],
+ [
+  "getcap /usr/bin/newuidmap) ==",
+  "ROOTLESS-CAPS-OK\n"
+ ],
+ [
+  "podman info --format",
+  "ROOTLESS-INFO:true/crun/overlay\n"
+ ],
+ [
+  "podman import",
+  "ROOTLESS-IMPORT-OK\n"
+ ],
+ [
+  "/proc/self/uid_map",
+  "[   9.0] Kernel panic - not syncing: oops\n"
+ ]
+]
