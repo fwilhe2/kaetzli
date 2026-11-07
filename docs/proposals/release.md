@@ -8,7 +8,8 @@ repository setting, to be switched on by hand.
 
 kaetzli has no stable releases and no backported fixes. The only fix for anything is a
 newer build. There will be no `1.0`: a version number would promise support that does not
-exist. If you cannot always run the latest build, kaetzli is not for you.
+exist. If you cannot always run the latest build, kaetzli is not for you. How to keep a machine
+or a cluster on it: [always-latest.md](always-latest.md).
 
 Releases exist for distribution, not support: a stable URL that needs no authentication,
 a page that lists what was built, and files that outlive CI's artifact retention.
