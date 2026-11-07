@@ -77,7 +77,9 @@ def test_arm64_is_refused(sb):
         m.setup()
 
 
-def test_preflight_names_a_missing_file(sb):
+def test_preflight_names_a_missing_file(sb, monkeypatch):
+    # qemu is checked first, as in test/qemu-lib.sh; CI's python job has none.
+    monkeypatch.setattr("kaetzli.qemu.machine.shutil.which", lambda name: f"/usr/bin/{name}")
     (sb / "ovmf-vars.fd").unlink()
     with pytest.raises(Refused, match=r"ovmf-vars\.fd.*sign-uki"):
         machine(sb).preflight()
