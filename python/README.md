@@ -33,7 +33,7 @@ src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the 
                      line) and console (the running guest, on pexpect)
 src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py), systemd,
                      network, listeners, ssh, container, podman, rootless,
-                     persistent_var; their goldens are
+                     persistent_var, sysext; their goldens are
                      tests/fixtures/<test>/;
                      timing, the boot time systemd records (boot-time-history)
 src/kaetzli/release.py

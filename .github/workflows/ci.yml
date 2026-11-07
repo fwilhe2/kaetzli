@@ -730,7 +730,7 @@ jobs:
         run: ./test/debug.sh artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check system extensions
-        run: ./test/sysext.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/sysext.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check Firecracker- and Virtualization.framework-shaped boots
         run: ./test/vmm.sh artifacts/rootfs.erofs rootfs/boot/bzImage

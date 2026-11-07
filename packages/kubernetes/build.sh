@@ -71,7 +71,7 @@ UNIT
 
 # Started by Upholds=, not a .wants link: the extension is merged during sysinit, after
 # the boot transaction was computed, and a .wants link that appears then starts nothing
-# until the next boot. test/sysext.sh shows both.
+# until the next boot. test/sysext.py shows both.
 cat > "$ROOTFS/usr/lib/systemd/system/multi-user.target.d/10-kubelet.conf" <<'UNIT'
 [Unit]
 Upholds=kubelet.service

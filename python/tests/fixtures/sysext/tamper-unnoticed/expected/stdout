@@ -1,0 +1,5 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 8s
+>> got a login prompt, logging in as root
+>> wants-link unit: not started
+>> sysext OK: kaetzli-hello merged from the /var disk and kaetzli-attached from read-only disks, the Upholds= unit ran, kaetzli-wrong (SYSEXT_LEVEL=0) refused
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 8s
