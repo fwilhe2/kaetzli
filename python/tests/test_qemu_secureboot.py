@@ -86,3 +86,10 @@ def test_preflight_names_a_missing_file(sb):
 def test_from_env_reads_secureboot(sb):
     m = Machine.from_env({"SECUREBOOT": str(sb)}, rootfs="r", kernel="k", init="i")
     assert m.secureboot == str(sb)
+
+
+def test_another_variable_store_can_be_booted(sb):
+    (sb / "ovmf-vars-off.fd").write_bytes(b"off")
+    m = machine(sb, secureboot_vars="ovmf-vars-off.fd")
+    vars_ = next(d for d in after(m.argv(), "-drive") if "unit=1" in d)
+    assert Path(vars_.split("file=", 1)[1]).read_bytes() == b"off"

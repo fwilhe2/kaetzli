@@ -45,8 +45,9 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py   # any kaetzli.qemu boot
 `test/secureboot.py` (CI's boot job, amd64): the signed UKI boots although the harness
 passes `init=/bin/bash`, the kernel reports Secure Boot on, `/proc/cmdline` carries the
 image's root hash and not the injected argument, and the credentials arrived; then the
-unsigned UKI under the same firmware never starts Linux. With Secure Boot off in the
-variables the test fails, naming it.
+unsigned UKI under the same firmware never starts Linux; and, as the control, the signed
+UKI with Secure Boot off (`ovmf-vars-off.fd`) does take the injected `init=` and gives a
+shell, so the sealed command line of the first boot is Secure Boot's doing.
 
 ## Not yet
 

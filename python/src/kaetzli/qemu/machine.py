@@ -67,6 +67,7 @@ class Machine:
     # instead of `kernel` (docs/guides/secure-boot.md). pc on amd64, no /var disk or
     # extensions yet: their arguments ride the command line the UKI seals.
     secureboot: str = ""
+    secureboot_vars: str = "ovmf-vars.fd"  # the variable store in it to boot with
     # What qemu_ssh_setup adds.
     nic_extra: str = ""
     append_extra: str = ""
@@ -283,7 +284,7 @@ class Machine:
         d = Path(self.secureboot)
         fd, vars_copy = tempfile.mkstemp(prefix="ovmf-vars.", suffix=".fd", dir=d)
         with os.fdopen(fd, "wb") as out:
-            out.write((d / "ovmf-vars.fd").read_bytes())
+            out.write((d / self.secureboot_vars).read_bytes())
         creds = ["-fw_cfg", "name=opt/io.systemd.credentials/login.noauth,string=yes"]
         if self.ssh_pub:
             creds += [

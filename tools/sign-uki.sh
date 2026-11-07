@@ -6,7 +6,8 @@
 #
 # UKI defaults to output/kaetzli.efi. Into output/secureboot/ (OUT=): kaetzli.efi, it
 # signed; ovmf-code.fd, OVMF's Secure Boot build; ovmf-vars.fd, its variable store with the certificate as PK,
-# KEK and db and Secure Boot on; db.crt, the certificate. Boot those three together
+# KEK and db and Secure Boot on; ovmf-vars-off.fd, the same firmware's defaults with
+# Secure Boot off (test/secureboot.py's control); db.crt, the certificate. Boot those three together
 # (SECUREBOOT=output/secureboot, kaetzli.qemu) and the firmware refuses any other kernel,
 # and the UKI's stub ignores any command line it is passed: the root hash it carries is
 # the one that boots (docs/guides/secure-boot.md).
@@ -68,6 +69,8 @@ podman run --rm --network=none --security-opt label=disable \
         virt-fw-vars --input /usr/share/OVMF/OVMF_VARS_4M.fd --output /out/ovmf-vars.fd \
             --set-pk '"$owner"' /keys/db.crt --add-kek '"$owner"' /keys/db.crt \
             --add-db '"$owner"' /keys/db.crt --secure-boot >/dev/null
+        virt-fw-vars --input /usr/share/OVMF/OVMF_VARS_4M.fd --output /out/ovmf-vars-off.fd \
+            >/dev/null 2>&1
         cp /keys/db.crt /out/db.crt
     '
-echo ">> $out: kaetzli.efi (signed), ovmf-code.fd, ovmf-vars.fd, db.crt"
+echo ">> $out: kaetzli.efi (signed), ovmf-code.fd, ovmf-vars.fd, ovmf-vars-off.fd, db.crt"

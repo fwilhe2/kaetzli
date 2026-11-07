@@ -7,8 +7,8 @@ boot at all.
 Needs tools/sign-uki.sh's directory (SECUREBOOT, default output/secureboot) and the
 unsigned output/kaetzli.efi beside the image. Overrides: TIMEOUT, MEM/CPUS, LOG.
 
-Two boots, each with the same firmware and variables (our certificate enrolled as PK, KEK
-and db, Secure Boot on):
+Three boots, the first two with our certificate enrolled as PK, KEK and db and Secure
+Boot on:
 
   signed    The harness still passes its usual -append, with init=/bin/bash in it. Were
             that honoured, PID 1 would be a shell and no getty would ever ask for a login;
@@ -18,6 +18,11 @@ and db, Secure Boot on):
             the ssh key credential arrived.
   unsigned  output/kaetzli.efi, the same UKI before signing: the firmware has to refuse
             it, so Linux never starts.
+  control   The signed UKI again, with the firmware's default variables (Secure Boot
+            off, ovmf-vars-off.fd). Now the stub takes the command line it is passed, so
+            the kernel says Secure Boot is disabled and init=/bin/bash gives a shell. Were
+            the injected argument ignored here too, the first boot's result would not be
+            Secure Boot's doing, and the test would prove nothing: so that fails too.
 
 test/verity.py is the other half: that a root whose bytes differ from the hash does not
 mount. This one shows nobody can hand the kernel a different hash.
@@ -30,9 +35,10 @@ import sys
 from pathlib import Path
 
 from kaetzli.boot import boot, run
-from kaetzli.qemu import Guest
+from kaetzli.qemu import Guest, Refused
 
 MARKER = "SECUREBOOT-OK"
+PROMPT = "bash-[0-9]"
 BEGIN = "SECUREBOOT-BEGIN"  # both split by quotes when typed, so only output matches
 # OVMF's own chatter is not the kernel's; nothing of it is a kernel warning.
 EXEMPT = "BdsDxe|SecureBoot"
@@ -90,6 +96,25 @@ def main(argv: list[str]) -> int:
             if status == "match":
                 g.fail("the firmware booted an unsigned kernel")
         print(">> unsigned: refused by the firmware, Linux never started", flush=True)
+
+        print(">> control: the signed UKI with Secure Boot off", flush=True)
+        m.secureboot_vars = "ovmf-vars-off.fd"
+        if not os.path.isfile(os.path.join(m.secureboot, m.secureboot_vars)):
+            raise Refused(
+                f"missing {m.secureboot}/{m.secureboot_vars} (tools/sign-uki.sh makes it)"
+            )
+        log = b.log.replace(".log", "-control.log")
+        with Guest(m.qemu, m.argv(), log, float(b.timeout), name="secureboot-control") as g:
+            if not g.wait("Secure boot disabled", g.deadline - g.clock()):
+                g.fail("with Secure Boot off in the variables, the kernel did not say so")
+            status = g.watch(f"{PROMPT}|login:", g.deadline - g.clock())
+            if status != "match" or "login" in g.group(0):
+                g.fail(
+                    "without Secure Boot the injected init=/bin/bash was not honoured either: "
+                    "the signed boot's sealed command line is not Secure Boot's doing"
+                )
+            g.stop()
+        print(">> control: Secure Boot off, the injected init= gave a shell", flush=True)
 
     return run(test)
 
