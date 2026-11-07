@@ -9,7 +9,7 @@ sysroot
 glibc-package
 
 # The same merge, per system extension, for packages whose env.sh names one (EXTENSION=).
-extensions
+/extensions
 
 # Built images, fetched CI artifacts and test console logs all land here.
 output
