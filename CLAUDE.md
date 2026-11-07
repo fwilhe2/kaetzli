@@ -213,6 +213,7 @@ policy checks are done).
 ./tools/build-launcher.sh [OUT] [VERSION]
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
 ./tools/release.py name|publish [--dry-run]
+./tools/corresponding-source.py [REV] # repo at REV + its sources image, verified (GPL source offer)
 ./tools/clean.sh [-n] [--downloads|--images|--all|--vms]  # vm.sh machines only with --vms
 ```
 

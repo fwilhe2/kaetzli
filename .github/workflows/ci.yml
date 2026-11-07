@@ -1202,6 +1202,16 @@ jobs:
       - name: Build the launcher
         run: ./tools/build-launcher.sh artifacts/launcher "$(./tools/release.py name)"
 
+      # The complete corresponding source as one asset (tools/corresponding-source.py):
+      # the repository at this commit and its sources image, verified against the pins.
+      # In a dry run too, so a pull request's CI fails where main's would.
+      - name: Collect the corresponding source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          ./tools/corresponding-source.py HEAD --out "$RUNNER_TEMP/source"
+          --tar artifacts/source/kaetzli-source.tar
+
       - name: Publish the snapshot
         env:
           GH_TOKEN: ${{ github.token }}
