@@ -4,6 +4,8 @@ Guides describe current behavior. Proposals describe work that is not implemente
 
 ## Guides
 
+- [What kaetzli is](what-kaetzli-is.md): the design choices and how each is enforced, for
+  people who already build images.
 - [How the build works](guides/how-it-works.md): package builds, assembly, and CI.
 - [Build inputs](guides/build-container.md): builder and sources images.
 - [Patches](guides/patches.md): package patches, upstream patch series, and CVE fixes.
