@@ -1,0 +1,850 @@
+From 482ad48fdbf8a293999ed1b8ceebad5293dfc790 Mon Sep 17 00:00:00 2001
+From: Kewen Lin <linkewen@hygon.cn>
+Date: Sat, 7 Nov 2026 08:34:37 +0000
+Subject: [PATCH] i386: Add -mveclibabi=hvml for HYGON vector math library
+
+GCC supports generating vectorized math calls to Intel SVML and the
+AMD ACML and AOCL libraries.  Add equivalent support for the HYGON
+vector math library (HVML) through -mveclibabi=hvml.
+
+The new handler maps 32 scalar math function families to the HVML
+entry-point naming convention.  Record the selected single- and double-precision
+vector widths alongside their operation cases, and translate the log
+operation to the HVML ln spelling.  The handler requires a 64-bit target
+and unsafe math optimizations.  See invoke.texi for the complete list of
+mapped functions.
+
+The GCC 16 backport omits the seven C23 pi-based trigonometric
+families because this branch lacks their type-specific builtin lookup
+mappings. Remove the corresponding HVML documentation and test
+expectations.
+
+Add three testcases.  The first checks all 166 selected operation,
+precision, and vector-width combinations independently using
+-march=c86-4g-m7 and -mprefer-vector-width=512.  The others check that
+HVML calls are disabled without unsafe math optimizations and that
+-mno-avx selects only 128-bit HVML calls.
+
+gcc/ChangeLog:
+
+	* config/i386/i386-options.cc (ix86_option_override_internal):
+	Handle ix86_veclibabi_type_hvml case.
+	* config/i386/i386-options.h (ix86_veclibabi_hvml): New declare.
+	* config/i386/i386-opts.h (enum ix86_veclibabi): Add
+	ix86_veclibabi_type_hvml into the ix86_veclibabi enum.
+	* config/i386/i386.cc (ix86_veclibabi_hvml): New function.
+	* config/i386/i386.opt: Add the hvml type.
+	* doc/invoke.texi: Document -mveclibabi=hvml and clarify the 64-bit
+	restriction for ACML and AOCL.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/vectorize-hvml-1.c: New test.
+	* gcc.target/i386/vectorize-hvml-2.c: Likewise.
+	* gcc.target/i386/vectorize-hvml-3.c: Likewise.
+
+Co-authored-by: Zhizheng Yang <yangzhizheng@hygon.cn>
+Co-authored-by: Yushuai Xing <xingyushuai@hygon.cn>
+Signed-off-by: Kewen Lin <linkewen@hygon.cn>
+Signed-off-by: Zhizheng Yang <yangzhizheng@hygon.cn>
+Signed-off-by: Yushuai Xing <xingyushuai@hygon.cn>
+
+(cherry picked from commit 5db04303f76bc4c5705b753e0b1377c117ff9f19)
+---
+ gcc/config/i386/i386-options.cc               |   4 +
+ gcc/config/i386/i386-options.h                |   1 +
+ gcc/config/i386/i386-opts.h                   |   3 +-
+ gcc/config/i386/i386.cc                       | 189 +++++++++
+ gcc/config/i386/i386.opt                      |   3 +
+ gcc/doc/invoke.texi                           |  69 +++-
+ .../gcc.target/i386/vectorize-hvml-1.c        | 378 ++++++++++++++++++
+ .../gcc.target/i386/vectorize-hvml-2.c        |  21 +
+ .../gcc.target/i386/vectorize-hvml-3.c        |  23 ++
+ 9 files changed, 685 insertions(+), 6 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/vectorize-hvml-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/vectorize-hvml-2.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/vectorize-hvml-3.c
+
+diff --git a/gcc/config/i386/i386-options.cc b/gcc/config/i386/i386-options.cc
+index dc7f8bf003f2..0f5974beef03 100644
+--- a/gcc/config/i386/i386-options.cc
++++ b/gcc/config/i386/i386-options.cc
+@@ -2776,6 +2776,10 @@ ix86_option_override_internal (bool main_args_p,
+ 	ix86_veclib_handler = &ix86_veclibabi_aocl;
+ 	break;
+ 
++      case ix86_veclibabi_type_hvml:
++	ix86_veclib_handler = &ix86_veclibabi_hvml;
++	break;
++
+       default:
+ 	gcc_unreachable ();
+       }
+diff --git a/gcc/config/i386/i386-options.h b/gcc/config/i386/i386-options.h
+index 463a1d94bd5e..def4eb793d6e 100644
+--- a/gcc/config/i386/i386-options.h
++++ b/gcc/config/i386/i386-options.h
+@@ -60,6 +60,7 @@ extern tree (*ix86_veclib_handler) (combined_fn, tree, tree);
+ extern tree ix86_veclibabi_svml (combined_fn, tree, tree);
+ extern tree ix86_veclibabi_acml (combined_fn, tree, tree);
+ extern tree ix86_veclibabi_aocl (combined_fn, tree, tree);
++extern tree ix86_veclibabi_hvml (combined_fn, tree, tree);
+ 
+ enum ix86_function_specific_strings
+ {
+diff --git a/gcc/config/i386/i386-opts.h b/gcc/config/i386/i386-opts.h
+index 61be2a2aa30b..7d790e4b6f41 100644
+--- a/gcc/config/i386/i386-opts.h
++++ b/gcc/config/i386/i386-opts.h
+@@ -88,7 +88,8 @@ enum ix86_veclibabi {
+   ix86_veclibabi_type_none,
+   ix86_veclibabi_type_svml,
+   ix86_veclibabi_type_acml,
+-  ix86_veclibabi_type_aocl
++  ix86_veclibabi_type_aocl,
++  ix86_veclibabi_type_hvml
+ };
+ 
+ enum stack_protector_guard {
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index 61bd0acac9bd..fc17c070243d 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -20671,6 +20671,195 @@ ix86_veclibabi_aocl (combined_fn fn, tree type_out, tree type_in)
+   return new_fndecl;
+ }
+ 
++/* Handler for an HVML-style interface to
++   a library with vectorized intrinsics.  */
++
++tree
++ix86_veclibabi_hvml (combined_fn fn, tree type_out, tree type_in)
++{
++  /* This accommodates the longest current HVML symbol.  The operation-name
++     append below asserts the bound for future additions.  */
++  char name[30] = "hvml_v";
++  /* sizeof includes the trailing NUL, so the prefix length is 6.  */
++  int name_len = sizeof ("hvml_v") - 1;
++  tree fntype, new_fndecl, args;
++  unsigned arity;
++  machine_mode el_mode, in_mode;
++  int n, in_n;
++
++  /* HVML is 64-bit only and is suitable only for unsafe math, since it
++     trades off some accuracy for increased performance.  */
++  if (!TARGET_64BIT || !flag_unsafe_math_optimizations)
++    return NULL_TREE;
++
++  el_mode = TYPE_MODE (TREE_TYPE (type_out));
++  n = TYPE_VECTOR_SUBPARTS (type_out);
++  in_mode = TYPE_MODE (TREE_TYPE (type_in));
++  in_n = TYPE_VECTOR_SUBPARTS (type_in);
++  if (el_mode != in_mode || n != in_n)
++    return NULL_TREE;
++
++  gcc_checking_assert (n > 0);
++
++  /* Decide whether there exists a function for the combination of FN, the
++     mode and the vector width.  Return early if it doesn't.  */
++  if (el_mode != DFmode && el_mode != SFmode)
++    return NULL_TREE;
++
++  /* Select supported vector widths for FN in supported_n, with single
++     precision first and double precision second.  Zeros pad unused widths.
++     Keep each set with its case so the mapping cannot get out of sync.  */
++  const int (*supported_n)[3];
++#define GET_VW_INFO(...) \
++  { \
++    static const int widths[2][3] = { __VA_ARGS__ }; \
++    supported_n = widths; \
++    break; \
++  }
++  switch (fn)
++    {
++    CASE_CFN_ACOS:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  8 });
++    CASE_CFN_ACOSH:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_ASIN:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_ASINH:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_ATAN:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_ATAN2:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_ATANH:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_CBRT:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_COS:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_COSH:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_ERF:
++      GET_VW_INFO ({  4, 16,  0 }, {  2,  4,  0 });
++    CASE_CFN_ERFC:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_EXP:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_EXP2:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  8 });
++    CASE_CFN_EXP10:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_EXPM1:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_FDIM:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_FMOD:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  8 });
++    CASE_CFN_HYPOT:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_LOG:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_LOG1P:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_LOG2:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  8 });
++    CASE_CFN_LOG10:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_LOGB:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_NEXTAFTER:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_POW:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_REMAINDER:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    CASE_CFN_SIN:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_SINH:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_TAN:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_TANH:
++      GET_VW_INFO ({  4,  8, 16 }, {  2,  4,  8 });
++    CASE_CFN_TGAMMA:
++      GET_VW_INFO ({  4,  8,  0 }, {  2,  4,  0 });
++    default: return NULL_TREE;
++    }
++#undef GET_VW_INFO
++
++  int j = el_mode == DFmode;
++  bool n_is_supported = false;
++  for (unsigned k = 0; k < 3; k++)
++    if (supported_n[j][k] == n)
++      {
++	n_is_supported = true;
++	break;
++      }
++  if (!n_is_supported)
++    return NULL_TREE;
++
++  /* Append the precision and vector width to the function name.  */
++  name[name_len++] = el_mode == DFmode ? 'd' : 's';
++  switch (n)
++    {
++    case 2:
++    case 4:
++    case 8:
++      name[name_len++] = '0' + n;
++      break;
++    case 16:
++      name[name_len++] = '1';
++      name[name_len++] = '6';
++      break;
++    default:
++      gcc_unreachable ();
++    }
++  name[name_len++] = '_';
++
++  tree fndecl = mathfn_built_in (el_mode == DFmode
++				 ? double_type_node : float_type_node, fn);
++  if (!fndecl)
++    return NULL_TREE;
++
++  /* HVML spells the natural logarithm operation "ln".  */
++  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LOGF
++      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LOG)
++    {
++      gcc_checking_assert (name_len + sizeof ("ln") <= sizeof (name));
++      sprintf (name + name_len, "%s", "ln");
++    }
++  else
++    {
++      /* Append the operation name (steal it from the name of a builtin).  */
++      const char *bname = IDENTIFIER_POINTER (DECL_NAME (fndecl)) + 10;
++      size_t bname_len = strlen (bname);
++      gcc_checking_assert (name_len + bname_len < sizeof (name));
++      sprintf (name + name_len, "%s", bname);
++
++      /* Single-precision scalar builtins end in 'f'; HVML symbols do not.  */
++      if (el_mode == SFmode)
++	name[name_len + bname_len - 1] = '\0';
++    }
++
++  arity = 0;
++  for (args = DECL_ARGUMENTS (fndecl); args; args = TREE_CHAIN (args))
++    arity++;
++
++  if (arity == 1)
++    fntype = build_function_type_list (type_out, type_in, NULL);
++  else
++    fntype = build_function_type_list (type_out, type_in, type_in, NULL);
++
++  /* Build a function declaration for the vectorized function.  */
++  new_fndecl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
++			   get_identifier (name), fntype);
++  TREE_PUBLIC (new_fndecl) = 1;
++  DECL_EXTERNAL (new_fndecl) = 1;
++  DECL_IS_NOVOPS (new_fndecl) = 1;
++  TREE_READONLY (new_fndecl) = 1;
++
++  return new_fndecl;
++}
++
+ /* Returns a decl of a function that implements scatter store with
+    register type VECTYPE and index type INDEX_TYPE and SCALE.
+    Return NULL_TREE if it is not available.  */
+diff --git a/gcc/config/i386/i386.opt b/gcc/config/i386/i386.opt
+index 3b530944a36b..18603e628e6f 100644
+--- a/gcc/config/i386/i386.opt
++++ b/gcc/config/i386/i386.opt
+@@ -584,6 +584,9 @@ Enum(ix86_veclibabi) String(acml) Value(ix86_veclibabi_type_acml)
+ EnumValue
+ Enum(ix86_veclibabi) String(aocl) Value(ix86_veclibabi_type_aocl)
+ 
++EnumValue
++Enum(ix86_veclibabi) String(hvml) Value(ix86_veclibabi_type_hvml)
++
+ mvect8-ret-in-mem
+ Target Mask(VECT8_RETURNS) Save
+ Return 8-byte vectors in memory.
+diff --git a/gcc/doc/invoke.texi b/gcc/doc/invoke.texi
+index 81213fca96fd..3d4cda05b0fc 100644
+--- a/gcc/doc/invoke.texi
++++ b/gcc/doc/invoke.texi
+@@ -36639,11 +36639,13 @@ all of the reciprocal approximations, except for square root.
+ Specifies the ABI type to use for vectorizing intrinsics using an external
+ library.  Supported values for @var{type} are @samp{svml} for the Intel short
+ vector math library, @samp{aocl} for the math library (LibM) from AMD
+-Optimizing CPU Libraries (AOCL) and @samp{acml} for the end-of-life AMD core
+-math library (to which AOCL-LibM is the successor).
++Optimizing CPU Libraries (AOCL), @samp{acml} for the end-of-life AMD core
++math library (to which AOCL-LibM is the successor), and @samp{hvml} for the
++HYGON vector math library (HVML).
+ To use this option, both @option{-ftree-vectorize} and
+-@option{-funsafe-math-optimizations} have to be enabled, and an SVML or ACML
+-ABI-compatible library must be specified at link time.
++@option{-funsafe-math-optimizations} have to be enabled, and an SVML, ACML,
++AOCL, or HVML ABI-compatible library must be specified at link time.
++ACML, AOCL, and HVML are supported only on 64-bit targets.
+ 
+ GCC currently emits calls to @code{vmldExp2}, @code{vmldLn2},
+ @code{vmldLog102}, @code{vmldPow2}, @code{vmldTanh2}, @code{vmldTan2},
+@@ -36686,7 +36688,64 @@ type when @option{-mveclibabi=aocl} is used, and @code{__vrd2_sin},
+ @code{__vrd2_log10}, @code{__vrs4_sinf}, @code{__vrs4_cosf},
+ @code{__vrs4_expf}, @code{__vrs4_logf}, @code{__vrs4_log2f},
+ @code{__vrs4_log10f} and @code{__vrs4_powf} for the corresponding function type
+-when @option{-mveclibabi=acml} is used.
++when @option{-mveclibabi=acml} is used, and @code{hvml_vs4_acos},
++@code{hvml_vs8_acos}, @code{hvml_vd2_acos}, @code{hvml_vd4_acos},
++@code{hvml_vd8_acos}, @code{hvml_vs4_acosh}, @code{hvml_vs8_acosh},
++@code{hvml_vd2_acosh}, @code{hvml_vd4_acosh}, @code{hvml_vs4_asin},
++@code{hvml_vs8_asin}, @code{hvml_vs16_asin}, @code{hvml_vd2_asin},
++@code{hvml_vd4_asin}, @code{hvml_vd8_asin}, @code{hvml_vs4_asinh},
++@code{hvml_vs8_asinh}, @code{hvml_vd2_asinh}, @code{hvml_vd4_asinh},
++@code{hvml_vs4_atan}, @code{hvml_vs8_atan}, @code{hvml_vs16_atan},
++@code{hvml_vd2_atan}, @code{hvml_vd4_atan}, @code{hvml_vd8_atan},
++@code{hvml_vs4_atan2}, @code{hvml_vs8_atan2}, @code{hvml_vs16_atan2},
++@code{hvml_vd2_atan2}, @code{hvml_vd4_atan2}, @code{hvml_vd8_atan2},
++@code{hvml_vs4_atanh}, @code{hvml_vs8_atanh}, @code{hvml_vs16_atanh},
++@code{hvml_vd2_atanh}, @code{hvml_vd4_atanh}, @code{hvml_vd8_atanh},
++@code{hvml_vs4_cbrt}, @code{hvml_vs8_cbrt}, @code{hvml_vs16_cbrt},
++@code{hvml_vd2_cbrt}, @code{hvml_vd4_cbrt}, @code{hvml_vd8_cbrt},
++@code{hvml_vs4_cos}, @code{hvml_vs8_cos}, @code{hvml_vs16_cos},
++@code{hvml_vd2_cos}, @code{hvml_vd4_cos}, @code{hvml_vd8_cos},
++@code{hvml_vs4_cosh}, @code{hvml_vs8_cosh}, @code{hvml_vs16_cosh},
++@code{hvml_vd2_cosh}, @code{hvml_vd4_cosh}, @code{hvml_vd8_cosh},
++@code{hvml_vs4_erf}, @code{hvml_vs16_erf}, @code{hvml_vd2_erf},
++@code{hvml_vd4_erf}, @code{hvml_vs4_erfc}, @code{hvml_vs8_erfc},
++@code{hvml_vd2_erfc}, @code{hvml_vd4_erfc}, @code{hvml_vs4_exp},
++@code{hvml_vs8_exp}, @code{hvml_vs16_exp}, @code{hvml_vd2_exp},
++@code{hvml_vd4_exp}, @code{hvml_vd8_exp}, @code{hvml_vs4_exp2},
++@code{hvml_vs8_exp2}, @code{hvml_vd2_exp2}, @code{hvml_vd4_exp2},
++@code{hvml_vd8_exp2}, @code{hvml_vs4_exp10}, @code{hvml_vs8_exp10},
++@code{hvml_vd2_exp10}, @code{hvml_vd4_exp10}, @code{hvml_vs4_expm1},
++@code{hvml_vs8_expm1}, @code{hvml_vs16_expm1}, @code{hvml_vd2_expm1},
++@code{hvml_vd4_expm1}, @code{hvml_vd8_expm1}, @code{hvml_vs4_fdim},
++@code{hvml_vs8_fdim}, @code{hvml_vd2_fdim}, @code{hvml_vd4_fdim},
++@code{hvml_vs4_fmod}, @code{hvml_vs8_fmod}, @code{hvml_vd2_fmod},
++@code{hvml_vd4_fmod}, @code{hvml_vd8_fmod}, @code{hvml_vs4_hypot},
++@code{hvml_vs8_hypot}, @code{hvml_vd2_hypot}, @code{hvml_vd4_hypot},
++@code{hvml_vs4_ln}, @code{hvml_vs8_ln}, @code{hvml_vs16_ln},
++@code{hvml_vd2_ln}, @code{hvml_vd4_ln}, @code{hvml_vd8_ln},
++@code{hvml_vs4_log1p}, @code{hvml_vs8_log1p}, @code{hvml_vs16_log1p},
++@code{hvml_vd2_log1p}, @code{hvml_vd4_log1p}, @code{hvml_vd8_log1p},
++@code{hvml_vs4_log2}, @code{hvml_vs8_log2}, @code{hvml_vd2_log2},
++@code{hvml_vd4_log2}, @code{hvml_vd8_log2}, @code{hvml_vs4_log10},
++@code{hvml_vs8_log10}, @code{hvml_vs16_log10}, @code{hvml_vd2_log10},
++@code{hvml_vd4_log10}, @code{hvml_vd8_log10}, @code{hvml_vs4_logb},
++@code{hvml_vs8_logb}, @code{hvml_vd2_logb}, @code{hvml_vd4_logb},
++@code{hvml_vs4_nextafter}, @code{hvml_vs8_nextafter},
++@code{hvml_vd2_nextafter}, @code{hvml_vd4_nextafter}, @code{hvml_vs4_pow},
++@code{hvml_vs8_pow}, @code{hvml_vs16_pow}, @code{hvml_vd2_pow},
++@code{hvml_vd4_pow}, @code{hvml_vd8_pow}, @code{hvml_vs4_remainder},
++@code{hvml_vs8_remainder}, @code{hvml_vd2_remainder},
++@code{hvml_vd4_remainder}, @code{hvml_vs4_sin}, @code{hvml_vs8_sin},
++@code{hvml_vs16_sin}, @code{hvml_vd2_sin}, @code{hvml_vd4_sin},
++@code{hvml_vd8_sin}, @code{hvml_vs4_sinh}, @code{hvml_vs8_sinh},
++@code{hvml_vs16_sinh}, @code{hvml_vd2_sinh}, @code{hvml_vd4_sinh},
++@code{hvml_vd8_sinh}, @code{hvml_vs4_tan}, @code{hvml_vs8_tan},
++@code{hvml_vs16_tan}, @code{hvml_vd2_tan}, @code{hvml_vd4_tan},
++@code{hvml_vd8_tan}, @code{hvml_vs4_tanh}, @code{hvml_vs8_tanh},
++@code{hvml_vs16_tanh}, @code{hvml_vd2_tanh}, @code{hvml_vd4_tanh},
++@code{hvml_vd8_tanh}, @code{hvml_vs4_tgamma}, @code{hvml_vs8_tgamma},
++@code{hvml_vd2_tgamma} and @code{hvml_vd4_tgamma} for the corresponding
++function type when @option{-mveclibabi=hvml} is used.
+ 
+ @opindex mabi
+ @item -mabi=@var{name}
+diff --git a/gcc/testsuite/gcc.target/i386/vectorize-hvml-1.c b/gcc/testsuite/gcc.target/i386/vectorize-hvml-1.c
+new file mode 100644
+index 000000000000..c90f04b03910
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/vectorize-hvml-1.c
+@@ -0,0 +1,378 @@
++/* { dg-do compile { target { { ! ia32 } && glibc } } } */
++/* { dg-options "-O2 -ftree-vectorize -funsafe-math-optimizations -fno-math-errno -march=c86-4g-m7 -mprefer-vector-width=512 -mveclibabi=hvml" } */
++
++/* Declare the scalar math functions directly so that this test does not
++   depend on the target system's math headers.  */
++float acosf (float);
++float acoshf (float);
++float asinf (float);
++float asinhf (float);
++float atanf (float);
++float atan2f (float, float);
++float atanhf (float);
++float cbrtf (float);
++float cosf (float);
++float coshf (float);
++float erff (float);
++float erfcf (float);
++float expf (float);
++float exp2f (float);
++float exp10f (float);
++float expm1f (float);
++float fdimf (float, float);
++float fmodf (float, float);
++float hypotf (float, float);
++float logf (float);
++float log1pf (float);
++float log2f (float);
++float log10f (float);
++float logbf (float);
++float nextafterf (float, float);
++float powf (float, float);
++float remainderf (float, float);
++float sinf (float);
++float sinhf (float);
++float tanf (float);
++float tanhf (float);
++float tgammaf (float);
++
++double acos (double);
++double acosh (double);
++double asin (double);
++double asinh (double);
++double atan (double);
++double atan2 (double, double);
++double atanh (double);
++double cbrt (double);
++double cos (double);
++double cosh (double);
++double erf (double);
++double erfc (double);
++double exp (double);
++double exp2 (double);
++double exp10 (double);
++double expm1 (double);
++double fdim (double, double);
++double fmod (double, double);
++double hypot (double, double);
++double log (double);
++double log1p (double);
++double log2 (double);
++double log10 (double);
++double logb (double);
++double nextafter (double, double);
++double pow (double, double);
++double remainder (double, double);
++double sin (double);
++double sinh (double);
++double tan (double);
++double tanh (double);
++double tgamma (double);
++
++#define gentest1(FUN, BASE, VF)                                       \
++  extern BASE s_##FUN##_##BASE##_##VF[VF];                            \
++  extern BASE d_##FUN##_##BASE##_##VF[VF];                            \
++  void test_##FUN##_##BASE##_##VF (void)                              \
++  {                                                                   \
++    for (int i = 0; i < VF; i++)                                      \
++      d_##FUN##_##BASE##_##VF[i] = FUN (s_##FUN##_##BASE##_##VF[i]);  \
++  }
++
++#define gentest2(FUN, BASE, VF)                                      \
++  extern BASE s1_##FUN##_##BASE##_##VF[VF];                          \
++  extern BASE s2_##FUN##_##BASE##_##VF[VF];                          \
++  extern BASE d_##FUN##_##BASE##_##VF[VF];                           \
++  void test_##FUN##_##BASE##_##VF (void)                             \
++  {                                                                  \
++    for (int i = 0; i < VF; i++)                                     \
++      d_##FUN##_##BASE##_##VF[i]                                     \
++        = FUN (s1_##FUN##_##BASE##_##VF[i],                          \
++               s2_##FUN##_##BASE##_##VF[i]);                         \
++  }
++
++#define all_widths1(FUNF, FUND)        \
++  gentest1 (FUNF, float, 4)            \
++  gentest1 (FUNF, float, 8)            \
++  gentest1 (FUNF, float, 16)           \
++  gentest1 (FUND, double, 2)           \
++  gentest1 (FUND, double, 4)           \
++  gentest1 (FUND, double, 8)
++
++#define all_widths2(FUNF, FUND)        \
++  gentest2 (FUNF, float, 4)            \
++  gentest2 (FUNF, float, 8)            \
++  gentest2 (FUNF, float, 16)           \
++  gentest2 (FUND, double, 2)           \
++  gentest2 (FUND, double, 4)           \
++  gentest2 (FUND, double, 8)
++
++#define no_512_width1(FUNF, FUND)      \
++  gentest1 (FUNF, float, 4)            \
++  gentest1 (FUNF, float, 8)            \
++  gentest1 (FUND, double, 2)           \
++  gentest1 (FUND, double, 4)
++
++#define no_512_width2(FUNF, FUND)      \
++  gentest2 (FUNF, float, 4)            \
++  gentest2 (FUNF, float, 8)            \
++  gentest2 (FUND, double, 2)           \
++  gentest2 (FUND, double, 4)
++
++all_widths1 (asinf, asin)
++all_widths1 (atanf, atan)
++all_widths1 (atanhf, atanh)
++all_widths1 (cbrtf, cbrt)
++all_widths1 (cosf, cos)
++all_widths1 (coshf, cosh)
++all_widths1 (expf, exp)
++all_widths1 (expm1f, expm1)
++all_widths1 (logf, log)
++all_widths1 (log1pf, log1p)
++all_widths1 (log10f, log10)
++all_widths1 (sinf, sin)
++all_widths1 (sinhf, sinh)
++all_widths1 (tanf, tan)
++all_widths1 (tanhf, tanh)
++
++all_widths2 (atan2f, atan2)
++all_widths2 (powf, pow)
++
++no_512_width1 (acoshf, acosh)
++no_512_width1 (asinhf, asinh)
++no_512_width1 (erfcf, erfc)
++no_512_width1 (exp10f, exp10)
++no_512_width1 (logbf, logb)
++no_512_width1 (tgammaf, tgamma)
++
++no_512_width2 (fdimf, fdim)
++no_512_width2 (hypotf, hypot)
++no_512_width2 (nextafterf, nextafter)
++no_512_width2 (remainderf, remainder)
++
++gentest1 (acosf, float, 4)
++gentest1 (acosf, float, 8)
++gentest1 (acos, double, 2)
++gentest1 (acos, double, 4)
++gentest1 (acos, double, 8)
++
++gentest1 (erff, float, 4)
++gentest1 (erff, float, 16)
++gentest1 (erf, double, 2)
++gentest1 (erf, double, 4)
++
++gentest1 (exp2f, float, 4)
++gentest1 (exp2f, float, 8)
++gentest1 (exp2, double, 2)
++gentest1 (exp2, double, 4)
++gentest1 (exp2, double, 8)
++
++gentest1 (log2f, float, 4)
++gentest1 (log2f, float, 8)
++gentest1 (log2, double, 2)
++gentest1 (log2, double, 4)
++gentest1 (log2, double, 8)
++
++gentest2 (fmodf, float, 4)
++gentest2 (fmodf, float, 8)
++gentest2 (fmod, double, 2)
++gentest2 (fmod, double, 4)
++gentest2 (fmod, double, 8)
++
++/* Check every supported operation/precision/width combination separately.  */
++/* { dg-final { scan-assembler-times {\mhvml_vs4_acos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_acos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_acos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_acos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_acos\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_acosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_acosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_acosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_acosh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_asin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_asin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_asin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_asin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_asin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_asin\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_asinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_asinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_asinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_asinh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_atan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_atan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_atan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_atan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_atan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_atan\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_atan2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_atan2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_atan2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_atan2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_atan2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_atan2\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_atanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_atanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_atanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_atanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_atanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_atanh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_cbrt\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_cbrt\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_cbrt\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_cbrt\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_cbrt\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_cbrt\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_cos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_cos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_cos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_cos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_cos\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_cos\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_cosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_cosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_cosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_cosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_cosh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_cosh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_erf\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_erf\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_erf\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_erf\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_erfc\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_erfc\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_erfc\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_erfc\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_exp\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_exp\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_exp\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_exp\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_exp\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_exp\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_exp2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_exp2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_exp2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_exp2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_exp2\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_exp10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_exp10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_exp10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_exp10\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_expm1\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_expm1\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_expm1\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_expm1\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_expm1\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_expm1\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_fdim\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_fdim\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_fdim\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_fdim\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_fmod\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_fmod\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_fmod\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_fmod\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_fmod\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_hypot\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_hypot\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_hypot\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_hypot\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_ln\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_ln\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_ln\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_ln\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_ln\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_ln\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_log1p\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_log1p\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_log1p\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_log1p\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_log1p\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_log1p\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_log2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_log2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_log2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_log2\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_log2\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_log10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_log10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_log10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_log10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_log10\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_log10\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_logb\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_logb\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_logb\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_logb\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_nextafter\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_nextafter\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_nextafter\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_nextafter\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_pow\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_pow\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_pow\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_pow\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_pow\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_pow\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_remainder\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_remainder\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_remainder\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_remainder\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_sin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_sin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_sin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_sin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_sin\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_sin\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_sinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_sinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_sinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_sinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_sinh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_sinh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_tan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_tan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_tan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_tan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_tan\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_tan\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_tanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_tanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs16_tanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_tanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_tanh\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd8_tanh\M} 1 } } */
++
++/* { dg-final { scan-assembler-times {\mhvml_vs4_tgamma\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vs8_tgamma\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd2_tgamma\M} 1 } } */
++/* { dg-final { scan-assembler-times {\mhvml_vd4_tgamma\M} 1 } } */
+diff --git a/gcc/testsuite/gcc.target/i386/vectorize-hvml-2.c b/gcc/testsuite/gcc.target/i386/vectorize-hvml-2.c
+new file mode 100644
+index 000000000000..2971de14a471
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/vectorize-hvml-2.c
+@@ -0,0 +1,21 @@
++/* { dg-do compile { target { { ! ia32 } && glibc } } } */
++/* { dg-options "-O2 -ftree-vectorize -fno-unsafe-math-optimizations -fno-math-errno -march=c86-4g-m7 -mprefer-vector-width=512 -mveclibabi=hvml" } */
++
++float sinf (float);
++double sin (double);
++
++void
++sin_f (float *__restrict dst, const float *__restrict src)
++{
++  for (int i = 0; i < 64; ++i)
++    dst[i] = sinf (src[i]);
++}
++
++void
++sin_d (double *__restrict dst, const double *__restrict src)
++{
++  for (int i = 0; i < 64; ++i)
++    dst[i] = sin (src[i]);
++}
++
++/* { dg-final { scan-assembler-not {\mhvml_v} } } */
+diff --git a/gcc/testsuite/gcc.target/i386/vectorize-hvml-3.c b/gcc/testsuite/gcc.target/i386/vectorize-hvml-3.c
+new file mode 100644
+index 000000000000..cb88909a657b
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/vectorize-hvml-3.c
+@@ -0,0 +1,23 @@
++/* { dg-do compile { target { { ! ia32 } && glibc } } } */
++/* { dg-options "-O2 -ftree-vectorize -funsafe-math-optimizations -fno-math-errno -march=c86-4g-m7 -mno-avx -mveclibabi=hvml" } */
++
++float sinf (float);
++double sin (double);
++
++void
++sin_f (float *__restrict dst, const float *__restrict src)
++{
++  for (int i = 0; i < 64; ++i)
++    dst[i] = sinf (src[i]);
++}
++
++void
++sin_d (double *__restrict dst, const double *__restrict src)
++{
++  for (int i = 0; i < 64; ++i)
++    dst[i] = sin (src[i]);
++}
++
++/* { dg-final { scan-assembler {\mhvml_vs4_sin\M} } } */
++/* { dg-final { scan-assembler {\mhvml_vd2_sin\M} } } */
++/* { dg-final { scan-assembler-not {\mhvml_v(s8|s16|d4|d8)_} } } */

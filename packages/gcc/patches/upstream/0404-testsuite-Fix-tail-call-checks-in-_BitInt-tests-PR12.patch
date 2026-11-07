@@ -1,0 +1,50 @@
+From bf54aed3313c196c6bdda1c56391c5ebef407e1d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
+Date: Fri, 6 Nov 2026 10:40:18 +0100
+Subject: [PATCH] testsuite: Fix tail-call checks in _BitInt tests [PR127848]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The tests check for a tail call to qux, but qux calls baz. Update the
+checks for Arm, RISC-V and s390 to look for baz instead.
+
+gcc/testsuite/ChangeLog:
+
+	PR middle-end/127848
+	* gcc.dg/pr127848-4.c: Check for a tail call to baz instead of qux.
+	* gcc.dg/pr127848-5.c: Likewise.
+
+Signed-off-by: Torbjörn SVENSSON <torbjorn.svensson@foss.st.com>
+(cherry picked from commit 66c66fe317b9e5ba0fea75ee9220be2a0eacc1d1)
+---
+ gcc/testsuite/gcc.dg/pr127848-4.c | 2 +-
+ gcc/testsuite/gcc.dg/pr127848-5.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/testsuite/gcc.dg/pr127848-4.c b/gcc/testsuite/gcc.dg/pr127848-4.c
+index 16ad7e287ea9..4596a195db25 100644
+--- a/gcc/testsuite/gcc.dg/pr127848-4.c
++++ b/gcc/testsuite/gcc.dg/pr127848-4.c
+@@ -8,7 +8,7 @@
+ /* { dg-final { scan-tree-dump-not "= fred \\\(\\\); \\\[tail call\\\]" "optimized" { target i?86-*-* x86_64*-*-* aarch64*-*-* powerpc*-*-* arm*-*-* riscv*-*-* s390*-*-* loongarch*-*-* } } } */
+ /* { dg-final { scan-tree-dump-not "= corge \\\(\\\); \\\[tail call\\\]" "optimized" { target i?86-*-* x86_64*-*-* aarch64*-*-* powerpc*-*-* arm*-*-* riscv*-*-* s390*-*-* loongarch*-*-* } } } */
+ /* { dg-final { scan-tree-dump "= foo \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
+-/* { dg-final { scan-tree-dump "= qux \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
++/* { dg-final { scan-tree-dump "= baz \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
+ 
+ unsigned _BitInt(13) foo ();
+ [[gnu::noipa]] unsigned _BitInt(15) bar () { return foo (); }
+diff --git a/gcc/testsuite/gcc.dg/pr127848-5.c b/gcc/testsuite/gcc.dg/pr127848-5.c
+index f3b8b37fc9d0..1e46739f091b 100644
+--- a/gcc/testsuite/gcc.dg/pr127848-5.c
++++ b/gcc/testsuite/gcc.dg/pr127848-5.c
+@@ -8,7 +8,7 @@
+ /* { dg-final { scan-tree-dump-not "= fred \\\(\\\); \\\[tail call\\\]" "optimized" { target i?86-*-* x86_64*-*-* aarch64*-*-* powerpc*-*-* arm*-*-* riscv*-*-* s390*-*-* loongarch*-*-* } } } */
+ /* { dg-final { scan-tree-dump-not "= corge \\\(\\\); \\\[tail call\\\]" "optimized" { target i?86-*-* x86_64*-*-* aarch64*-*-* powerpc*-*-* arm*-*-* riscv*-*-* s390*-*-* loongarch*-*-* } } } */
+ /* { dg-final { scan-tree-dump "= foo \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
+-/* { dg-final { scan-tree-dump "= qux \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
++/* { dg-final { scan-tree-dump "= baz \\\(\\\); \\\[tail call\\\]" "optimized" { target arm*-*-* riscv*-*-* s390*-*-* } } } */
+ 
+ unsigned _BitInt(25) foo ();
+ [[gnu::noipa]] unsigned _BitInt(31) bar () { return foo (); }

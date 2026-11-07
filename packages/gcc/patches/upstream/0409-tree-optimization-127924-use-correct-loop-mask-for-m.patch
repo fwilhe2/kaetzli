@@ -1,0 +1,93 @@
+From f6586e410cf92aa17b535c42b3b54e6030395e70 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Tue, 3 Nov 2026 13:29:18 +0100
+Subject: [PATCH] tree-optimization/127924 - use correct loop mask for
+ multi-part simd clone masks
+
+When an inbranch simd clone call in a fully-masked loop needs multiple
+mask arguments per call (for example simdlen(32) with 16-lane AVX512
+masks), vectorizable_simd_clone_call iterates M over the mask parts but
+fetched the loop mask with the call copy index J.  All parts of a call
+were thus ANDed with the first loop mask, enabling lanes beyond the
+iteration count for the later parts and calling the clone on inactive
+lanes.  Use M as the loop mask index instead.
+
+	PR tree-optimization/127924
+	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Use the
+	mask part index M rather than the copy index J when getting the
+	loop mask for explicit mask arguments.
+
+	* gcc.target/i386/vect-simd-clone-avx512-4.c: New test.
+
+(cherry picked from commit 1b3a0deba8302912cfbc5faf850a6abcdb3e984a)
+---
+ .../i386/vect-simd-clone-avx512-4.c           | 37 +++++++++++++++++++
+ gcc/tree-vect-stmts.cc                        |  4 +-
+ 2 files changed, 39 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/vect-simd-clone-avx512-4.c
+
+diff --git a/gcc/testsuite/gcc.target/i386/vect-simd-clone-avx512-4.c b/gcc/testsuite/gcc.target/i386/vect-simd-clone-avx512-4.c
+new file mode 100644
+index 000000000000..e23bdd427bbd
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/vect-simd-clone-avx512-4.c
+@@ -0,0 +1,37 @@
++/* { dg-do run } */
++/* { dg-require-effective-target avx512bw } */
++/* { dg-options "-O2 -fopenmp-simd -mavx512bw -mprefer-vector-width=512 --param vect-partial-vector-usage=2" } */
++
++#include "avx512bw-check.h"
++
++#pragma omp declare simd simdlen(32) inbranch
++int __attribute__((noinline)) baz (int x) { return 1000 / x; }
++
++short d[1024];
++int b[1024];
++
++void __attribute__((noipa))
++foo (int n)
++{
++  for (int i = 0; i < n; ++i)
++    {
++      d[i] = (short) (d[i] + 1);
++      if ((i & 1) == 0)
++	b[i] = baz (b[i]);
++    }
++}
++
++static void
++avx512bw_test (void)
++{
++  for (int i = 0; i < 1024; i++)
++    {
++      b[i] = i + 1;
++      d[i] = 0;
++    }
++  foo (17);
++  for (int i = 0; i < 64; i++)
++    if (b[i] != ((i < 17 && (i & 1) == 0) ? 1000 / (i + 1) : i + 1)
++	|| d[i] != (i < 17))
++      abort ();
++}
+diff --git a/gcc/tree-vect-stmts.cc b/gcc/tree-vect-stmts.cc
+index 9305bc6e3651..b13185e5a4b9 100644
+--- a/gcc/tree-vect-stmts.cc
++++ b/gcc/tree-vect-stmts.cc
+@@ -4720,7 +4720,7 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 			      tree loop_mask
+ 				= vect_get_loop_mask (loop_vinfo, gsi,
+ 						      loop_masks, ncopies_in,
+-						      vectype, j);
++						      vectype, m);
+ 			      vec_oprnd0
+ 				= prepare_vec_mask (loop_vinfo,
+ 						    TREE_TYPE (loop_mask),
+@@ -4781,7 +4781,7 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 			      tree loop_mask
+ 				= vect_get_loop_mask (loop_vinfo, gsi,
+ 						      loop_masks, ncopies_in,
+-						      vectype, j);
++						      vectype, m);
+ 			      vec_oprnd0
+ 				= prepare_vec_mask (loop_vinfo,
+ 						    TREE_TYPE (loop_mask),

@@ -1,0 +1,66 @@
+From 2ed0f959aec75a1f7f87e909c691e36597ee94ca Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Wed, 21 Oct 2026 07:51:24 +0200
+Subject: [PATCH] tree-optimization/127975 - handle missing vector mask type
+ for simd clones
+
+When attempting to vectorize a loop with partial vector usage and a masked
+simd clone with scalar integer mask mode, get_related_vectype_for_scalar_type
+can return NULL_TREE if the target does not support a vector mode with the
+required number of elements (such as V2SF on 32-bit x86).  Verify that a
+valid mask type was found and disable partial vectors if not, rather than
+passing a NULL vectype to vect_record_loop_mask and crashing in hash-set.h.
+Also assert in vect_record_loop_mask that vectype is non-null.
+
+	PR tree-optimization/127975
+	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Disable
+	partial vectors if get_related_vectype_for_scalar_type returns
+	NULL_TREE for the mask.
+
+(cherry picked from commit 0f7c27bb0d9c1a7346fc273615c0a103e1f6f8cf)
+---
+ gcc/tree-vect-stmts.cc | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/gcc/tree-vect-stmts.cc b/gcc/tree-vect-stmts.cc
+index b13185e5a4b9..58d60e263bd4 100644
+--- a/gcc/tree-vect-stmts.cc
++++ b/gcc/tree-vect-stmts.cc
+@@ -4496,8 +4496,8 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 		  if (SCALAR_INT_MODE_P (bestn_inbranch->simdclone->mask_mode))
+ 		    {
+ 		      callee_nelements
+-			  = exact_div (bestn_inbranch->simdclone->simdlen,
+-				       bestn_inbranch->simdclone->args[i].linear_step);
++			= exact_div (bestn_inbranch->simdclone->simdlen,
++				     bestn_inbranch->simdclone->args[i].linear_step);
+ 		      masktype = get_related_vectype_for_scalar_type
+ 			  (vinfo->vector_mode, TREE_TYPE (vectype),
+ 			   callee_nelements);
+@@ -4516,10 +4516,22 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 			   TYPE_MODE (masktype));
+ 		      callee_nelements = TYPE_VECTOR_SUBPARTS (masktype);
+ 		    }
+-		  auto o = vector_unroll_factor (nunits, callee_nelements);
+-		  vect_record_loop_mask (loop_vinfo,
+-					 &LOOP_VINFO_MASKS (loop_vinfo),
+-					 ncopies  * o, masktype, NULL_TREE);
++		  if (!masktype)
++		    {
++		      if (dump_enabled_p ())
++			dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
++					 "can't use a fully-masked loop because"
++					 " no suitable vector type was found for"
++					 " the mask.\n");
++		      LOOP_VINFO_CAN_USE_PARTIAL_VECTORS_P (loop_vinfo) = false;
++		    }
++		  else
++		    {
++		      auto o = vector_unroll_factor (nunits, callee_nelements);
++		      vect_record_loop_mask (loop_vinfo,
++					     &LOOP_VINFO_MASKS (loop_vinfo),
++					     ncopies * o, masktype, NULL_TREE);
++		    }
+ 		}
+ 	    }
+ 	  else if ((bestn->simdclone->args[i].arg_type

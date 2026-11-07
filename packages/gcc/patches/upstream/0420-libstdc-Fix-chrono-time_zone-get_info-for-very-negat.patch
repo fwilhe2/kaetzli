@@ -1,0 +1,120 @@
+From 25e5e8638baac11cab12846ba00264e226dadd15 Mon Sep 17 00:00:00 2001
+From: Jonathan Wakely <jwakely@redhat.com>
+Date: Mon, 12 Oct 2026 10:18:45 +0100
+Subject: [PATCH] libstdc++: Fix chrono::time_zone::get_info for very negative
+ times [PR127815]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A very negative time point will stay negative when info.begin is
+subtracted from it, which means that a negative value will be passed to
+vector::reserve. That will convert to a huge size_t value, and the
+vector will throw length_error. This commit clamps the time point
+argument to be no less than the start of the zone's first info, so that
+`tp - info.begin` will be non-negative.
+
+This commit also changes the vector::reserve call to use a size_t
+instead of int, so that if `tp - info.begin` somehow becomes negative
+again due to some future change, we get a very large size_t and then
+std::min<size_t>(100, n * 2) limits that to something which won't throw
+length_error.
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/127815
+	* src/c++20/tzdb.cc (time_zone::_M_get_sys_info): Clamp
+	parameter to start of first info. Use unsigned type for argument
+	to vector::reserve.
+	* testsuite/std/time/time_zone/127815.cc: New test.
+
+Reviewed-by: Tomasz Kamiński <tkaminsk@redhat.com>
+(cherry picked from commit dad7575e1d2e24ee49f4caea69d67dbafdfbb974)
+---
+ libstdc++-v3/src/c++20/tzdb.cc                | 17 ++++++--
+ .../testsuite/std/time/time_zone/127815.cc    | 40 +++++++++++++++++++
+ 2 files changed, 54 insertions(+), 3 deletions(-)
+ create mode 100644 libstdc++-v3/testsuite/std/time/time_zone/127815.cc
+
+diff --git a/libstdc++-v3/src/c++20/tzdb.cc b/libstdc++-v3/src/c++20/tzdb.cc
+index 4de3d3221499..b0cd08c88ba7 100644
+--- a/libstdc++-v3/src/c++20/tzdb.cc
++++ b/libstdc++-v3/src/c++20/tzdb.cc
+@@ -1080,7 +1080,11 @@ namespace std::chrono
+     sys_info info;
+ 
+     if (i == infos.begin())
+-      info.begin = sys_days(year::min()/January/1);
++      {
++	info.begin = sys_days(year::min()/January/1);
++	if (tp < info.begin)
++	  tp = info.begin;
++      }
+     else
+       info.begin = i[-1].until();
+ 
+@@ -1100,9 +1104,16 @@ namespace std::chrono
+     if (rules.empty())
+       __throw_runtime_error("std::chrono::time_zone::get_info: invalid data");
+ 
++    // This will hold the sys_info objects expanded from the named rules.
+     vector<pair<sys_info, string_view>> new_infos;
+-    if (int n = ceil<years>(tp - info.begin).count())
+-      new_infos.reserve(std::min(100, n * 2));
++
++    // Reserve space for two transitions per year, for each year between
++    // info.begin and tp, up to a maximum of 100.
++    // This is only an optimization to avoid too many reallocations
++    // and doesn't need to be exact.
++    if (size_t n = ceil<years>(tp - info.begin).count())
++      new_infos.reserve(std::min<size_t>(100, n * 2));
++
+     long result_index = -1;
+     int num_after = 4; // number of sys_info to generate past tp.
+ 
+diff --git a/libstdc++-v3/testsuite/std/time/time_zone/127815.cc b/libstdc++-v3/testsuite/std/time/time_zone/127815.cc
+new file mode 100644
+index 000000000000..2bd8ea850b0e
+--- /dev/null
++++ b/libstdc++-v3/testsuite/std/time/time_zone/127815.cc
+@@ -0,0 +1,40 @@
++// { dg-do run { target c++20 } }
++// { dg-require-effective-target tzdb }
++
++#include <chrono>
++#include <fstream>
++#include <testsuite_hooks.h>
++
++namespace __gnu_cxx
++{
++  // libstdc++ hook: read tzdata.zi from this directory instead of the system's.
++  const char* zoneinfo_dir_override() { return "."; }
++}
++
++static void
++test_pr127815()
++{
++  using namespace std::chrono;
++  const sys_seconds ymin{sys_days{year::min() / January / 1}};
++
++  static int version = 0;
++
++  for (const char* name : {"Plain", "Test"})
++    for (sys_seconds t : {sys_seconds::min(), ymin - 1s})
++    {
++      std::ofstream("tzdata.zi")
++	<< "# version test" << ++version << "\n"
++	   "R X 2000 ma - Mar lastSu 2 1 D\n"
++	   "R X 2000 ma - O lastSu 2 0 S\n"
++	   "Z Test -6 X T%sT\n"
++	   "Z Plain -6 - PST\n";
++
++      sys_info info = reload_tzdb().locate_zone(name)->get_info(t);
++      VERIFY(info.abbrev == name[0] + std::string("ST"));
++    }
++}
++
++int main()
++{
++  test_pr127815();
++}

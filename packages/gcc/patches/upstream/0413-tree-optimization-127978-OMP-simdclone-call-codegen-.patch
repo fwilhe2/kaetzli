@@ -1,0 +1,70 @@
+From 4523a991f7f95bed34749ae02251189e47bea2c1 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Tue, 20 Oct 2026 13:57:37 +0200
+Subject: [PATCH] tree-optimization/127978 - OMP simdclone call codegen issue
+
+The accounting of a vector CTOR we have to materialize when
+emitting a simdclone call where the result type differs from
+the chosen vector type is off for the array case.  Simplify it.
+
+	PR tree-optimization/127978
+	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Simplify
+	vector CTOR filling accounting.
+
+	* gcc.dg/vect/vect-simd-21.c: New testcase.
+
+(cherry picked from commit 2362a925323974dcf00b0bf57ab246e5efcdb2b6)
+---
+ gcc/testsuite/gcc.dg/vect/vect-simd-21.c | 14 ++++++++++++++
+ gcc/tree-vect-stmts.cc                   |  5 +++--
+ 2 files changed, 17 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/vect-simd-21.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/vect-simd-21.c b/gcc/testsuite/gcc.dg/vect/vect-simd-21.c
+new file mode 100644
+index 000000000000..3a71e17de7b5
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/vect-simd-21.c
+@@ -0,0 +1,14 @@
++/* { dg-do compile } */
++/* { dg-additional-options "-fopenmp-simd" } */
++/* { dg-additional-options "-mavx512vl -mavx512bw -mprefer-vector-width=512" { target { avx512bw && avx512vl } } } */
++
++#pragma omp declare simd simdlen(32)
++signed char f(signed char) __attribute__((const));
++
++void g(signed char *d, signed char *a, int *m, int n)
++{
++#pragma omp simd
++  for (int i = 0; i < n; i++)
++    if (m[i])
++      d[i] = f(a[i]);
++}
+diff --git a/gcc/tree-vect-stmts.cc b/gcc/tree-vect-stmts.cc
+index 58d60e263bd4..00cc5e6df0bc 100644
+--- a/gcc/tree-vect-stmts.cc
++++ b/gcc/tree-vect-stmts.cc
+@@ -5048,7 +5048,7 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 					TYPE_VECTOR_SUBPARTS (rtype), &k))
+ 		gcc_unreachable ();
+ 	      gcc_assert ((k & (k - 1)) == 0);
+-	      if ((j & (k - 1)) == 0)
++	      if (!ret_ctor_elts)
+ 		vec_alloc (ret_ctor_elts, k);
+ 	      if (ratype)
+ 		{
+@@ -5070,12 +5070,13 @@ vectorizable_simd_clone_call (vec_info *vinfo, stmt_vec_info stmt_info,
+ 		}
+ 	      else
+ 		CONSTRUCTOR_APPEND_ELT (ret_ctor_elts, NULL_TREE, new_temp);
+-	      if ((j & (k - 1)) != k - 1)
++	      if (ret_ctor_elts->length () != k)
+ 		continue;
+ 	      vec_oprnd0 = build_constructor (vectype, ret_ctor_elts);
+ 	      new_stmt
+ 		= gimple_build_assign (make_ssa_name (vec_dest), vec_oprnd0);
+ 	      vect_finish_stmt_generation (vinfo, stmt_info, new_stmt, gsi);
++	      ret_ctor_elts = NULL;
+ 
+ 	      SLP_TREE_VEC_DEFS (slp_node)
+ 		.quick_push (gimple_assign_lhs (new_stmt));
