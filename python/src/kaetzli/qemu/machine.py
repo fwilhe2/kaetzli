@@ -1,10 +1,9 @@
 """The machine a boot test starts: test/qemu-lib.sh's qemu_setup, qemu_preflight,
 qemu_ssh_setup, qemu_sysexts, qemu_var_disk and qemu_argv, as one dataclass.
 
-Until every boot test has moved, the bash harness and this one are side by side, and
-python/tests/test_qemu_machine.py holds them to the same command line for the same
-settings: tools/vm.sh, which still sources the bash one, has to boot the machine
-CI booted.
+tools/vm.sh, boot-firecracker.sh and boot-vz.sh still source the bash one, and must boot
+the machine CI booted: python/tests/test_qemu_machine.py holds the two to the same
+command line for the same settings.
 
 Settings come from the environment, under the names the bash harness reads, through
 `Machine.from_env`; what bash held in arrays (QEMU_NIC_ARGS, QEMU_DISPLAY_ARGS) are lists
@@ -338,7 +337,7 @@ class Machine:
 
 
 def seed_var_disk(disk: str | Path, size: str, tree: str | Path) -> None:
-    """test/qemu-lib.sh's qemu_seed_var_disk: a new ext4 disk of `size` holding `tree`,
+    """A new ext4 disk of `size` holding `tree`,
     made under `podman unshare` when not root, so that what is in it is owned by root.
     x-systemd.makefs leaves a disk that already has a filesystem alone, so this is what
     /var is at boot."""

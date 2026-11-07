@@ -1,6 +1,6 @@
 # Licenses a package in this image is allowed to be under, as SPDX identifiers.
 #
-# `test/check-licenses.sh` fails a build where a package declares no LICENSE, or declares
+# `test/check-licenses.py` fails a build where a package declares no LICENSE, or declares
 # one that is not on this list. Adding a line here is the decision that a license is
 # acceptable, and it should take a moment's thought rather than a moment's typing.
 #

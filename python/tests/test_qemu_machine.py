@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from kaetzli import repo
-from kaetzli.qemu import console, machine
+from kaetzli.qemu import machine
 from kaetzli.qemu.machine import Machine, Refused, refuse
 
 CMDLINE = (
@@ -224,18 +224,3 @@ def test_what_is_refused_says_the_same(case, image, capsys):
         python(env)
     assert refuse(e.value) == 1
     assert capsys.readouterr().err == err
-
-
-def test_the_patterns_are_the_bash_harnesses():
-    out = subprocess.run(
-        ["bash", "-c", 'source test/qemu-lib.sh; printf "%s\\0" "$QEMU_DIED" "$CONSOLE_BAD" '
-         '"$READY" "$PROBE" "$QUIET"'],
-        cwd=repo.ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split("\0")[:-1]  # fmt: skip
-    assert out == [
-        console.QEMU_DIED,
-        console.CONSOLE_BAD,
-        console.READY,
-        console.PROBE,
-        console.QUIET,
-    ]

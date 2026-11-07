@@ -1,12 +1,9 @@
-"""A running guest and its console: test/qemu-lib.sh's qemu_boot, console_send, await,
-console_login, fail and console_check, on pexpect.
+"""A running guest and its console, on pexpect.
 
-qemu runs with its stdin and stdout on pipes, as the bash harness's fifo had it, and
-everything it prints goes to the log. The difference is in waiting: a wait sees only
-what came after the previous match, or after `mark()`, never the whole transcript. That
-is the rule the bash harness kept by hand with console_mark (CLAUDE.md: matching the
-whole transcript once typed the password into the username prompt); here it cannot be
-forgotten.
+qemu runs with its stdin and stdout on pipes, and everything it prints goes to the log.
+A wait sees only what came after the previous match, or after `mark()`, never the whole
+transcript (CLAUDE.md: matching the whole transcript once typed the password into the
+username prompt).
 
     with Guest(machine.qemu, machine.argv(), log, timeout, name="systemd") as g:
         g.login("root")
@@ -35,8 +32,7 @@ QEMU_DIED = "Kernel panic|Attempted to kill init|Requesting system (poweroff|reb
 # What must never appear on a console, whatever the test is about: a guest that logs one
 # of these usually keeps running, so nothing else would fail. Matched over the whole log
 # when a boot ends without the test having failed; a test that provokes one on purpose
-# names the lines it expects in `exempt`. From Flatcar's kola. The same list as
-# test/qemu-lib.sh's, which a test holds this to.
+# names the lines it expects in `exempt`. From Flatcar's kola.
 CONSOLE_BAD = (
     "Oops:|BUG: |WARNING: CPU: [0-9]+ PID: [0-9]+ at |general protection fault|"
     "Call Trace:|segfault at |=11/SEGV|[Cc]ore dump|EXT4-fs error|Remounting filesystem read-only|"

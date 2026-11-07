@@ -397,13 +397,12 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 `running`, no taint, nothing ≥ `err` in the journal, exposure (`systemd-analyze security`)
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
-`kaetzli.qemu`** (pexpect), or its bash twin `test/qemu-lib.sh`. The Python one runs every
-boot test, `tools/boot-qemu.py` and `tools/k8s-demo.py`; the bash harness remains for
-`tools/vm.sh` and the `boot-*.sh` wrappers (host-scripting.md item 7). Until they move, a
-change to one is a change to both;
-`python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
+`kaetzli.qemu`** (pexpect): every boot test, `tools/boot-qemu.py`, `tools/k8s-demo.py`.
+`test/qemu-lib.sh` is only its machine half in bash (no console driver), for `tools/vm.sh`
+and the `boot-*.sh` wrappers (host-scripting.md item 7); a change to its command line is a
+change to both, held equal by `python/tests/test_qemu_machine.py`.
 **Every console is held to `CONSOLE_BAD`** (warnings, oopses, segfaults, emergency mode);
-deliberate ones go in `CONSOLE_BAD_EXEMPT`. `QEMU_PROFILE=microvm|vz` gives Firecracker's or
+deliberate ones go in a test's `exempt`. `QEMU_PROFILE=microvm|vz` gives Firecracker's or
 vz's devices. **`await` matches only output after its mark** (`kaetzli.qemu`: after the last
 match or `mark()`) — suspect the handshake before `shadow` when a login fails.
 
