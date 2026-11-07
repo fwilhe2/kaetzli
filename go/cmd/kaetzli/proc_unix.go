@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // detach starts qemu in a session of its own, so closing the terminal that ran `start`
@@ -32,6 +33,19 @@ func detach(binary string, argv []string, log string) (int, error) {
 func alive(pid int) bool { return syscall.Kill(pid, 0) == nil }
 
 func kill(pid int) { _ = syscall.Kill(pid, syscall.SIGTERM) }
+
+// killAndWait ends qemu and waits until it is gone. One this process started is its child
+// even after Release, and a child that exited stays a zombie, alive to kill(pid, 0), until
+// it is reaped: so reap it, and poll only for one that is not ours.
+func killAndWait(pid int) {
+	kill(pid)
+	if _, err := syscall.Wait4(pid, nil, 0, nil); err == nil {
+		return
+	}
+	for alive(pid) {
+		time.Sleep(200 * time.Millisecond)
+	}
+}
 
 // running is qemu's pid while the machine runs. A pid alone could be reused by anything,
 // so on Linux its command line has to name the machine's /var disk.

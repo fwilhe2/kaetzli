@@ -180,3 +180,11 @@ func (m Machine) Argv() ([]string, error) {
 	}
 	return argv, nil
 }
+
+// panicRE is a guest that will never come up: the part of kaetzli.qemu.console's
+// QEMU_DIED that a booting guest can print.
+var panicRE = regexp.MustCompile(`Kernel panic|Attempted to kill init`)
+
+// Panicked reports whether a console log shows the kernel giving up. Such a guest leaves
+// qemu running and its forwarded ports accepting, so waiting for ssh would wait for ever.
+func Panicked(console []byte) bool { return panicRE.Match(console) }
