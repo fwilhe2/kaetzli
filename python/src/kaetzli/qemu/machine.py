@@ -19,6 +19,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,9 @@ class Refused(Exception):
 
 def kvm_usable(path: str = "/dev/kvm") -> bool:
     return os.access(path, os.W_OK)
+
+
+SECUREBOOT_FILES = ("kaetzli.efi", "ovmf-code.fd", "ovmf-vars.fd")
 
 
 @dataclass
@@ -59,10 +63,16 @@ class Machine:
     vsock_cid: str = ""
     hint: str = ""  # names the command that would make a missing file
     kvm: bool | None = None  # default: whether /dev/kvm is writable
+    # A directory from tools/sign-uki.sh: boot its signed UKI under Secure Boot firmware
+    # instead of `kernel` (docs/guides/secure-boot.md). pc on amd64, no /var disk or
+    # extensions yet: their arguments ride the command line the UKI seals.
+    secureboot: str = ""
+    secureboot_vars: str = "ovmf-vars.fd"  # the variable store in it to boot with
     # What qemu_ssh_setup adds.
     nic_extra: str = ""
     append_extra: str = ""
     ssh_dir: str = ""
+    ssh_pub: str = ""
 
     @classmethod
     def from_env(
@@ -86,6 +96,7 @@ class Machine:
             reboot=env.get("QEMU_REBOOT", "0") == "1",
             virtiofs_socket=env.get("VIRTIOFS_SOCKET", ""),
             vsock_cid=env.get("VSOCK_CID", ""),
+            secureboot=env.get("SECUREBOOT", ""),
         )
 
     # qemu_setup
@@ -98,6 +109,17 @@ class Machine:
             raise Refused(str(e)) from None
         if self.profile not in PROFILES:
             raise Refused(f"QEMU_PROFILE={self.profile} (expected pc, microvm or vz)")
+        if self.secureboot:
+            if self.arch != "amd64":
+                raise Refused("SECUREBOOT is amd64 only for now")
+            if self.profile != "pc":
+                raise Refused(f"SECUREBOOT boots the pc profile, not QEMU_PROFILE={self.profile}")
+            for setting, value in (("VAR_DISK", self.var_disk), ("SYSEXTS", self.sysexts)):
+                if value:
+                    raise Refused(
+                        f"SECUREBOOT cannot take {setting} yet: its arguments would go on the "
+                        "command line the signed UKI seals (docs/guides/secure-boot.md)"
+                    )
         if self.kvm is None:
             self.kvm = kvm_usable()
         if not self.kvm:
@@ -136,7 +158,12 @@ class Machine:
         hint = f" {self.hint}" if self.hint else ""
         if not shutil.which(self.qemu):
             raise Refused(f"{self.qemu} not found")
-        if not os.path.isfile(self.kernel):
+        if self.secureboot:
+            for f in SECUREBOOT_FILES:
+                path = os.path.join(self.secureboot, f)
+                if not os.path.isfile(path):
+                    raise Refused(f"missing {path} (tools/sign-uki.sh makes it)")
+        elif not os.path.isfile(self.kernel):
             raise Refused(f"missing kernel: {self.kernel}{hint}")
         if not os.path.isfile(self.rootfs):
             raise Refused(f"missing rootfs: {self.rootfs}{hint}")
@@ -184,6 +211,7 @@ class Machine:
         )
         if not proxy:
             self.nic_extra = f",hostfwd=tcp:127.0.0.1:{port}-:22"
+        self.ssh_pub = str(d / "id_ed25519.pub")
         pub = base64.b64encode((d / "id_ed25519.pub").read_bytes()).decode()
         self.append_extra = f" systemd.set_credential_binary=ssh.authorized_keys.root:{pub}"
         self.ssh_dir = ssh_dir
@@ -247,6 +275,30 @@ class Machine:
                 waitfor += f",{dev}"
                 append += f" systemd.mount-extra=/dev/mapper/{ident}:/run/{d}/{name}:erofs:ro"
         return drives, append, tables, waitfor
+
+    def _secureboot(self) -> tuple[str, list[str]]:
+        """The signed UKI and the firmware that boots only it: OVMF's Secure Boot build (which
+        needs SMM, so q35) with a copy of the enrolled variables per boot, since the firmware
+        writes them. The credentials go by fw_cfg; the -append the caller still passes is
+        what the stub ignores, which is what test/secureboot.py checks."""
+        d = Path(self.secureboot)
+        fd, vars_copy = tempfile.mkstemp(prefix="ovmf-vars.", suffix=".fd", dir=d)
+        with os.fdopen(fd, "wb") as out:
+            out.write((d / self.secureboot_vars).read_bytes())
+        creds = ["-fw_cfg", "name=opt/io.systemd.credentials/login.noauth,string=yes"]
+        if self.ssh_pub:
+            creds += [
+                "-fw_cfg",
+                f"name=opt/io.systemd.credentials/ssh.authorized_keys.root,file={self.ssh_pub}",
+            ]
+        firmware = [
+            "-machine", "q35,smm=on",
+            "-global", "driver=cfi.pflash01,property=secure,value=on",
+            "-drive", f"if=pflash,format=raw,unit=0,file={d / 'ovmf-code.fd'},readonly=on",
+            "-drive", f"if=pflash,format=raw,unit=1,file={vars_copy}",
+            *creds,
+        ]  # fmt: skip
+        return str(d / "kaetzli.efi"), firmware
 
     # qemu_argv
 
@@ -321,10 +373,14 @@ class Machine:
             f" systemd.set_credential=login.noauth:yes"
             f"{self.append_extra}{var_append}{ext_append}"
         )
+        kernel, firmware = self.kernel, []
+        if self.secureboot:
+            kernel, firmware = self._secureboot()
         argv = [
             *self._accel_machine(),
+            *firmware,
             "-m", self.mem, "-smp", self.cpus,
-            "-kernel", self.kernel,
+            "-kernel", kernel,
             *devices,
             "-append", append,
             *display,

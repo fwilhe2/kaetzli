@@ -507,9 +507,11 @@ jobs:
         with:
           name: rootfs.erofs-${{ matrix.arch }}
           # The image and the command line carrying its root hash: neither boots alone.
+          # kaetzli.efi seals the two with the kernel, unsigned (docs/guides/secure-boot.md).
           path: |
             output/rootfs.erofs
             output/rootfs.cmdline
+            output/kaetzli.efi
 
       - name: Upload OCI image
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -603,7 +605,7 @@ jobs:
 
       - name: Check the images are reproducible
         run: |
-          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
+          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli.efi output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
           outputs+=" $(ls output/extensions/*.raw output/confexts/*.raw)"
           sha256sum $outputs > first.sha256
           # The same name the rootfs job assembled with: it is in os-release.
@@ -616,10 +618,12 @@ jobs:
 
   boot:
     runs-on: *runner
-    # actions: read for boot-time-history.py, which reads earlier runs' artifacts.
+    # actions: read for boot-time-history.py, which reads earlier runs' artifacts;
+    # packages: read for the assembler image tools/sign-uki.sh signs in.
     permissions:
       contents: read
       actions: read
+      packages: read
       pull-requests: write
     needs:
       - rootfs
@@ -687,6 +691,16 @@ jobs:
 
       - name: Check that dm-verity refuses a tampered image
         run: ./test/verity.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
+      # The other half of verity: nobody can hand the kernel a different root hash. The
+      # UKI signed with a throwaway key, booted by OVMF with only that key enrolled
+      # (docs/guides/secure-boot.md). amd64 for now.
+      - name: Check Secure Boot seals the root
+        if: matrix.arch == 'amd64'
+        run: |
+          podman login ghcr.io -u '${{ github.actor }}' -p '${{ secrets.GITHUB_TOKEN }}'
+          ./tools/sign-uki.sh artifacts/kaetzli.efi
+          ./test/secureboot.py artifacts/rootfs.erofs
 
       - name: Check for failed units, and say hello
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage

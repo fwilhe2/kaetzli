@@ -58,12 +58,14 @@ rpcsvc-proto
 scdoc
 
 # systemd's meson templates are jinja2, and ca-certificates turns Mozilla's certdata.txt
-# into PEM with a python script that parses the certificates it finds. Builder-side only:
-# what the image may not gain is an interpreter, and neither of those ships anything but
-# its output. See CLAUDE.md.
+# into PEM with a python script that parses the certificates it finds. pyelftools is
+# systemd's elf2efi, which turns its EFI stub (the UKI's, image/build-rootfs.sh) into a PE
+# binary. Builder-side only: what the image may not gain is an interpreter, and none of
+# these ships anything but its output. See CLAUDE.md.
 python3
 python3-jinja2
 python3-cryptography
+python3-pyelftools
 
 # systemd compiles its BPF programs with clang and embeds them as skeletons
 # (-Dbpf-framework). Without these the sandboxing options are silently disabled — the

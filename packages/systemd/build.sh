@@ -14,8 +14,14 @@ systemd_opts=(
     -Dselinux=disabled -Dseccomp=enabled -Daudit=disabled
     -Dpam=enabled -Dopenssl=disabled -Dlibcryptsetup=disabled
 
-    # No firmware boot path: VMMs are handed the kernel, so no ESP, loader or UKI.
-    -Dbootloader=disabled -Defi=false -Dkernel-install=false -Dukify=disabled
+    # The EFI stub, for the signed UKI image/build-rootfs.sh makes for Secure Boot
+    # (docs/guides/secure-boot.md); nothing in the image boots through it, so the
+    # assembly removes it and systemd-boot from the tree after. No ESP, so no
+    # kernel-install; ukify is python, so it is the assembler's (image/Containerfile).
+    -Dbootloader=enabled -Defi=true -Dsbat-distro=kaetzli
+    -Dsbat-distro-summary=Kaetzli -Dsbat-distro-pkgname=systemd -Dsbat-distro-version="$KAETZLI_VERSION"
+    -Dsbat-distro-url=https://github.com/fwilhe2/kaetzli
+    -Dkernel-install=false -Dukify=disabled
     -Dtpm=false -Dtpm2=disabled
 
     # Hardware a VM does not have, or that only matters on a laptop.
@@ -65,9 +71,30 @@ systemd_opts=(
 
 meson_install "${systemd_opts[@]}"
 
-# bootctl, which -Dbootloader=disabled does not take with it: it manages an EFI system
-# partition and the boot loader's variables, and a VM handed its kernel has neither.
+# bootctl: it manages an EFI system partition and the boot loader's variables, and a VM
+# here has neither. And what -Dbootloader brings besides the stub (above): systemd-boot
+# and the addon stub, boot counting (bless-boot), the random seed and update services that
+# run bootctl, its varlink socket. Only linux<arch>.efi.stub stays, for the UKI.
 drop_installed bootctl
+case "$(uname -m)" in x86_64) efi_arch=x64 ;; aarch64) efi_arch=aa64 ;; esac
+drop_installed \
+    "usr/lib/systemd/boot/efi/systemd-boot$efi_arch.efi" \
+    "usr/lib/systemd/boot/efi/addon$efi_arch.efi.stub" \
+    usr/lib/systemd/systemd-bless-boot \
+    usr/lib/systemd/systemd-boot-check-no-failures \
+    usr/lib/systemd/system-generators/systemd-bless-boot-generator \
+    usr/lib/systemd/system/systemd-bless-boot.service \
+    usr/lib/systemd/system/systemd-boot-check-no-failures.service \
+    usr/lib/systemd/system/systemd-boot-random-seed.service \
+    usr/lib/systemd/system/sysinit.target.wants/systemd-boot-random-seed.service \
+    usr/lib/systemd/system/systemd-boot-clear-sysfail.service \
+    usr/lib/systemd/system/systemd-boot-update.service \
+    usr/lib/systemd/system/systemd-bootctl@.service \
+    usr/lib/systemd/system/systemd-bootctl.socket \
+    usr/lib/systemd/system/sockets.target.wants/systemd-bootctl.socket \
+    usr/lib/systemd/system/systemd-sysupdate-notify-bootctl@.service \
+    usr/lib/systemd/system/systemd-sysupdate-notify-bootctl.socket \
+    usr/lib/tmpfiles.d/20-systemd-stub.conf
 
 # udev helpers and rules for hardware the kernel cannot have: each subsystem below is
 # cleared by packages/kernel's vm.config on both architectures, and that build fails if
