@@ -712,7 +712,7 @@ jobs:
         run: ./test/listeners.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check ssh, and binaries built elsewhere
-        run: PREBUILT=artifacts/prebuilt ./test/ssh.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: PREBUILT=artifacts/prebuilt ./test/ssh.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check containers
         run: ./test/container.sh artifacts/rootfs.erofs rootfs/boot/bzImage

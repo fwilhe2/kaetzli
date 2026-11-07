@@ -1,0 +1,14 @@
+[
+ [
+  "systemctl is-active sshd.service",
+  "SSHD-IS-UP\n"
+ ],
+ [
+  "install -d -m 700 /root/.ssh",
+  "SSH-LOGIN-OK\n"
+ ],
+ [
+  "systemctl --no-pager --full status sshd.service",
+  "sshd.service active\n"
+ ]
+]

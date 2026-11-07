@@ -1,0 +1,10 @@
+{
+ "root": [
+  "root \n",
+  0
+ ],
+ "user": [
+  "user /run/user/1000\n",
+  0
+ ]
+}

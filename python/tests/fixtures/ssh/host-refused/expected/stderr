@@ -1,0 +1,11 @@
+>> ssh test FAILED: tools/ssh.sh could not log in from the host (last answer: Permission denied (publickey).)
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+SSHD-IS-UP
+SSH-LOGIN-OK
+sshd.service active

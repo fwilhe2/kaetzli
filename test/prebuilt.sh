@@ -29,7 +29,7 @@
 #
 # Compiling and running are separate so that CI can compile once, in the rootfs job, and
 # run the same bytes in both flavours: in the OCI image there, and over ssh in the boot
-# job's guest (test/ssh.sh does that when PREBUILT names a directory). The two are not
+# job's guest (test/ssh.py does that when PREBUILT names a directory). The two are not
 # redundant. The container is the disk image *minus* the subtractions block, so it is
 # the stricter test of whether a library is present — only it would notice a subtraction
 # taking libgcc_s. The guest is the image as a VM user gets it, and differs where these
@@ -202,7 +202,7 @@ run_oci() {
 }
 
 # Over the ssh_config qemu_ssh_setup wrote, the one tools/ssh.sh uses — so this runs in
-# whichever guest SSH_DIR describes, test/ssh.sh's or tools/boot-qemu.sh's.
+# whichever guest SSH_DIR describes, test/ssh.py's or tools/boot-qemu.sh's.
 run_ssh() {
     local dir="$1" config="${SSH_DIR:-output/ssh}/config" bin name out rc fail=0
     [ -f "$config" ] || { echo "error: no $config — is a guest running?" >&2; return 1; }
