@@ -4,8 +4,8 @@
 the SBOM, the size reports, the library checks and the policy checks, and item 6. Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
-`test/container.py`, `test/podman.py`, `test/rootless.py` and
-`test/persistent-var.py`. CLAUDE.md (*Host-side code*)
+`test/container.py`, `test/podman.py`, `test/rootless.py`,
+`test/persistent-var.py` and `test/sysext.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -253,6 +253,14 @@ bash took 23.
 `exit`). Its golden is five pairs of guests (clean, the first boot's check failing or
 panicking, the second's failing, user's home lost over ssh), the random machine ID
 written as `<machine-id>`; on a local image it agrees in 21 seconds where bash took 33.
+
+`test/sysext.sh` is `test/sysext.py`: the toys are still made by
+`tools/build-extension.sh` and the `/var` disk by `mkfs.ext4` (`seed_var_disk`, in
+`kaetzli.qemu.machine` now), both stood in for in the golden, which was recorded from a
+worktree with the same stand-ins; the tampered boot's report comes from a fake qemu
+response printed at boot when the command line names the image. Four guests: clean, not
+merged, a panic, a tampered image read without objection. On a local image it agrees;
+building the extensions is most of its minute either way.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

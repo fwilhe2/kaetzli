@@ -336,6 +336,23 @@ class Machine:
         return argv
 
 
+def seed_var_disk(disk: str | Path, size: str, tree: str | Path) -> None:
+    """test/qemu-lib.sh's qemu_seed_var_disk: a new ext4 disk of `size` holding `tree`,
+    made under `podman unshare` when not root, so that what is in it is owned by root.
+    x-systemd.makefs leaves a disk that already has a filesystem alone, so this is what
+    /var is at boot."""
+    if not shutil.which("mkfs.ext4"):
+        raise Refused("mkfs.ext4 not found (install e2fsprogs)")
+    run: list[str] = []
+    if os.getuid() != 0:
+        if not shutil.which("podman"):
+            raise Refused("podman not found, which seeds a /var disk owned by root")
+        run = ["podman", "unshare"]
+    Path(disk).unlink(missing_ok=True)
+    subprocess.run(["truncate", "-s", size, str(disk)], check=True)
+    subprocess.run([*run, "mkfs.ext4", "-q", "-F", "-d", str(tree), str(disk)], check=True)
+
+
 def _listening(port: int) -> bool:
     with socket.socket() as s:
         s.settimeout(1)

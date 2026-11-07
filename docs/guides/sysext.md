@@ -79,5 +79,5 @@ Start the included three-node demo with:
 ```
 
 The demo uses KVM, about 8 GB of RAM, and container images from `registry.k8s.io` and
-`ghcr.io`. `test/sysext.sh` verifies extension merging and dm-verity behavior; `test/k8s.sh`
+`ghcr.io`. `test/sysext.py` verifies extension merging and dm-verity behavior; `test/k8s.sh`
 runs the cluster demo in CI.

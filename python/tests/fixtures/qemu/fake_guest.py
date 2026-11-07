@@ -31,10 +31,15 @@ def shell(prompt: str = "bash-5.3# ") -> None:
         out(prompt)
 
 
-def systemd(responses: list[list[str]]) -> None:
+def systemd(responses: list[list[str]], qemu_args: list[str]) -> None:
     """A getty, then a shell that answers each command with the first response whose
     needle is in it, and echoes what is typed until `stty -echo`. A response with a third
-    element, "exit", ends the guest after its answer, as a power-off does."""
+    element, "exit", ends the guest after its answer, as a power-off does. A needle
+    "@boot:<word>" is not a command: its answer is printed at boot when qemu's command
+    line has <word> in it (a disk the guest objects to, say)."""
+    for needle, answer, *_ in responses:
+        if needle.startswith("@boot:") and needle[len("@boot:") :] in " ".join(qemu_args):
+            out(answer)
     out("Welcome to Kaetzli!\n\nkaetzli login: ")
     next(lines())
     echo = True
@@ -97,7 +102,7 @@ def main(scenario: str) -> None:
         )
         shell()
     elif scenario == "systemd":
-        systemd(json.loads(Path(sys.argv[2]).read_text()))
+        systemd(json.loads(Path(sys.argv[2]).read_text()), sys.argv[3:])
     else:
         raise SystemExit(f"no scenario {scenario}")
 

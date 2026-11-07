@@ -25,7 +25,7 @@ section 11 records what was considered and rejected, so it is not proposed again
 ## 1. Scan every boot's console for kernel and crash messages
 
 *Implemented:* `CONSOLE_BAD` and `console_check` in `test/qemu-lib.sh`. `test/verity.sh`
-also exempts the panic's `Call Trace:`, and `test/sysext.sh`'s tampered boot the emergency
+also exempts the panic's `Call Trace:`, and `test/sysext.py`'s tampered boot the emergency
 mode its failed mount ends in. `Call Trace:` is in the list from the start: KVM boots of
 every qemu test were clean with it.
 
@@ -141,7 +141,7 @@ files.
    the socket and its process.
 4. Run the check a second time with `SYSEXTS="podman"` and with the `kubernetes`
    extension, each with its own expected list (kubelet's `:10250`, for example), or fold
-   the extension case into `test/sysext.sh`. Keep the lists next to the cases that use
+   the extension case into `test/sysext.py`. Keep the lists next to the cases that use
    them.
 5. Add the test to the `boot` job in `.github/workflows/ci.yml`, and to the command list
    in `CLAUDE.md`.

@@ -1,0 +1,10 @@
+[
+ [
+  "systemd-sysext status; systemd-confext status",
+  "kaetzli-hello sysext\n"
+ ],
+ [
+  "s=$(systemd-sysext list --no-legend)",
+  "wants-link unit: not started\nSYSEXT-OK\n"
+ ]
+]

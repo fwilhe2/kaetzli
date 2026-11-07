@@ -1,0 +1,7 @@
+>> sysext test FAILED: timed out waiting for: device-mapper: verity.*(corrupted|verification failed)
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: 

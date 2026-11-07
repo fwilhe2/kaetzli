@@ -30,6 +30,7 @@ from kaetzli.boot import (
     podman,
     rootless,
     ssh,
+    sysext,
     systemd,
 )
 from kaetzli.qemu import console, machine
@@ -43,6 +44,7 @@ TESTS = {
     "podman": podman,
     "rootless": rootless,
     "persistent-var": persistent_var,
+    "sysext": sysext,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -82,6 +84,24 @@ def image(tmp_path, monkeypatch):
     return tmp_path
 
 
+def fake_extensions(image: Path, monkeypatch) -> None:
+    """test/sysext.py builds its toys with tools/build-extension.sh and seeds a /var disk
+    with mkfs.ext4, neither of which a unit test can run; its golden was recorded with
+    the same stand-ins, an image of zeroes and a table, in a worktree."""
+    out = image / "output"
+
+    def build_extension(kind: str, name: str, tree: Path, level: str = "") -> None:
+        assert tree.is_dir()
+        d = out / ("extensions" if kind == "sysext" else "confexts")
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{name}.raw").write_bytes(bytes(4096))
+        (d / f"{name}.dm-verity").write_text("0 8 verity 1 @DEV@ @DEV@\n")
+
+    monkeypatch.setattr(sysext, "OUT", str(out))
+    monkeypatch.setattr(sysext, "build_extension", build_extension)
+    monkeypatch.setattr(machine, "seed_var_disk", lambda disk, size, tree: Path(disk).touch())
+
+
 def normalize(text: str, image: Path) -> str:
     """The temporary directory as <tmp>, and a machine ID (random per run) as <machine-id>."""
     return re.sub(r"\b[0-9a-f]{32}\b", "<machine-id>", text.replace(str(image), "<tmp>"))
@@ -98,7 +118,7 @@ def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
             monkeypatch.setenv(*line.split("=", 1))
     qemu = image / "bin" / "qemu-system-x86_64"
     qemu.write_text(
-        f"#!/bin/sh\nexec {sys.executable} {FAKE} systemd {fixture / 'responses.json'}\n"
+        f'#!/bin/sh\nexec {sys.executable} {FAKE} systemd {fixture / "responses.json"} "$@"\n'
     )
     qemu.chmod(0o755)
     if (fixture / "ssh.json").exists():
@@ -107,6 +127,8 @@ def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
             f'#!/bin/sh\nexec {sys.executable} {FAKE_SSH} {fixture / "ssh.json"} "$@"\n'
         )
         fake_ssh.chmod(0o755)
+    if test == "sysext":
+        fake_extensions(image, monkeypatch)
     rc = TESTS[test].main([str(image / "img" / "rootfs.erofs"), str(image / "img" / "bzImage")])
     out, err = capfd.readouterr()
     expected = fixture / "expected"

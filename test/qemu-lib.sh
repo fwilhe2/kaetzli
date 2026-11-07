@@ -256,7 +256,8 @@ qemu_argv() {
     [ "${QEMU_REBOOT:-0}" = 1 ] || QEMU_ARGV+=(-no-reboot)
 }
 
-# A /var disk seeded with <tree> (tools/k8s-demo.sh, test/sysext.sh). mkfs.ext4 -d records
+# A /var disk seeded with <tree> (tools/k8s-demo.sh; test/sysext.py uses its twin,
+# kaetzli.qemu.machine.seed_var_disk). mkfs.ext4 -d records
 # owners, and a /var/lib not owned by root makes tmpfiles refuse it ("unsafe path
 # transition"), hence podman unshare.
 qemu_seed_var_disk() { # disk size tree
@@ -343,7 +344,7 @@ qemu_boot() {
     "$QEMU" "${QEMU_ARGV[@]}" < "$console" > "$LOG" 2>&1 &
     qemu_pid=$!
 
-    # Also called by hand between boots (test/vmm.sh, test/sysext.sh). $? is the status
+    # Also called by hand between boots (test/vmm.sh). $? is the status
     # the script is exiting with, or the last command's on a call by hand (a trap that
     # runs something first passes it as $1): only a boot that has not already failed is
     # held to the console check, so a failure reports its own reason first.
