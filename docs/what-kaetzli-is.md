@@ -1,8 +1,7 @@
 # What kaetzli is
 
 An overview for people who already build Linux images: what kaetzli does, the choices it
-makes, and how each one is enforced. Everything here is implemented on `main` unless it is
-marked as an open pull request. Details are in the [guides](README.md#guides).
+makes, and how each one is enforced. Everything here is implemented on `main`. Details are in the [guides](README.md#guides).
 
 ## In one paragraph
 
@@ -108,8 +107,9 @@ SBOM. The base keeps the kernel features, crun with seccomp, conmon and nftables
 `security.capability` xattrs are kept. CI assembles twice and compares the EROFS image,
 command line, OCI archive, SBOMs and extensions byte for byte. `test/reproducible.sh`
 builds individual packages twice from clean worktrees; it runs locally, not in CI.
-*Open PR #281:* `tools/rebuild-release.py` rebuilds a published release from its tag and
-compares every asset with the release's `SHA256SUMS`.
+Anyone can check a release: `tools/rebuild-release.py` rebuilds it from its tag in a clean
+worktree and compares every asset of the host's architecture with the release's
+`SHA256SUMS`.
 
 **The SBOM is generated from the build, not scanned from the result.** Each package build
 writes a record of its pins, patches with their hashes, and license. Assembly turns the
@@ -128,11 +128,14 @@ file in the boot bundle. `tools/fetch-image.sh` installs nothing whose hashes do
 the release's `SHA256SUMS` or the CI run's bundle manifest, and checks attestations when
 `gh` is available.
 
-*Open PR #280, Secure Boot:* a signed unified kernel image (systemd's stub, kernel, and
-the command line with the root hash) under OVMF on amd64. The firmware runs only the
-signed image, and the stub ignores a command line passed from outside, which ties the root
-hash to the signature. Not yet covered by the PR: arm64, extensions and a `/var` disk in
-this mode, and a release signing key.
+**Secure Boot seals the root hash.** `tools/sign-uki.sh` builds a signed unified kernel
+image: systemd's stub, the kernel, and the command line with the root hash. Under OVMF
+with Secure Boot on (amd64), the firmware runs only that signed image, and the stub ignores
+a command line passed from outside, so the root hash cannot be swapped. `test/secureboot.py`
+boots the signed image with `init=/bin/bash` injected and checks that `/proc/cmdline` is
+the sealed one, and that an unsigned image is refused. Not covered yet: arm64, extensions
+and a `/var` disk in this mode, and a release signing key (the tool uses a throwaway key
+unless given one).
 
 ## Release and update model
 
