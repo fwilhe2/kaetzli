@@ -5,7 +5,7 @@ the SBOM, the size reports, the library checks and the policy checks, and item 6
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
-`test/persistent-var.py`, `test/sysext.py` and `test/verity.py`. CLAUDE.md (*Host-side code*)
+`test/persistent-var.py`, `test/sysext.py`, `test/verity.py` and `test/debug.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -267,6 +267,10 @@ arguments, and one wait for a shell, a death or the deadline. Its golden is four
 (refused, a shell, a panic without verity's report, nothing at all), the fixture image
 now 4 KiB of zeroes so there is a byte to flip; on a local image it agrees but for the
 kernel's timestamps.
+
+`test/debug.sh` is `test/debug.py`, a round per tool in the debug extension as before.
+Its golden is three guests (clean, bpftool seeing nothing, a panic under perf); on a
+local image it agrees in 19 seconds where bash took 33.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

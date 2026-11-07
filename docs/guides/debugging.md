@@ -182,7 +182,7 @@ includes kprobes, uprobes, syscall tracepoints, BTF, and tracefs. Function traci
 The extension does not include bpftrace, BCC tools, full gdb, or scripting runtimes. The
 base's `lsfd` and `resolvectl` cover common `lsof` and `dig` use cases.
 
-`test/debug.sh` checks the extension in a booted guest. Its packages install into
+`test/debug.py` checks the extension in a booted guest. Its packages install into
 `extensions/debug/`; `tools/build-image.sh` assembles the verified image.
 
 For an interactive QEMU boot, `Ctrl-a x` exits. `tools/vm.sh console <name>` attaches to a

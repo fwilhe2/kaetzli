@@ -727,7 +727,7 @@ jobs:
         run: ./test/persistent-var.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check the debug extension
-        run: ./test/debug.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/debug.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check system extensions
         run: ./test/sysext.py artifacts/rootfs.erofs rootfs/boot/bzImage
