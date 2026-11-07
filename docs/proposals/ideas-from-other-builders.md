@@ -313,7 +313,7 @@ to start. With no `kernel.panic`, a panicked node hangs forever instead of reboo
 3. Mention the file in the `ip_forward` neighbourhood of `CLAUDE.md` only if it turns out
    to have a pitfall; otherwise the comments in the file are enough.
 
-**Verification:** `test/systemd.py`, `test/k8s.sh`, `test/node-conformance.sh`. Confirm
+**Verification:** `test/systemd.py`, `test/k8s.sh`, `test/node-conformance.py`. Confirm
 `kernel.panic` does not change how the `QEMU_DIED` tests report a panic.
 
 ## 7. An SBOM that vulnerability scanners can match

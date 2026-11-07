@@ -71,7 +71,7 @@ cat > "$ROOTFS/usr/lib/tmpfiles.d/crio.conf" <<'CONF'
 d /run/crio/auth 0700 root root -
 CONF
 # Two settings are for kubelet's stats, which come from the cAdvisor built into it and
-# which test/node-conformance.sh's Summary API test checks. cAdvisor reads a pod's network
+# which test/node-conformance.py's Summary API test checks. cAdvisor reads a pod's network
 # counters through its infra (pause) process, which CRI-O by default does not start; and
 # it counts a container's processes in the cgroup CRI-O names, where crun on cgroup v2
 # puts them one level below, in a `container` subgroup. Without the two, /stats/summary

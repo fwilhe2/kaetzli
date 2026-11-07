@@ -5,8 +5,8 @@ the SBOM, the size reports, the library checks and the policy checks, and item 6
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
-`test/persistent-var.py`, `test/sysext.py`, `test/verity.py`, `test/debug.py` and
-`test/vmm.py`. CLAUDE.md (*Host-side code*)
+`test/persistent-var.py`, `test/sysext.py`, `test/verity.py`, `test/debug.py`,
+`test/vmm.py` and `test/node-conformance.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -283,7 +283,15 @@ copy of the bash test had those two probes turned off, and the Python test repla
 same two. On a local image, virtiofs and ssh over vsock included, it agrees in 23
 seconds where bash took 41.
 
-Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
+`test/node-conformance.sh` is `test/node-conformance.py`: the guest is booted with
+`kaetzli.qemu`'s command line and driven over ssh as before, its fixtures one script on
+ssh's stdin, the suite's output teed to `run.log`. Its golden is the bash version's
+closing block (stdout, stderr, exit code, and in CI the annotations and job summary) on
+four ginkgo logs: passed, failed, unfinished, and an exit without a list of failures.
+The boot and the suite need KVM and an hour, so CI's `node-conformance` job is the live
+check.
+
+Next: `test/k8s.sh` with `tools/k8s-demo.sh`; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`
 and `k8s-demo.sh`. Whether the tests become pytest functions sharing a booted machine
 is decided when there are enough of them to share one.

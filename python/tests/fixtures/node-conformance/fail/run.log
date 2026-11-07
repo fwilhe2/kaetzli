@@ -1,0 +1,22 @@
+Running Suite: E2eNode Suite - /var/lib/node-e2e
+Will run 112 of 791 specs
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+------------------------------
+• [FAILED] [62.013 seconds]
+[sig-node] Container Runtime blackbox test when running a container with a new image should be able to pull from private registry with secret [NodeConformance]
+  Ran 1 of 2
+------------------------------
+
+Summarizing 2 Failures:
+  [FAIL] [sig-node] Container Runtime blackbox test when running a container with a new image should be able to pull from private registry with secret [NodeConformance]
+  k8s.io/kubernetes/test/e2e/common/node/runtime.go:381
+  [TIMEDOUT] [sig-node] Probing container should be restarted with a GRPC liveness probe [NodeConformance]
+  k8s.io/kubernetes/test/e2e/common/node/container_probe.go:543
+
+Ran 112 of 791 Specs in 1501.002 seconds
+FAIL! -- 110 Passed | 2 Failed | 0 Pending | 679 Skipped
+
+
+Ginkgo ran 1 suite in 25m8.1s
+
+Test Suite Failed

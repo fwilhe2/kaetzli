@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Kubernetes' node e2e suite for test/node-conformance.sh: e2e_node.test and the
+# Build Kubernetes' node e2e suite for test/node-conformance.py: e2e_node.test and the
 # ginkgo runner that drives it in parallel, from the tarball packages/kubernetes pins, so
 # the tests are the ones written for the kubelet the extension ships.
 #

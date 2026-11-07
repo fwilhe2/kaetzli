@@ -1,0 +1,4 @@
+
+>> node conformance on amd64: Ran 112 of 791 Specs in 1442.311 seconds
+   SUCCESS! -- 112 Passed | 0 Failed | 0 Pending | 679 Skipped
+>> node conformance OK

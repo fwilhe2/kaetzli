@@ -78,7 +78,7 @@ jobs:
               # what the image is made of (any package, the builder, the assembly and
               # /etc) or to the test itself.
               if [ "$count" -gt 0 ] && [ "$count" -lt 300 ] &&
-                 ! printf '%s\n' "$files" | grep -qE '^(packages/|builder/|image/|test/node-conformance\.sh$|test/qemu-lib\.sh$|tools/build-node-e2e\.sh$|\.github/workflows/ci\.yml$)'; then
+                 ! printf '%s\n' "$files" | grep -qE '^(packages/|builder/|image/|test/node-conformance\.py$|python/src/kaetzli/(qemu/|boot/node_conformance\.py$)|python/requirements\.txt$|tools/build-node-e2e\.sh$|\.github/workflows/ci\.yml$)'; then
                 node_conformance=false
               fi
             fi
@@ -885,7 +885,7 @@ jobs:
           path: output/*.log
           if-no-files-found: ignore
 
-  # Kubernetes node conformance (test/node-conformance.sh): upstream's node e2e suite,
+  # Kubernetes node conformance (test/node-conformance.py): upstream's node e2e suite,
   # [NodeConformance] specs, on one node with the kubernetes extension. Like k8s, it needs
   # KVM (it skips without) and registry.k8s.io, so nothing waits on it. Failed specs are
   # annotations and in the job summary; the suite's output and results are an artifact.
@@ -920,6 +920,7 @@ jobs:
 
       - run: tar xf artifacts/kernel.tar
 
+      - *setup-python
       - name: Install qemu, and open /dev/kvm to the runner user
         run: |
           sudo apt-get update
@@ -944,7 +945,7 @@ jobs:
           key: node-e2e-${{ matrix.arch }}-${{ hashFiles('packages/kubernetes/env.sh', 'tools/build-node-e2e.sh') }}
 
       - name: Check node conformance
-        run: ./test/node-conformance.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/node-conformance.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Save the node e2e suite
         if: always() && steps.suite.outputs.cache-hit != 'true' && hashFiles(format('output/node-e2e/{0}/VERSION', matrix.arch)) != ''
