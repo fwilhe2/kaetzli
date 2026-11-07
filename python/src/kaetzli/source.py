@@ -1,6 +1,6 @@
 """The complete corresponding source of a build, in one directory, for whoever asks.
 
-    tools/corresponding-source.py [REV] [--out DIR]
+    tools/corresponding-source.py [REV] [--out DIR] [--tar FILE]
 
 REV is the commit an image was built from: a release name (each snapshot is a tag), a
 commit (an image's BUILD_ID in /etc/os-release, its OCI label
@@ -20,6 +20,9 @@ The sources image is the one tools/image-tags.sh names *at that commit* (its tag
 hash of the commit's pins), pulled over the registry's HTTP API, so nothing but git and
 python is needed. Nothing is kept unless every tarball matches the commit's pinned
 SHA-256 and every patch directory the commit's own.
+
+--tar FILE packs that directory into one reproducible tar instead (pack()): what the
+release job uploads to every snapshot as kaetzli-source.tar.
 """
 
 from __future__ import annotations
@@ -214,6 +217,30 @@ def verify(tree: Path, sources: Path) -> list[str]:
     return problems
 
 
+# --- one file ---------------------------------------------------------------------------
+
+
+def pack(d: Path, tar: Path) -> None:
+    """d as one uncompressed tar (what is in it is compressed already), every entry under
+    kaetzli-source-<d's name>/, sorted, owned by root and dated SOURCE_DATE_EPOCH, so the
+    same source is the same bytes."""
+    top = f"kaetzli-source-{d.name}"
+
+    def norm(info: tarfile.TarInfo) -> tarfile.TarInfo:
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mtime = repo.SOURCE_DATE_EPOCH
+        info.mode = 0o755 if info.isdir() or info.mode & 0o111 else 0o644
+        return info
+
+    tar.parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(tar, "w", format=tarfile.PAX_FORMAT) as t:
+        t.add(d, arcname=top, recursive=False, filter=norm)
+        for p in sorted(d.rglob("*"), key=lambda p: p.relative_to(d).as_posix()):
+            t.add(p, arcname=f"{top}/{p.relative_to(d).as_posix()}", recursive=False,
+                  filter=norm)  # fmt: skip
+
+
 # --- the run ----------------------------------------------------------------------------
 
 README = """\
@@ -272,7 +299,9 @@ def _sha256sums(d: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def run(rev: str, out: Path, root: Path = repo.ROOT, http: Http = urllib_http) -> int:
+def run(
+    rev: str, out: Path, root: Path = repo.ROOT, http: Http = urllib_http, tar: Path | None = None
+) -> int:
     sha = _resolve(root, rev)
     if not sha:
         print(f"error: git knows no commit {rev!r} (a release name, a commit or a ref)",
@@ -313,6 +342,10 @@ def run(rev: str, out: Path, root: Path = repo.ROOT, http: Http = urllib_http) -
         return 1
     finally:
         shutil.rmtree(work, ignore_errors=True)
+    if tar:
+        pack(final, tar)
+        shutil.rmtree(final)
+        final = tar
     print(f">> the corresponding source of {sha} is in {final}")
     return 0
 
@@ -323,10 +356,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("rev", nargs="?", default="HEAD", help="release name, commit or ref")
     ap.add_argument("--out", type=Path, help="default output/source in the checkout")
+    ap.add_argument("--tar", type=Path, help="pack it into this one file instead (a release's)")
     a = ap.parse_args(argv)
     out = a.out.resolve() if a.out else repo.ROOT / "output" / "source"
+    tar = a.tar.resolve() if a.tar else None
     repo.enter_root()
-    return run(a.rev, out)
+    return run(a.rev, out, tar=tar)
 
 
 if __name__ == "__main__":

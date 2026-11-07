@@ -220,3 +220,32 @@ def test_run_refuses_a_revision_git_does_not_know(tmp_path, capsys):
     root, _ = git_repo(tmp_path)
     assert source.run("nosuchrev", tmp_path / "o", root, Registry(layer({}))) == 1
     assert "nosuchrev" in capsys.readouterr().err
+
+
+# --- one file, for a release page --------------------------------------------------------
+
+
+def test_pack_is_one_reproducible_tar_under_the_commits_name(tmp_path):
+    d = tmp_path / "abc"
+    (d / "sources").mkdir(parents=True)
+    (d / "sources" / "a-1.tar.gz").write_bytes(TARBALL)
+    (d / "README.txt").write_text("r")
+    source.pack(d, tmp_path / "one.tar")
+    (d / "README.txt").touch()  # a newer mtime must not change the bytes
+    source.pack(d, tmp_path / "two.tar")
+    assert (tmp_path / "one.tar").read_bytes() == (tmp_path / "two.tar").read_bytes()
+    with tarfile.open(tmp_path / "one.tar") as t:
+        names = t.getnames()
+        assert names == sorted(names)
+        assert "kaetzli-source-abc/sources/a-1.tar.gz" in names
+        assert {(m.uid, m.gid, m.uname, m.mtime) for m in t} == {(0, 0, "", repo.SOURCE_DATE_EPOCH)}
+
+
+def test_run_with_tar_leaves_only_the_tar(tmp_path):
+    root, head = git_repo(tmp_path)
+    reg = Registry(layer({"sources/a-1.tar.gz": TARBALL, "sources/patches/a/fix.patch": PATCH}))
+    out, tar = tmp_path / "result", tmp_path / "result" / "kaetzli-source.tar"
+    assert source.run("HEAD", out, root, reg, tar=tar) == 0
+    assert sorted(p.name for p in out.iterdir()) == ["kaetzli-source.tar"]
+    with tarfile.open(tar) as t:
+        assert f"kaetzli-source-{head}/SHA256SUMS" in t.getnames()

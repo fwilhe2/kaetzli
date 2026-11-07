@@ -72,6 +72,10 @@ ARCHES = ("amd64", "arm64")
 # so the README's install line works unchanged. The release job builds it into
 # <artifacts>/launcher/.
 LAUNCHERS = ("kaetzli-linux-x86_64", "kaetzli-linux-aarch64")
+# The corresponding source (tools/corresponding-source.py --tar), which the release job
+# writes to <artifacts>/source/ before publishing.
+SOURCE = "kaetzli-source.tar"
+ASSET_MAX = 2 * 2**30  # GitHub's limit for one release asset
 NAME = re.compile(r"^[0-9]{8}\.[0-9]{6}-[1-9][0-9]*$")
 # What ci.yml's `changes` job skips the build for: docs/** and the root *.md. The two
 # have to agree, or a commit is either released twice or never.
@@ -378,6 +382,21 @@ def collect_launcher(artifacts: Path, out: Path) -> Collected:
     return got
 
 
+def collect_source(artifacts: Path, out: Path) -> Collected:
+    """The corresponding source, one tar, from <artifacts>/source/ into out/."""
+    out.mkdir(parents=True, exist_ok=True)
+    got = Collected()
+    src = artifacts / "source" / SOURCE
+    if not src.is_file() or src.is_symlink():
+        got.problems.append(f"no source/{SOURCE} (tools/corresponding-source.py --tar)")
+    elif (size := src.stat().st_size) > ASSET_MAX:
+        got.problems.append(f"{SOURCE} is {size / 2**30:.1f} GiB, over GitHub's 2 GiB per asset")
+    else:
+        _place(src, out / SOURCE)
+        got.assets.append(Asset(SOURCE, out / SOURCE))
+    return got
+
+
 def sha256sums(assets: list[Asset]) -> str:
     lines = []
     for a in sorted(assets, key=lambda a: a.name):
@@ -535,8 +554,8 @@ def notes(
         "",
         "The sources image holds every pinned tarball and patch the build used, which is "
         "the corresponding source for the copyleft packages in these images. "
-        f"`tools/corresponding-source.py {name}` downloads it with the repository at that "
-        "commit, verified against its pins.",
+        f"`{SOURCE}` is that source with the repository at this commit, verified against "
+        f"its pins, in one file; `tools/corresponding-source.py {name}` makes it again.",
         "",
         "## Vulnerabilities",
         "",
@@ -693,9 +712,9 @@ def publish(
             missing_workbooks.append(arch)
         if got.cve_db:
             cve_db[arch] = got.cve_db
-    launcher = collect_launcher(o.artifacts, o.out)
-    assets += launcher.assets
-    problems += launcher.problems
+    for got in (collect_launcher(o.artifacts, o.out), collect_source(o.artifacts, o.out)):
+        assets += got.assets
+        problems += got.problems
     imgs = images()
     problems += [f"no digest for {ref}" for _, ref, digest in imgs if not digest]
 

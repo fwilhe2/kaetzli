@@ -390,11 +390,38 @@ def test_a_missing_launcher_binary_is_a_problem(tmp_path):
     assert any("kaetzli-linux-aarch64" in p for p in got.problems)
 
 
+def source_tar(artifacts: Path) -> Path:
+    d = artifacts / "source"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / release.SOURCE).write_bytes(b"the corresponding source")
+    return d / release.SOURCE
+
+
+def test_collect_source_takes_the_one_tar(tmp_path):
+    source_tar(tmp_path / "artifacts")
+    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
+    assert got.problems == []
+    assert got.assets == [release.Asset(release.SOURCE, tmp_path / "out" / release.SOURCE)]
+
+
+def test_a_missing_source_tar_is_a_problem(tmp_path):
+    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
+    assert got.problems == [f"no source/{release.SOURCE} (tools/corresponding-source.py --tar)"]
+
+
+def test_a_source_tar_over_githubs_asset_limit_is_a_problem(tmp_path, monkeypatch):
+    source_tar(tmp_path / "artifacts")
+    monkeypatch.setattr(release, "ASSET_MAX", 4)
+    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
+    assert got.assets == [] and "over GitHub's" in got.problems[0]
+
+
 @pytest.fixture
 def both_arches(tmp_path):
     for arch in release.ARCHES:
         artifacts(tmp_path / "artifacts", arch)
     launchers(tmp_path / "artifacts")
+    source_tar(tmp_path / "artifacts")
     return tmp_path
 
 
@@ -424,6 +451,7 @@ def test_dry_run_writes_nothing_and_leaves_the_release_on_disk(both_arches):
     assert (out / "SHA256SUMS").is_file() and (out / "notes.md").is_file()
     listed = [line.split()[1] for line in (out / "SHA256SUMS").read_text().splitlines()]
     assert "rootfs-amd64.erofs" in listed and "rootfs-arm64.erofs" in listed
+    assert release.SOURCE in listed
 
 
 def test_dry_run_of_a_skipped_commit_still_collects_and_succeeds(both_arches):

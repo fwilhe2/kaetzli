@@ -76,6 +76,7 @@ the same from one snapshot to the next.
 | `sbom-ext-<ext>-<arch>.json` | SPDX 2.3 for each extension. |
 | `vex-<arch>.json` | OpenVEX for the CVEs our patches fix, so a scanner that reads the SBOM does not report them open. One per arch, merged from every SBOM's `fix` references by the release job itself; absent when no patch fixes a CVE. |
 | `cve-<arch>.ods` | The CVE workbook (`test/cve-workbook.sh`): findings by severity, vulnerability and package, patched ones marked. A scan as of publication, with the grype database date in the notes. |
+| `kaetzli-source.tar` | The complete corresponding source, for both arches: the repository at the commit and the sources image (every upstream tarball and patch), verified against the pins, with a README. `tools/corresponding-source.py --tar`, run by the release job; one reproducible tar, under GitHub's 2 GiB per asset. |
 | `SHA256SUMS` | Every other asset, for both arches, in `sha256sum -c` format. |
 
 All listed assets are required for both architectures except `cve-<arch>.ods`, which is
