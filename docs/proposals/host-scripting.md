@@ -6,7 +6,7 @@ has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
 `test/persistent-var.py`, `test/sysext.py`, `test/verity.py`, `test/debug.py`,
-`test/vmm.py` and `test/node-conformance.py`. CLAUDE.md (*Host-side code*)
+`test/vmm.py`, `test/node-conformance.py` and `test/k8s.py` with `tools/k8s-demo.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -291,9 +291,20 @@ four ginkgo logs: passed, failed, unfinished, and an exit without a list of fail
 The boot and the suite need KVM and an hour, so CI's `node-conformance` job is the live
 check.
 
-Next: `test/k8s.sh` with `tools/k8s-demo.sh`; then `tools/boot-qemu.sh` takes its command line from
-`kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`
-and `k8s-demo.sh`. Whether the tests become pytest functions sharing a booted machine
+`tools/k8s-demo.sh` is `tools/k8s-demo.py` (`kaetzli.k8s_demo`), its subcommands as
+before, the router and nodes built from `kaetzli.qemu`'s `Machine`; `test/k8s.sh` is
+`test/k8s.py`, which calls `up` and `ps` in-process rather than through the script. Its
+golden is what the bash version's `boot_router` and `boot_node` gave a recording qemu
+(`tests/fixtures/qemu/record_qemu.py`) for two nodes: every argv, the ssh_config and what
+booting prints. Running in-process found one thing the bash could not have: the qemus
+are the test's own children, so one that exits is a zombie `kill -0` still finds, and
+`down` waited for it forever; `alive` reaps it first. The cluster itself (kubeadm,
+flannel, the demo) is checked live, by CI's `k8s` job and a local two-node run.
+
+Next: `tools/boot-qemu.sh` takes its command line from `kaetzli.qemu` (`boot-vz.sh`
+keeps what it needs of the bash, for macOS). `tools/vm.sh` is not ported: it becomes a
+wrapper around the Go launcher once that has its remaining commands
+([launcher.md](launcher.md)), and until then it keeps the bash harness alive. Whether the tests become pytest functions sharing a booted machine
 is decided when there are enough of them to share one.
 
 Dependencies: `pexpect` (and `ptyprocess` through it), `pytest`.

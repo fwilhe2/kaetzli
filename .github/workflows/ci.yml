@@ -830,7 +830,7 @@ jobs:
           GRYPE_PINNED: 1
         run: ./test/cve-history.py ${{ matrix.arch }}
 
-  # A three-node kubeadm cluster (test/k8s.sh). Its own job because it needs KVM (it
+  # A three-node kubeadm cluster (test/k8s.py). Its own job because it needs KVM (it
   # skips without), and nothing waits on it, since it depends on registry.k8s.io.
   k8s:
     runs-on: *runner
@@ -859,6 +859,7 @@ jobs:
 
       - run: tar xf artifacts/kernel.tar
 
+      - *setup-python
       - name: Install qemu, and open /dev/kvm to the runner user
         run: |
           sudo apt-get update
@@ -875,7 +876,7 @@ jobs:
           fi
 
       - name: Check a Kubernetes cluster
-        run: ./test/k8s.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/k8s.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Upload console logs
         if: always()

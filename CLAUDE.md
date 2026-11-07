@@ -102,7 +102,7 @@ policy checks are done).
   wrappers, scripts inside the assembly image. `tools/boot-vz.sh` and what it sources: bash 3.2
   and BSD tools (macOS).
 - **Python** for the rest — parsing JSON or tool output, HTTP/GitHub, versions, joins, reports,
-  CLIs with subcommands and state (`vm.sh`, `k8s-demo.sh`). The default for new host code.
+  CLIs with subcommands and state (`vm.sh`, `k8s-demo.py`). The default for new host code.
 - **Go** only where a static binary is the point (no Python there). The launcher: stdlib only,
   built by `tools/build-launcher.sh` in the golang container `go/go.mod` names; its qemu
   command line is a third copy of the harness's, held equal by `python/tests/test_launcher.py`.
@@ -185,7 +185,7 @@ policy checks are done).
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
-./test/k8s.sh $BOOT             # 3-node kubeadm via tools/k8s-demo.sh (KVM; skips without)
+./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
@@ -208,7 +208,7 @@ policy checks are done).
 ./tools/ssh.sh [--root] [cmd...]      # passwordless ssh into any of those
 ./tools/vm.sh start|ssh|stop|list|run|console|update|snapshot [name]  # named machines keeping /var
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
-./tools/k8s-demo.sh up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
+./tools/k8s-demo.py up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
 ./tools/build-launcher.sh [OUT] [VERSION]
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
@@ -398,8 +398,9 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
 `test/qemu-lib.sh`**, also sourced by `tools/boot-qemu.sh`. Its Python twin `kaetzli.qemu`
-(pexpect) runs every boot test but `k8s.sh`, which migrates next with `tools/k8s-demo.sh`
-(host-scripting.md item 7). Until then a change to one is a change to both;
+(pexpect) runs every boot test and `tools/k8s-demo.py`; the bash harness remains for
+`tools/vm.sh` and the `boot-*.sh` wrappers (host-scripting.md item 7). Until they move, a
+change to one is a change to both;
 `python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
 **Every console is held to `CONSOLE_BAD`** (warnings, oopses, segfaults, emergency mode);
 deliberate ones go in `CONSOLE_BAD_EXEMPT`. `QEMU_PROFILE=microvm|vz` gives Firecracker's or

@@ -33,9 +33,12 @@ src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the 
                      line) and console (the running guest, on pexpect)
 src/kaetzli/boot/    the boot tests that use it: smoke (test/boot.py), systemd,
                      network, listeners, ssh, container, podman, rootless,
-                     persistent_var, sysext, verity, debug, vmm, node_conformance;
-                     their goldens are tests/fixtures/<test>/;
+                     persistent_var, sysext, verity, debug, vmm, node_conformance,
+                     k8s; their goldens are tests/fixtures/<test>/;
                      timing, the boot time systemd records (boot-time-history)
+src/kaetzli/k8s_demo.py
+                     tools/k8s-demo.py: a multi-node kubeadm cluster of guests, up,
+                     ps, kubectl, ssh, down
 src/kaetzli/release.py
                      tools/release.py: a green main build as a GitHub release, or
                      --dry-run, and the snapshot name the image is assembled with

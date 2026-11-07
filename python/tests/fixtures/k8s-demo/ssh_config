@@ -1,0 +1,30 @@
+Host k8s-router
+    HostName 127.0.0.1
+    Port 2299
+    User root
+    IdentityFile <tmp>/state/ssh/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+Host k8s-1
+    HostName 10.0.0.11
+    ProxyJump k8s-router
+    User root
+    IdentityFile <tmp>/state/ssh/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+Host k8s-2
+    HostName 10.0.0.12
+    ProxyJump k8s-router
+    User root
+    IdentityFile <tmp>/state/ssh/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR

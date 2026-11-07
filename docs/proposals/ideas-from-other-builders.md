@@ -267,7 +267,7 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    failed to apply looks the same as one that worked.
 
 **Verification:** `test/systemd.py`, `test/rootless.py`, `test/podman.py`, `test/debug.py`
-and `test/k8s.sh` all pass. `test/debug.py` is the one most likely to notice.
+and `test/k8s.py` all pass. `test/debug.py` is the one most likely to notice.
 
 ## 6. Limits that containers and Kubernetes need
 
@@ -313,7 +313,7 @@ to start. With no `kernel.panic`, a panicked node hangs forever instead of reboo
 3. Mention the file in the `ip_forward` neighbourhood of `CLAUDE.md` only if it turns out
    to have a pitfall; otherwise the comments in the file are enough.
 
-**Verification:** `test/systemd.py`, `test/k8s.sh`, `test/node-conformance.py`. Confirm
+**Verification:** `test/systemd.py`, `test/k8s.py`, `test/node-conformance.py`. Confirm
 `kernel.panic` does not change how the `QEMU_DIED` tests report a panic.
 
 ## 7. An SBOM that vulnerability scanners can match

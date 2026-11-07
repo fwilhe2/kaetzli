@@ -47,7 +47,7 @@ that is needed:
   kiosk's sysext and confext, and any per-deployment confext, are always attached disks,
   never files on `/var`. Settings that do not justify a confext come in as credentials.
 - **"Where it lives" mostly answers itself.** It is one more extension in this
-  repository, with its own `test/kiosk.sh`, just as `kubernetes` has `test/k8s.sh`.
+  repository, with its own `test/kiosk.sh`, just as `kubernetes` has `test/k8s.py`.
 
 **What it requires:**
 
