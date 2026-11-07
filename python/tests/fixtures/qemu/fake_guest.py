@@ -33,7 +33,8 @@ def shell(prompt: str = "bash-5.3# ") -> None:
 
 def systemd(responses: list[list[str]]) -> None:
     """A getty, then a shell that answers each command with the first response whose
-    needle is in it, and echoes what is typed until `stty -echo`."""
+    needle is in it, and echoes what is typed until `stty -echo`. A response with a third
+    element, "exit", ends the guest after its answer, as a power-off does."""
     out("Welcome to Kaetzli!\n\nkaetzli login: ")
     next(lines())
     echo = True
@@ -45,9 +46,11 @@ def systemd(responses: list[list[str]]) -> None:
         elif line == "echo SHELL-IS'-UP'":
             out("SHELL-IS-UP\n")
         else:
-            for needle, answer in responses:
+            for needle, answer, *then in responses:
                 if needle in line:
                     out(answer)
+                    if then == ["exit"]:
+                        sys.exit(0)
                     break
 
 

@@ -180,7 +180,7 @@ policy checks are done).
 ./test/container.py $BOOT       # crun
 ./test/podman.py $BOOT          # seccomp, networking, Quadlet
 ./test/rootless.py $BOOT        # podman as `user`: ID maps, pasta
-./test/persistent-var.sh $BOOT  # /var disk survives two boots
+./test/persistent-var.py $BOOT  # /var disk survives two boots
 ./test/sysext.sh $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.sh $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.sh $BOOT          # tampered image refused
@@ -398,7 +398,7 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
 `test/qemu-lib.sh`**, also sourced by `tools/boot-qemu.sh`. Its Python twin `kaetzli.qemu`
-(pexpect) runs `boot.py`, `systemd.py`, `network.py`, `listeners.py`, `ssh.py`, `container.py`, `podman.py`, `rootless.py`; others migrate one by one
+(pexpect) runs `boot.py`, `systemd.py`, `network.py`, `listeners.py`, `ssh.py`, `container.py`, `podman.py`, `rootless.py`, `persistent-var.py`; others migrate one by one
 (host-scripting.md item 7). Until then a change to one is a change to both;
 `python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
 **Every console is held to `CONSOLE_BAD`** (warnings, oopses, segfaults, emergency mode);
