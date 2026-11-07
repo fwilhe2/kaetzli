@@ -3,7 +3,8 @@
 **Status: proposal, partly implemented.** Implemented: items 1 to 5, the CVE reports,
 the SBOM, the size reports, the library checks and the policy checks, and item 6. Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
-`test/systemd.py`, `test/network.py`, `test/listeners.py` and `test/ssh.py`. CLAUDE.md (*Host-side code*)
+`test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py` and
+`test/container.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -226,6 +227,12 @@ logins still go through `tools/ssh.sh`. Its golden adds a fake ssh client
 no daemon, no login inside, the host refused, a root login without a session, `user`
 without its runtime directory. On a local image it agrees, with PREBUILT too, in ten
 seconds where bash took 22.
+
+`test/container.sh` is `test/container.py`: the commands it types at the guest are the
+bash version's to the byte (the bundle is still patched with bash's own `${c/…/…}` in
+the guest, which has no jq). Its golden is five guests (clean, no memory controller, a
+bundle that fails, a container that is not isolated, a panic); on a local image it
+agrees in 11 seconds where bash took 20.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

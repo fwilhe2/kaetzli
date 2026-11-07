@@ -20,10 +20,16 @@ from pathlib import Path
 
 import pytest
 
-from kaetzli.boot import listeners, network, ssh, systemd
+from kaetzli.boot import container, listeners, network, ssh, systemd
 from kaetzli.qemu import console, machine
 
-TESTS = {"systemd": systemd, "network": network, "listeners": listeners, "ssh": ssh}
+TESTS = {
+    "systemd": systemd,
+    "network": network,
+    "listeners": listeners,
+    "ssh": ssh,
+    "container": container,
+}
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
 FAKE_SSH = FIXTURES / "qemu" / "fake_ssh.py"

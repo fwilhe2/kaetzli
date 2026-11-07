@@ -7,7 +7,7 @@ What it requires, and why, is test/kernel-caps.txt; that file says how this diff
 the check in packages/kernel/build.sh.
 
 It runs in the `rootfs` CI job, next to check-rootfs-deps.py, because it needs nothing
-but the staged tree — no boot, no qemu. test/container.sh is the other half: it boots
+but the staged tree — no boot, no qemu. test/container.py is the other half: it boots
 the thing and starts a real container. Both are worth having, and this one says *which*
 capability is missing rather than "crun exited 1".
 """

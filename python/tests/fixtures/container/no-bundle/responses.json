@@ -1,0 +1,22 @@
+[
+ [
+  "crun list",
+  "NAME PID STATUS\n--- cgroup ---\ncpuset cpu io memory pids\n"
+ ],
+ [
+  "echo \"controllers",
+  "controllers: cpuset cpu io memory pids\nCGROUP2-OK\n"
+ ],
+ [
+  "crun --version",
+  "crun version 1.24\n--- features ---\n{\"ociVersionMin\": \"1.0.0\"}\n"
+ ],
+ [
+  "crun spec",
+  "mount: /run/ct/rootfs: permission denied.\n"
+ ],
+ [
+  "crun run ct-smoke",
+  "ctr-pid=1\nctr-host=crun\nCONTAINER-OK\ncrun exit: 0\n"
+ ]
+]
