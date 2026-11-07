@@ -5,7 +5,7 @@ the SBOM, the size reports, the library checks and the policy checks, and item 6
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
 `test/container.py`, `test/podman.py`, `test/rootless.py`,
-`test/persistent-var.py` and `test/sysext.py`. CLAUDE.md (*Host-side code*)
+`test/persistent-var.py`, `test/sysext.py` and `test/verity.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -261,6 +261,12 @@ worktree with the same stand-ins; the tampered boot's report comes from a fake q
 response printed at boot when the command line names the image. Four guests: clean, not
 merged, a panic, a tampered image read without objection. On a local image it agrees;
 building the extensions is most of its minute either way.
+
+`test/verity.sh` is `test/verity.py`: byte 0 of a copy flipped, the original's kernel
+arguments, and one wait for a shell, a death or the deadline. Its golden is four guests
+(refused, a shell, a panic without verity's report, nothing at all), the fixture image
+now 4 KiB of zeroes so there is a byte to flip; on a local image it agrees but for the
+kernel's timestamps.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

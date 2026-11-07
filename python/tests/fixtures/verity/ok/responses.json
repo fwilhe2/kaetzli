@@ -1,0 +1,6 @@
+[
+ [
+  "@boot:verity-tampered.erofs",
+  "[    1.000000] device-mapper: verity: 254:0: data block 0 is corrupted\n[    1.100000] VFS: Cannot open root device \"dm-0\" or unknown-block(254,0): error -5\n[    1.100001] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,0)\n[    1.100002] Call Trace:\n"
+ ]
+]

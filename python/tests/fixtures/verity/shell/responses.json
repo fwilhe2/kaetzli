@@ -1,0 +1,6 @@
+[
+ [
+  "@boot:verity-tampered.erofs",
+  "bash-5.3# "
+ ]
+]

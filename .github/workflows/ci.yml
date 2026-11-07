@@ -686,7 +686,7 @@ jobs:
         run: ./test/boot.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check that dm-verity refuses a tampered image
-        run: ./test/verity.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/verity.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check for failed units, and say hello
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage

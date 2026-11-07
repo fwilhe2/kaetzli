@@ -1,0 +1,6 @@
+>> flipped byte 0 of a copy of <tmp>/img/rootfs.erofs (0 -> 255)
+>> booting <tmp>/verity-tampered.erofs with <tmp>/img/bzImage (init=/bin/bash), waiting up to 30s
+>> verity OK: the tampered image was refused
+   [    1.000000] device-mapper: verity: 254:0: data block 0 is corrupted
+   [    1.100000] VFS: Cannot open root device "dm-0" or unknown-block(254,0): error -5
+   [    1.100001] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(254,0)
