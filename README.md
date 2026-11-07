@@ -197,6 +197,14 @@ it requires, for example:
 ./test/podman.py output/rootfs.erofs rootfs/boot/bzImage
 ```
 
+The complete source of any build, for a GPL source request, is one command: the
+repository at that commit plus every upstream tarball and patch from its sources image,
+each checked against the commit's pins, in `output/source/<commit>/`:
+
+```sh
+./tools/corresponding-source.py 20261107.094545-751   # a release name, or a commit (BUILD_ID)
+```
+
 Every build on main signs what it publishes: the OCI images get a SLSA provenance and
 their SBOM, and each boot bundle file gets a provenance (disk image, command line,
 kernel, extensions). To check that a file or image came from this repository's CI and

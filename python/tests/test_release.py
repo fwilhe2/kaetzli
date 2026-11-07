@@ -305,6 +305,7 @@ def test_notes_carry_the_notice_provenance_and_boot_instructions():
     assert text.startswith("> Rolling snapshot.")
     assert A in text and "actions/runs/7" in text
     assert "sources@sha256:" + "e" * 64 in text.replace("ghcr.io/x/", "")
+    assert "tools/corresponding-source.py 20261103.141205-42" in text
     assert "releases/latest/download/rootfs-amd64.erofs" in text
     assert "cve-arm64.ods" in text  # the missing workbook is said
     assert "20261101.000000-41" in text

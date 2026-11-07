@@ -534,7 +534,9 @@ def notes(
     lines += [
         "",
         "The sources image holds every pinned tarball and patch the build used, which is "
-        "the corresponding source for the copyleft packages in these images.",
+        "the corresponding source for the copyleft packages in these images. "
+        f"`tools/corresponding-source.py {name}` downloads it with the repository at that "
+        "commit, verified against its pins.",
         "",
         "## Vulnerabilities",
         "",
