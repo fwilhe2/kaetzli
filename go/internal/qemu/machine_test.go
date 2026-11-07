@@ -62,3 +62,17 @@ func TestAMissingExtensionIsAnError(t *testing.T) {
 		t.Fatal("no error for a missing extension")
 	}
 }
+
+func TestPanickedSeesAKernelThatGaveUp(t *testing.T) {
+	for _, log := range []string{
+		"[    0.746561] ---[ end Kernel panic - not syncing: VFS: Unable to mount root fs ]---",
+		"[    1.2] Attempted to kill init! exitcode=0x00000100",
+	} {
+		if !Panicked([]byte(log)) {
+			t.Errorf("Panicked(%q) = false", log)
+		}
+	}
+	if Panicked([]byte("kaetzli login: root\nWelcome")) {
+		t.Error("a healthy console is not a panic")
+	}
+}
