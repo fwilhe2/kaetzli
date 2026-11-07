@@ -1,0 +1,6 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as user
+>> logged in as user, checking the ID-map helpers
+>> helpers OK: newuidmap cap_setuid, newgidmap cap_setgid, as uid 1000
+>> podman OK: true/crun/overlay
+>> running a rootless container

@@ -1,0 +1,22 @@
+[
+ [
+  "id; getcap",
+  "uid=1000(user) gid=1000(user)\n"
+ ],
+ [
+  "podman info --format",
+  "ROOTLESS-INFO:true/crun/overlay\n"
+ ],
+ [
+  "podman import",
+  "ROOTLESS-IMPORT-OK\n"
+ ],
+ [
+  "/proc/self/uid_map",
+  "map: 0 1000 1\nmap: 1 100000 65536\nROOTLESS-MAP-OK\n"
+ ],
+ [
+  "-p 8080:80",
+  "93.184.215.14   example.com\nROOTLESS-NET-OK\n"
+ ]
+]

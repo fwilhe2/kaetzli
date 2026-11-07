@@ -246,7 +246,7 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    `rootfs/boot/config` and add it to the kernel fragments if missing, or drop the line.
 2. Deliberate differences from Talos, each worth a comment in the file:
    - `user.max_user_namespaces = 0` (Talos) is **not** set: rootless podman and
-     `test/rootless.sh` need user namespaces (project constraint 3).
+     `test/rootless.py` need user namespaces (project constraint 3).
    - `kernel.kptr_restrict = 1` rather than Talos's `2`: at `2` even root sees zeroed
      addresses in `/proc/kallsyms`, which can break `perf probe` in `test/debug.sh`.
      Try `2` and keep it only if `test/debug.sh` passes.
@@ -266,7 +266,7 @@ command line from `rootfs.cmdline` and `test/qemu-lib.sh` carries no hardening a
    values back with `sysctl -n` in the guest, because a shipped file that systemd-sysctl
    failed to apply looks the same as one that worked.
 
-**Verification:** `test/systemd.py`, `test/rootless.sh`, `test/podman.py`, `test/debug.sh`
+**Verification:** `test/systemd.py`, `test/rootless.py`, `test/podman.py`, `test/debug.sh`
 and `test/k8s.sh` all pass. `test/debug.sh` is the one most likely to notice.
 
 ## 6. Limits that containers and Kubernetes need

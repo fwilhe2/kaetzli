@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from kaetzli.boot import container, listeners, network, podman, ssh, systemd
+from kaetzli.boot import container, listeners, network, podman, rootless, ssh, systemd
 from kaetzli.qemu import console, machine
 
 TESTS = {
@@ -30,6 +30,7 @@ TESTS = {
     "ssh": ssh,
     "container": container,
     "podman": podman,
+    "rootless": rootless,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"

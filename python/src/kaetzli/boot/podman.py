@@ -101,17 +101,22 @@ def step(guest: Guest, command: str, marker: str, failure: str) -> None:
         guest.fail(failure)
 
 
-def check(guest: Guest) -> None:
-    print(">> logged in, asking podman what it is built on", flush=True)
+def answer(guest: Guest, command: str, marker: str, failure: str) -> str:
+    """Type `command`, which prints `marker` and a word after it, and return the word."""
     guest.mark()
-    guest.send(INFO_CHECK)
-    if not guest.wait("PODMAN-INFO:[a-z]", 120):
-        guest.fail("podman info did not answer")
-    # The rest of the answer, to the end of its line: the match took its first letter.
+    guest.send(command)
+    if not guest.wait(f"{marker}[a-z]", 120):
+        guest.fail(failure)
+    # The rest of the word, to the end of its line: the match took its first letter.
     first = guest.group(0)[-1]
     if not guest.wait(r"(\S*)\r?\n", 10):
-        guest.fail("podman info did not answer")
-    info = first + guest.group(1)
+        guest.fail(failure)
+    return first + guest.group(1)
+
+
+def check(guest: Guest) -> None:
+    print(">> logged in, asking podman what it is built on", flush=True)
+    info = answer(guest, INFO_CHECK, "PODMAN-INFO:", "podman info did not answer")
     if info != WANT_INFO:
         guest.fail(
             f"podman reports runtime/network/seccomp/storage as '{info}', expected {WANT_INFO}"
