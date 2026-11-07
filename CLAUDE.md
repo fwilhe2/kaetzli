@@ -186,7 +186,7 @@ policy checks are done).
 ./test/verity.py $BOOT          # tampered image refused
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.sh $BOOT             # 3-node kubeadm via tools/k8s-demo.sh (KVM; skips without)
-./test/node-conformance.sh $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
+./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
 ./test/reproducible.sh <pkg>...       # build twice from clean worktrees (AGAINST_RUN=<id>: vs CI)
@@ -398,7 +398,7 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
 `test/qemu-lib.sh`**, also sourced by `tools/boot-qemu.sh`. Its Python twin `kaetzli.qemu`
-(pexpect) runs every boot test but `k8s.sh` and `node-conformance.sh`, which migrate next
+(pexpect) runs every boot test but `k8s.sh`, which migrates next with `tools/k8s-demo.sh`
 (host-scripting.md item 7). Until then a change to one is a change to both;
 `python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
 **Every console is held to `CONSOLE_BAD`** (warnings, oopses, segfaults, emergency mode);

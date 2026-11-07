@@ -1,0 +1,6 @@
+
+>> node conformance on amd64: Ran 112 of 791 Specs in 1501.002 seconds
+   FAIL! -- 110 Passed | 2 Failed | 0 Pending | 679 Skipped
+   failed:
+     [FAIL] [sig-node] Container Runtime blackbox test when running a container with a new image should be able to pull from private registry with secret [NodeConformance]
+     [TIMEDOUT] [sig-node] Probing container should be restarted with a GRPC liveness probe [NodeConformance]
