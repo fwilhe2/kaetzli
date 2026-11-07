@@ -99,8 +99,26 @@ if [ -n "${KAETZLI_VERSION:-}" ]; then
 fi
 
 if [ -n "${KAETZLI_BUILD:-}" ]; then
+    # Also the OCI revision label, written into JSON as it is: a commit or `local`.
+    case "$KAETZLI_BUILD" in
+        *[!0-9A-Za-z._-]*) echo "error: KAETZLI_BUILD=$KAETZLI_BUILD is not a commit" >&2; exit 1 ;;
+    esac
     printf 'BUILD_ID="%s"\n' "$KAETZLI_BUILD" >> usr/lib/os-release
 fi
+
+# The notice every login shows: free software, where the licenses are, no warranty.
+# /usr/share/misc/motd is first in util-linux login's compiled MOTD_FILE list (/etc/motd
+# follows it, so a machine's own still shows) and what pam.d/sshd's pam_motd reads; sshd
+# prints /etc/motd itself. Here, not in a package: it speaks for the image.
+install -D -m 644 /dev/stdin usr/share/misc/motd <<'EOF'
+
+Kaetzli is free software. Each program in it comes under its own license, whose text is
+in /usr/share/licenses/<package>/; /usr/share/kaetzli/sbom.json lists every package with
+its version, license and source. Sources: https://github.com/fwilhe2/kaetzli
+
+Kaetzli comes with ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.
+
+EOF
 
 if [ "$flavour" = erofs ]; then
     # systemd's osc-context drop-in wraps every prompt in OSC 3008 sequences, and the
@@ -851,6 +869,21 @@ gzip -9n < /tmp/layer.tar > /tmp/layer.tar.gz
 rm -f /tmp/layer.tar
 read -r layer_digest layer_size < <(blob /tmp/layer.tar.gz)
 
+# The OCI annotation keys registries and scanners read. licenses is every package's
+# declared expression from the SBOM, AND-ed (sbom.py licenses); source is os-release's
+# HOME_URL; revision and version only when the build has them, as in os-release.
+home_url=$(. "$IMAGE/usr/lib/os-release" && printf '%s' "$HOME_URL")
+labels='"org.opencontainers.image.title": "kaetzli",
+      "org.opencontainers.image.description": "Kaetzli, without the kernel and systemd",
+      "org.opencontainers.image.created": "'"$created"'",
+      "org.opencontainers.image.source": "'"$home_url"'",
+      "org.opencontainers.image.url": "'"$home_url"'",
+      "org.opencontainers.image.licenses": '"$(sbom.py licenses "$sbom")"
+[ -z "${KAETZLI_BUILD:-}" ] ||
+    labels+=$',\n      "org.opencontainers.image.revision": "'"$KAETZLI_BUILD"'"'
+[ -z "${KAETZLI_VERSION:-}" ] ||
+    labels+=$',\n      "org.opencontainers.image.version": "'"$KAETZLI_VERSION"'"'
+
 # Entrypoint bash, no Cmd: `podman run kaetzli -c uptime` works. PATH is explicit because
 # the runtime's default names directories a merged-/usr image does not have.
 cat > /tmp/config.json <<EOF
@@ -863,8 +896,7 @@ cat > /tmp/config.json <<EOF
     "Entrypoint": ["/bin/bash"],
     "WorkingDir": "/root",
     "Labels": {
-      "org.opencontainers.image.title": "kaetzli",
-      "org.opencontainers.image.description": "Kaetzli, without the kernel and systemd"
+      $labels
     }
   },
   "rootfs": {

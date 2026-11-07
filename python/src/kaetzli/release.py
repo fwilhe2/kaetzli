@@ -536,6 +536,15 @@ def notes(
         "The sources image holds every pinned tarball and patch the build used, which is "
         "the corresponding source for the copyleft packages in these images.",
         "",
+        "## License",
+        "",
+        "The images are free software. Each package in them comes under its own license, "
+        "whose text ships in `/usr/share/licenses/<package>/`; the SBOMs (also in the "
+        "image, `/usr/share/kaetzli/sbom.json`) list every package with its version, "
+        f"license and source. This repository's own files are under its [LICENSE](https://github.com/{repo}/blob/{sha}/LICENSE).",
+        "",
+        "These images come with ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.",
+        "",
         "## Vulnerabilities",
         "",
         "The SBOMs and `vex-<arch>.json` (the CVEs our patches fix, when there are any) let "

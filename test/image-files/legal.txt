@@ -4,6 +4,8 @@
 # changes a license text, and test/check-sbom.py that every package the SBOM names has
 # one; these are the floor under both, should either stop running.
 present usr/share/kaetzli/sbom.json
+# The no-warranty and license notice shown at every login.
+present usr/share/misc/motd
 present usr/share/licenses/glibc/COPYING*
 present usr/share/licenses/systemd/LICENSES/*
 present usr/share/licenses/kernel/COPYING

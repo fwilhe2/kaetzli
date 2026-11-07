@@ -199,3 +199,33 @@ def test_a_builder_is_named_up_to_the_first_colon_and_versioned_after_the_last()
         "localhost",
         "dev",
     )
+
+
+def _doc(*declared):
+    return {"packages": [{"licenseDeclared": d} for d in declared]}
+
+
+def test_the_image_license_is_every_packages_expression_anded_once():
+    doc = _doc(
+        "MIT",
+        "GPL-2.0-only AND MIT",
+        "NOASSERTION",
+        "LGPL-2.1-only OR BSD-2-Clause",
+        "GPL-3.0-or-later AND (LGPL-3.0-or-later OR GPL-2.0-or-later)",
+        "GPL-3.0-or-later WITH GCC-exception-3.1",
+    )
+    assert sbom.image_licenses(doc) == (
+        "(LGPL-2.1-only OR BSD-2-Clause) AND (LGPL-3.0-or-later OR GPL-2.0-or-later)"
+        " AND GPL-2.0-only AND GPL-3.0-or-later AND GPL-3.0-or-later WITH GCC-exception-3.1"
+        " AND MIT"
+    )
+
+
+def test_an_image_with_no_declared_license_says_noassertion():
+    assert sbom.image_licenses(_doc("NOASSERTION")) == "NOASSERTION"
+
+
+def test_licenses_prints_the_expression_as_a_json_string(tmp_path, capsys):
+    (tmp_path / "s.json").write_text(json.dumps(_doc("Zlib", "MIT")))
+    assert sbom.main(["licenses", str(tmp_path / "s.json")]) == 0
+    assert capsys.readouterr().out == '"MIT AND Zlib"\n'
