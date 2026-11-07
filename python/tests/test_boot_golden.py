@@ -1,7 +1,8 @@
 """The Python boot tests against the bash ones they replaced.
 
 Each fixtures/<test>/<case>/ is a guest, as fixtures/qemu/fake_guest.py plays it from
-responses.json: a clean boot, and one broken in each way the test looks for; `timeout`
+responses.json (and with ssh.json the host's ssh client, as fixtures/qemu/fake_ssh.py
+answers): a clean boot, and one broken in each way the test looks for; `timeout`
 and `env` (KEY=VALUE lines), when there, are its TIMEOUT and more of its environment.
 expected/ is what test/<test>.sh printed and returned against that same fake qemu (at
 its last commit, with <tmp> for the temporary directory), console tail and all; the
@@ -19,12 +20,13 @@ from pathlib import Path
 
 import pytest
 
-from kaetzli.boot import listeners, network, systemd
+from kaetzli.boot import listeners, network, ssh, systemd
 from kaetzli.qemu import console, machine
 
-TESTS = {"systemd": systemd, "network": network, "listeners": listeners}
+TESTS = {"systemd": systemd, "network": network, "listeners": listeners, "ssh": ssh}
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
+FAKE_SSH = FIXTURES / "qemu" / "fake_ssh.py"
 CASES = [
     f"{test}/{case.name}"
     for test in TESTS
@@ -50,7 +52,7 @@ def image(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:{__import__('os').environ['PATH']}")
     monkeypatch.setenv("LOG", str(tmp_path / "console.log"))
     for name in ("ARCH", "QEMU_PROFILE", "LOGIN_USER", "INIT", "MEM", "CPUS", "SYSEXTS",
-                 "HOST", "PORT", "ROUNDS", "EXTENSIONS"):  # fmt: skip
+                 "HOST", "PORT", "ROUNDS", "EXTENSIONS", "SSH_PORT", "PREBUILT"):  # fmt: skip
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(machine, "kvm_usable", lambda: True)  # no note either way
     monkeypatch.setattr(console, "DIAGNOSE_WAIT", 0.5)
@@ -73,6 +75,12 @@ def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
         f"#!/bin/sh\nexec {sys.executable} {FAKE} systemd {fixture / 'responses.json'}\n"
     )
     qemu.chmod(0o755)
+    if (fixture / "ssh.json").exists():
+        fake_ssh = image / "bin" / "ssh"
+        fake_ssh.write_text(
+            f'#!/bin/sh\nexec {sys.executable} {FAKE_SSH} {fixture / "ssh.json"} "$@"\n'
+        )
+        fake_ssh.chmod(0o755)
     rc = TESTS[test].main([str(image / "img" / "rootfs.erofs"), str(image / "img" / "bzImage")])
     out, err = capfd.readouterr()
     expected = fixture / "expected"

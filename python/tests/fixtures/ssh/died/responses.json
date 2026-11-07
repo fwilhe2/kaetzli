@@ -1,0 +1,6 @@
+[
+ [
+  "systemctl is-active sshd.service",
+  "[   9.0] Kernel panic - not syncing: oops\n"
+ ]
+]

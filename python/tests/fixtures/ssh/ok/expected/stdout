@@ -1,0 +1,9 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> logged in, checking that sshd is up
+>> sshd OK: unit active, host key present, port 22 accepting connections
+>> logging in over ssh, as the machine, to itself
+>> ssh OK: key authentication accepted for root, and logind registered the session
+>> logging in from the host, through tools/ssh.sh and the forward on port 2299
+>> ssh from the host OK: the ephemeral key was accepted through the boot credential
+>> ssh as user OK: its own session, with /run/user/1000

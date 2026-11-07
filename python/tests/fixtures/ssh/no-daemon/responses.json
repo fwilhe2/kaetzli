@@ -1,0 +1,6 @@
+[
+ [
+  "systemctl --no-pager --full status sshd.service",
+  "sshd.service failed\n"
+ ]
+]
