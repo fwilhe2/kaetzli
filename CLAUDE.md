@@ -185,6 +185,7 @@ policy checks are done).
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
+./test/launcher-rollback.py $BOOT  # the launcher reverts a snapshot that does not come up (LAUNCHER=)
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)

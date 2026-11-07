@@ -735,6 +735,14 @@ jobs:
       - name: Check Firecracker- and Virtualization.framework-shaped boots
         run: ./test/vmm.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
+      # The launcher's updates roll back (go/internal/rollout): a snapshot cache made of
+      # this image and a copy with a wrong root hash, no network. Built as released.
+      - name: Check the launcher reverts a snapshot that does not come up
+        run: |
+          ./tools/build-launcher.sh output/launcher test
+          LAUNCHER="output/launcher/kaetzli-linux-$(uname -m)" \
+            ./test/launcher-rollback.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
       - name: Upload console log
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
