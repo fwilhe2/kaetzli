@@ -1,0 +1,321 @@
+From d910981852585b85de6a9fc42d7367544927d060 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Sat, 7 Nov 2026 00:21:30 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 119 ++++++++++++++++++++++++++++++++++++++++
+ gcc/DATESTAMP           |   2 +-
+ gcc/testsuite/ChangeLog | 106 +++++++++++++++++++++++++++++++++++
+ libstdc++-v3/ChangeLog  |  53 ++++++++++++++++++
+ 4 files changed, 279 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 70369c9c9b53..128cacbdba98 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,122 @@
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128069
++	* tree-vect-slp.cc (vect_slp_function): Split region
++	at blocks with incoming abnormal edges.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128054
++	* gimple-ssa-isolate-paths.cc (find_implicit_erroneous_behavior):
++	Iterate over edges and then PHIs for NULL dereference discovery.
++	Duplicate each path exactly once and apply all transforms for
++	UB on that edge to that duplicate.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128051
++	* gimple-fold.cc (decode_field_reference): Use TYPE_SIGN of mask
++	operand when extending and_mask to prec_in.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128008
++	* gimple-ssa-pta-constraints.cc (create_variable_info_for_1):
++	Upon detecting recursion to the same structure type add
++	a constraint from nonlocal.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127978
++	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Simplify
++	vector CTOR filling accounting.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127975
++	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Disable
++	partial vectors if get_related_vectype_for_scalar_type returns
++	NULL_TREE for the mask.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127975
++	* tree-vect-loop.cc (vect_verify_full_masking_avx512):
++	Require all loop masks to be integer mode masks.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-19  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127966
++	* tree-ssa-loop-niter.cc (loop_niter_by_eval): Perform
++	the comparison of the STRING_CST element with the
++	terminating constant in uint8_t type.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-11-03  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127924
++	* tree-vect-stmts.cc (vectorizable_simd_clone_call): Use the
++	mask part index M rather than the copy index J when getting the
++	loop mask for explicit mask arguments.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR lto/127922
++	* tree.cc (type_with_interoperable_signedness): Return true
++	for BITINT_TYPE.
++	* gimple.cc (gimple_signed_or_unsigned_type): Properly
++	handle BITINT_TYPE.
++	(gimple_get_alias_set): Add comment about signed/unsigned
++	BITINT_TYPE.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-14  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127877
++	* tree-vect-loop.cc (vectorizable_nonlinear_induction): Fix
++	shift count check.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-14  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127876
++	* tree-vect-loop.cc (vectorizable_reduction): For
++	conditional reduction assign then CONST_COND_REDUCTION mode
++	with explicit LT/GT checks.
++
+ 2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 6b17e5b9c114..2bbfc376c270 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261106
++20261107
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 91b35c130eae..df61e1f51210 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,109 @@
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128069
++	* gcc.dg/vect/bb-slp-pr128069.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128054
++	* gcc.dg/torture/pr128054.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128051
++	* gcc.dg/torture/pr128051.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/128008
++	* gcc.dg/torture/pr128008.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127978
++	* gcc.dg/vect/vect-simd-21.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-21  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127975
++	* gcc.dg/vect/vect-simd-22.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-19  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127966
++	* gcc.dg/torture/pr127966.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-11-03  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127924
++	* gcc.target/i386/vect-simd-clone-avx512-4.c: New test.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-20  Richard Biener  <rguenther@suse.de>
++
++	PR lto/127922
++	* gcc.dg/lto/bitint-lto-1_0.c: New testcase.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-14  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127877
++	* gcc.dg/vect/vect-pr127877.c: New testcase.
++
++2026-11-06  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	Backported from master:
++	2026-10-19  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	PR tree-optimization/127876
++	* gcc.dg/vect/vect-pr127876-1.c: Add -fno-associative-math.
++
++2026-11-06  Richard Biener  <rguenther@suse.de>
++
++	Backported from master:
++	2026-10-14  Richard Biener  <rguenther@suse.de>
++
++	PR tree-optimization/127876
++	* gcc.dg/vect/vect-pr127876-1.c: New testcase.
++	* gcc.dg/vect/vect-pr127876-2.c: Likewise.
++
++2026-11-06  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	Backported from master:
++	2026-11-06  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	PR middle-end/127848
++	* gcc.dg/pr127848-4.c: Check for a tail call to baz instead of qux.
++	* gcc.dg/pr127848-5.c: Likewise.
++
+ 2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
+ 
+ 	Backported from master:
+diff --git a/libstdc++-v3/ChangeLog b/libstdc++-v3/ChangeLog
+index 1cd017de1ce8..ab9f1853c694 100644
+--- a/libstdc++-v3/ChangeLog
++++ b/libstdc++-v3/ChangeLog
+@@ -1,3 +1,56 @@
++2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
++
++	Backported from master:
++	2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
++
++	PR libstdc++/128413
++	* include/bits/stl_iterator.h (iter_move): Change return type to
++	decltype(auto) in overloads for common_iterator and
++	counted_iterator, as per LWG 3953.
++	* testsuite/24_iterators/common_iterator/lwg3953.cc: New test.
++	* testsuite/24_iterators/counted_iterator/lwg3953.cc: New test.
++
++2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
++
++	Backported from master:
++	2026-10-27  Jonathan Wakely  <jwakely@redhat.com>
++
++	PR libstdc++/127815
++	* src/c++20/tzdb.cc (time_zone::_M_get_sys_info): Clamp
++	parameter to start of first info. Use unsigned type for argument
++	to vector::reserve.
++	* testsuite/std/time/time_zone/127815.cc: New test.
++
++2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
++
++	Backported from master:
++	2026-11-05  Jonathan Wakely  <jwakely@redhat.com>
++
++	PR libstdc++/118099
++	* include/bits/fstream.tcc (basic_filebuf::overflow): Rewind the
++	put position if outputting the put area fails.
++	* testsuite/27_io/basic_filebuf/overflow/char/118099-codecvt.cc:
++	New test.
++	* testsuite/27_io/basic_filebuf/overflow/char/118099.cc: New
++	test.
++	* testsuite/27_io/basic_filebuf/overflow/wchar_t/118099-codecvt.cc:
++	New test.
++	* testsuite/27_io/basic_filebuf/overflow/wchar_t/118099.cc:
++	New test.
++
++2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
++
++	Backported from master:
++	2026-10-29  Jonathan Wakely  <jwakely@redhat.com>
++
++	PR libstdc++/128264
++	* src/c++17/memory_resource.cc (_Pool::replenish): Rethrow
++	exception.
++	(_Pool::vector::insert): Use named variables for new capacity.
++	For initial allocation only set capacity if allocation succeeds.
++	* testsuite/20_util/unsynchronized_pool_resource/128264.cc: New
++	test.
++
+ 2026-11-05  Tomasz Kamiński  <tkaminsk@redhat.com>
+ 
+ 	Backported from master:

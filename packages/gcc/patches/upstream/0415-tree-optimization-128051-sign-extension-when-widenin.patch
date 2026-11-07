@@ -1,0 +1,96 @@
+From a68333dfc69deb2eb11bd816f940e707af8e9a0f Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Wed, 21 Oct 2026 08:31:28 +0200
+Subject: [PATCH] tree-optimization/128051 - sign-extension when widening inner
+ mask
+
+In decode_field_reference, when combining an inner BIT_AND_EXPR mask
+with an incoming mask of wider precision (from an outer condition),
+the inner mask was unconditionally zero-extended using UNSIGNED.
+
+When the inner mask is of a signed type and its sign bit is set,
+converting the masked value to the wider type sign-extends it, so tests
+of the upper extension bits in the incoming mask are tests of the sign bit
+of the inner expression.  Hardcoding UNSIGNED zeroed out the upper bits of
+the mask, which wiped out any extension bits from the incoming mask and
+caused decode_field_reference to conclude that no sign-extension bits
+were tested.  This resulted in dropping the sign-bit check and miscompiling
+the outer condition.
+
+	PR tree-optimization/128051
+	* gimple-fold.cc (decode_field_reference): Use TYPE_SIGN of mask
+	operand when extending and_mask to prec_in.
+
+	* gcc.dg/torture/pr128051.c: New testcase.
+
+(cherry picked from commit 60d71abfe4b45507027b6ad63a9ef247b4fc004b)
+---
+ gcc/gimple-fold.cc                      |  3 +-
+ gcc/testsuite/gcc.dg/torture/pr128051.c | 44 +++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128051.c
+
+diff --git a/gcc/gimple-fold.cc b/gcc/gimple-fold.cc
+index 325347820c05..77c2b1844890 100644
+--- a/gcc/gimple-fold.cc
++++ b/gcc/gimple-fold.cc
+@@ -7794,7 +7794,8 @@ decode_field_reference (tree *pexp, HOST_WIDE_INT *pbitsize,
+ 	  if (prec_in >= prec_op)
+ 	    {
+ 	      if (prec_in > prec_op)
+-		and_mask = wide_int::from (and_mask, prec_in, UNSIGNED);
++		and_mask = wide_int::from (and_mask, prec_in,
++					   TYPE_SIGN (TREE_TYPE (res_ops[1])));
+ 	      and_mask &= *pand_mask;
+ 	    }
+ 	  else
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128051.c b/gcc/testsuite/gcc.dg/torture/pr128051.c
+new file mode 100644
+index 000000000000..7296410fa2e3
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128051.c
+@@ -0,0 +1,44 @@
++/* { dg-do run } */
++/* { dg-require-effective-target int32plus } */
++
++int cnt;
++__attribute__((noipa)) void hit(void) { cnt++; }
++
++__attribute__((noipa)) void f(int x) {
++  if (((__INT64_TYPE__)(x & -4) & (__INT64_TYPE__)0xFFFFFFFF00000000ULL) == 0 && (x & 1) == 1)
++    hit();
++}
++
++#if __SIZEOF_LONG__ >= 8
++__attribute__((noipa)) void f_long(int x) {
++  if (((long)(x & -4) & 0xFFFFFFFF00000000L) == 0 && (x & 1) == 1)
++    hit();
++}
++#endif
++
++int main(void) {
++  f(-5);
++  if (cnt != 0)
++    __builtin_abort();
++  f(5);
++  if (cnt != 1)
++    __builtin_abort();
++  f(-1);
++  if (cnt != 1)
++    __builtin_abort();
++  f(1);
++  if (cnt != 2)
++    __builtin_abort();
++
++#if __SIZEOF_LONG__ >= 8
++  cnt = 0;
++  f_long(-5);
++  if (cnt != 0)
++    __builtin_abort();
++  f_long(5);
++  if (cnt != 1)
++    __builtin_abort();
++#endif
++
++  return 0;
++}

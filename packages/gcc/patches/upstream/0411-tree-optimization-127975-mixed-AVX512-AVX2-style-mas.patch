@@ -1,0 +1,112 @@
+From 9b840b6380426a8e760076f6541c6aa74c7a6e5c Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Tue, 20 Oct 2026 14:17:01 +0200
+Subject: [PATCH] tree-optimization/127975 - mixed AVX512 / AVX2 style masks
+ with loop masking
+
+loop masking with AVX512 assumes integer type masks throughout, but when
+only a limited subset of AVX512 is enabled we can end up with mixed
+style masks which we do not support.  Verify this doesn't happen
+and disable loop masking in that case instead of ICEing at transform
+time.
+
+	PR tree-optimization/127975
+	* tree-vect-loop.cc (vect_verify_full_masking_avx512):
+	Require all loop masks to be integer mode masks.
+
+	* gcc.dg/vect/vect-simd-22.c: New testcase.
+
+(cherry picked from commit f4b64250a70482fbb51d6bb97fae481f90aa9649)
+---
+ gcc/testsuite/gcc.dg/vect/vect-simd-22.c | 14 ++++++++++++
+ gcc/tree-vect-loop.cc                    | 29 +++++++++++++++---------
+ 2 files changed, 32 insertions(+), 11 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/vect-simd-22.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/vect-simd-22.c b/gcc/testsuite/gcc.dg/vect/vect-simd-22.c
+new file mode 100644
+index 000000000000..bbeb23f9e0db
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/vect-simd-22.c
+@@ -0,0 +1,14 @@
++/* { dg-do compile } */
++/* { dg-additional-options "-fopenmp-simd" } */
++/* { dg-additional-options "-mavx512vl -mno-avx512bw --param vect-partial-vector-usage=2" { target { avx512vl } } } */
++
++#pragma omp declare simd simdlen(2)
++float f(double);
++
++void g(float *d, double *a, int n)
++{
++#pragma omp simd
++  for (int i = 0; i < n; i++)
++    d[i] = f(a[i]);
++
++}
+diff --git a/gcc/tree-vect-loop.cc b/gcc/tree-vect-loop.cc
+index efe9dd7266a7..67b36d02adfe 100644
+--- a/gcc/tree-vect-loop.cc
++++ b/gcc/tree-vect-loop.cc
+@@ -1146,6 +1146,8 @@ vect_verify_full_masking_avx512 (loop_vec_info loop_vinfo)
+   if (!iv_type)
+     return false;
+ 
++  bool ok = true;
++
+   /* Produce the rgroup controls.  */
+   for (auto const &mask : LOOP_VINFO_MASKS (loop_vinfo).mask_set)
+     {
+@@ -1166,37 +1168,42 @@ vect_verify_full_masking_avx512 (loop_vec_info loop_vinfo)
+ 	masks->rgc_vec.safe_grow_cleared (nscalars_per_iter, true);
+       rgroup_controls *rgm = &(*masks).rgc_vec[nscalars_per_iter - 1];
+ 
++      /* For now vect_get_loop_mask only supports integer mode masks
++	 when we need to split it.  */
++      tree mask_type = truth_type_for (vectype);
++      if (GET_MODE_CLASS (TYPE_MODE (mask_type)) != MODE_INT
++	  || TYPE_PRECISION (TREE_TYPE (mask_type)) != 1)
++	{
++	  ok = false;
++	  break;
++	}
++
+       if (!rgm->type || rgm->factor > nvectors)
+ 	{
+-	  rgm->type = truth_type_for (vectype);
++	  rgm->type = mask_type;
+ 	  rgm->compare_type = NULL_TREE;
+ 	  rgm->max_nscalars_per_iter = nscalars_per_iter;
+ 	  rgm->factor = nvectors;
+ 	  rgm->bias_adjusted_ctrl = NULL_TREE;
+ 	}
+     }
++  if (!ok)
++    {
++      release_vec_loop_controls (&LOOP_VINFO_MASKS (loop_vinfo).rgc_vec);
++      return false;
++    }
+ 
+   /* There is no fixed compare type we are going to use but we have to
+      be able to get at one for each mask group.  */
+   unsigned int min_ni_width
+     = wi::min_precision (vect_max_vf (loop_vinfo), UNSIGNED);
+ 
+-  bool ok = true;
+   for (auto &rgc : LOOP_VINFO_MASKS (loop_vinfo).rgc_vec)
+     {
+       tree mask_type = rgc.type;
+       if (!mask_type)
+ 	continue;
+ 
+-      /* For now vect_get_loop_mask only supports integer mode masks
+-	 when we need to split it.  */
+-      if (GET_MODE_CLASS (TYPE_MODE (mask_type)) != MODE_INT
+-	  || TYPE_PRECISION (TREE_TYPE (mask_type)) != 1)
+-	{
+-	  ok = false;
+-	  break;
+-	}
+-
+       /* If iv_type is usable as compare type use that - we can elide the
+ 	 saturation in that case.   */
+       if (TYPE_PRECISION (iv_type) >= min_ni_width)

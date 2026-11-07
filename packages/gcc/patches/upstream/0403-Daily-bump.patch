@@ -1,0 +1,68 @@
+From ee1d7c2c725550a8f3977b957b60fae0a9e0ba8b Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Fri, 6 Nov 2026 00:21:11 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 9 +++++++++
+ gcc/DATESTAMP           | 2 +-
+ gcc/testsuite/ChangeLog | 9 +++++++++
+ libstdc++-v3/ChangeLog  | 7 +++++++
+ 4 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 05aac33e1fd9..70369c9c9b53 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
++
++	Backported from master:
++	2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
++
++	PR target/128440
++	* config/bpf/bpf.cc (bpf_expand_cpymem): Fix offset used by the
++	backward memmove loop.
++
+ 2026-11-04  Jeevitha  <jeevitha@linux.ibm.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 10ea69eb092b..6b17e5b9c114 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261105
++20261106
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 83f3de836994..91b35c130eae 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
++
++	Backported from master:
++	2026-11-05  David Faust  <david.faust@oss.qualcomm.com>
++
++	PR target/128440
++	* gcc.target/bpf/memmove-3.c: New.
++	* gcc.target/bpf/memmove-4.c: New.
++
+ 2026-11-04  Siddhesh Poyarekar  <siddhesh@gotplt.org>
+ 
+ 	Backported from master:
+diff --git a/libstdc++-v3/ChangeLog b/libstdc++-v3/ChangeLog
+index 3382004af65e..1cd017de1ce8 100644
+--- a/libstdc++-v3/ChangeLog
++++ b/libstdc++-v3/ChangeLog
+@@ -1,3 +1,10 @@
++2026-11-05  Tomasz Kamiński  <tkaminsk@redhat.com>
++
++	Backported from master:
++	2026-11-05  Tomasz Kamiński  <tkaminsk@redhat.com>
++
++	* src/c++20/tzdata.zi: Import new file from 2026f release.
++
+ 2026-11-02  Tomasz Kamiński  <tkaminsk@redhat.com>
+ 
+ 	Backported from master:

@@ -1,0 +1,96 @@
+From c25a46c861ebbf8dd50933447607cb9fca461758 Mon Sep 17 00:00:00 2001
+From: Richard Biener <rguenther@suse.de>
+Date: Tue, 13 Oct 2026 19:51:01 +0200
+Subject: [PATCH] tree-optimization/127877 - wrong code with non-linear
+ induction vectorization
+
+When we validate the shift amount for a non-linear shift induction
+we only consider nunits shift count updates rather than VF ones.
+
+	PR tree-optimization/127877
+	* tree-vect-loop.cc (vectorizable_nonlinear_induction): Fix
+	shift count check.
+
+	* gcc.dg/vect/vect-pr127877.c: New testcase.
+
+(cherry picked from commit b24bee5c07afb8c90c02597527871a44b00c4fd5)
+---
+ gcc/testsuite/gcc.dg/vect/vect-pr127877.c | 37 +++++++++++++++++++++++
+ gcc/tree-vect-loop.cc                     |  9 +++---
+ 2 files changed, 41 insertions(+), 5 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/vect-pr127877.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/vect-pr127877.c b/gcc/testsuite/gcc.dg/vect/vect-pr127877.c
+new file mode 100644
+index 000000000000..f71ebb55140a
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/vect-pr127877.c
+@@ -0,0 +1,37 @@
++/* { dg-additional-options "-mavx2" { target avx2 } } */
++
++#include "tree-vect.h"
++
++typedef __INT64_TYPE__ int64_t;
++unsigned char b[256];
++int64_t res_x;
++unsigned res_s;
++
++__attribute__((noipa)) void
++f (unsigned char *bb, int64_t init)
++{
++  int64_t x = init;
++  unsigned s = 0;
++  for (int i = 0; i < 256; i++)
++    {
++      s += bb[i];
++      x >>= 3;
++    }
++  res_x = x;
++  res_s = s;
++}
++
++int main ()
++{
++  check_vect ();
++
++#pragma GCC novector
++  for (int i = 0; i < 256; i++)
++    b[i] = (unsigned char) (i + 1);
++
++  f (b, -1);
++  if (res_x != -1 || res_s != 32640)
++    __builtin_abort ();
++
++  return 0;
++}
+diff --git a/gcc/tree-vect-loop.cc b/gcc/tree-vect-loop.cc
+index c6b6fd2c0337..efe9dd7266a7 100644
+--- a/gcc/tree-vect-loop.cc
++++ b/gcc/tree-vect-loop.cc
+@@ -9365,9 +9365,9 @@ vectorizable_nonlinear_induction (loop_vec_info loop_vinfo,
+       if (!directly_supported_p (RSHIFT_EXPR, vectype, optab_vector))
+ 	return false;
+ 
+-      /* Don't shift more than type precision to avoid UD.  */
++      /* Don't shift more than type precision to avoid UB.  */
+       if (!tree_fits_uhwi_p (step_expr)
+-	  || maybe_ge (nunits * tree_to_uhwi (step_expr),
++	  || maybe_ge (vf * tree_to_uhwi (step_expr),
+ 		       TYPE_PRECISION (TREE_TYPE (init_expr))))
+ 	return false;
+       break;
+@@ -9377,12 +9377,11 @@ vectorizable_nonlinear_induction (loop_vec_info loop_vinfo,
+       if (!directly_supported_p (LSHIFT_EXPR, vectype, optab_vector))
+ 	return false;
+ 
+-      /* Don't shift more than type precision to avoid UD.  */
++      /* Don't shift more than type precision to avoid UB.  */
+       if (!tree_fits_uhwi_p (step_expr)
+-	  || maybe_ge (nunits * tree_to_uhwi (step_expr),
++	  || maybe_ge (vf * tree_to_uhwi (step_expr),
+ 		       TYPE_PRECISION (TREE_TYPE (init_expr))))
+ 	return false;
+-
+       break;
+ 
+     default:
