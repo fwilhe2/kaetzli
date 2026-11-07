@@ -4,7 +4,7 @@
 #
 #     ./test/podman.sh [rootfs.erofs] [bzImage]
 #
-# Overrides: TIMEOUT, MEM/CPUS, LOG, LOGIN_USER, as in test/container.sh.
+# Overrides: TIMEOUT, MEM/CPUS, LOG, LOGIN_USER, as in test/container.py.
 #
 # Four rounds, so a failure says which layer broke:
 #   1. podman's own report: crun as the runtime, netavark as the network backend,

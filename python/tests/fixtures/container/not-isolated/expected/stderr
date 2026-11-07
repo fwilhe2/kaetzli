@@ -1,0 +1,20 @@
+>> container test FAILED: timed out waiting for: CONTAINER-OK
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+controllers: cpuset cpu io memory pids
+CGROUP2-OK
+crun version 1.24
+--- features ---
+{"ociVersionMin": "1.0.0"}
+BUNDLE-OK
+ctr-pid=412
+ctr-host=kaetzli
+crun exit: 0
+NAME PID STATUS
+--- cgroup ---
+cpuset cpu io memory pids

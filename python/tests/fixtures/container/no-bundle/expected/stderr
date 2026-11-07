@@ -1,0 +1,17 @@
+>> container test FAILED: timed out waiting for: BUNDLE-OK
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+SHELL-IS-UP
+controllers: cpuset cpu io memory pids
+CGROUP2-OK
+crun version 1.24
+--- features ---
+{"ociVersionMin": "1.0.0"}
+mount: /run/ct/rootfs: permission denied.
+NAME PID STATUS
+--- cgroup ---
+cpuset cpu io memory pids

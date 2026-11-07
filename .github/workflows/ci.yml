@@ -715,7 +715,7 @@ jobs:
         run: PREBUILT=artifacts/prebuilt ./test/ssh.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check containers
-        run: ./test/container.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/container.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check podman
         run: ./test/podman.sh artifacts/rootfs.erofs rootfs/boot/bzImage

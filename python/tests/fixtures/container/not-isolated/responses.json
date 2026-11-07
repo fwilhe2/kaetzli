@@ -1,0 +1,22 @@
+[
+ [
+  "crun list",
+  "NAME PID STATUS\n--- cgroup ---\ncpuset cpu io memory pids\n"
+ ],
+ [
+  "echo \"controllers",
+  "controllers: cpuset cpu io memory pids\nCGROUP2-OK\n"
+ ],
+ [
+  "crun --version",
+  "crun version 1.24\n--- features ---\n{\"ociVersionMin\": \"1.0.0\"}\n"
+ ],
+ [
+  "crun spec",
+  "BUNDLE-OK\n"
+ ],
+ [
+  "crun run ct-smoke",
+  "ctr-pid=412\nctr-host=kaetzli\ncrun exit: 0\n"
+ ]
+]

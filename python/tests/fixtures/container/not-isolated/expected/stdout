@@ -1,0 +1,6 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 12s
+>> got a login prompt, logging in as root
+>> logged in, checking cgroup v2
+>> cgroup v2 OK: memory, pids and cpu are delegated
+>> building an OCI bundle
+>> starting the container

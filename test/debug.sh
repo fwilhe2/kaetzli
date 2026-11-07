@@ -4,7 +4,7 @@
 #
 #     ./test/debug.sh [rootfs.erofs] [bzImage]
 #
-# Overrides: TIMEOUT, MEM/CPUS, LOG, as in test/container.sh.
+# Overrides: TIMEOUT, MEM/CPUS, LOG, as in test/container.py.
 #
 # One round per tool, each asking for output only a working tool could produce rather
 # than for `--version`, because every one of these can start and still be useless here:
