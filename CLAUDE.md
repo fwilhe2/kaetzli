@@ -190,6 +190,7 @@ policy checks are done).
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
 ./test/reproducible.sh <pkg>...       # build twice from clean worktrees (AGAINST_RUN=<id>: vs CI)
+./tools/rebuild-release.py NAME [--no-build]  # a release rebuilt from its commit, vs its SHA256SUMS
 
 # reports
 ./test/rootfs-size.py [erofs|oci]     # vs test/size-budget.txt (a budget we chose)

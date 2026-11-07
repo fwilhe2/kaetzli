@@ -1,5 +1,8 @@
 # Build reproduction
 
+**Status: partly implemented.** Implemented: an independent end-to-end rebuild of a
+release, `tools/rebuild-release.py` (below). Not yet: a recipe artifact.
+
 Archiving the full build recipe as an artifact remains a proposal. Package source patches
 and upstream patch series are implemented; see the [patches guide](../guides/patches.md).
 This page describes the current reproducibility checks and the remaining recipe proposal.
@@ -23,6 +26,24 @@ This verifies only the selected package against the CI artifact. It does not est
 every package has been independently rebuilt on another machine. CI's image check repeats
 assembly from the same build artifacts, so it checks deterministic assembly rather than an
 independent end-to-end rebuild.
+
+## Rebuilding a release
+
+```sh
+./tools/rebuild-release.py 20261107.171105-764          # hours the first time
+./tools/rebuild-release.py 20261107.171105-764 --no-build   # compare again
+```
+
+Each snapshot is a tag on the commit it was built from. The tool checks that commit out
+into a clean worktree (`output/rebuild/<name>/`), builds everything there as CI did
+(`tools/build-image.sh`: glibc, the kernel, every package against the glibc-only sysroot,
+assembly with the snapshot name as `KAETZLI_VERSION` and the commit as `KAETZLI_BUILD`),
+and compares every asset of the host's architecture with the release's `SHA256SUMS`. Asset
+names come from `kaetzli.release.collect`, the code that named the published ones. It
+exits 0 only when every asset a build makes is byte-identical; the CVE workbook (a dated
+scan), the source tar, the launchers and the other architecture's assets are listed as not
+rebuilt and not judged. The builder image and sources image are pulled by the commit's own
+content-hash tags, so the toolchain is the one CI used.
 
 ## Proposed recipe artifact
 
