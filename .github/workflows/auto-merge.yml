@@ -1,10 +1,12 @@
 name: Auto-merge updates
 
 # Merges the green pull requests update-packages.yml opens; tools/auto-merge.py says what
-# green means. The updater runs at 17:07 UTC and this once an hour from 20:17 to 04:17
-# UTC: the hours between are the time to look and label `hold`, and a mistake that gets
-# through is a revert. Several slots because GitHub starts scheduled runs late, by hours
-# around midnight; the ones after the first find nothing left to do.
+# green means. The updater runs at 17:07 UTC and this from 20:17 to 04:17 UTC: the hours
+# between are the time to look and label `hold`, and a mistake that gets through is a
+# revert. Inside that window, ci.yml's update-check job also starts this as soon as an
+# update's CI is green, because GitHub starts scheduled runs hours late around midnight and
+# drops most of these slots outright; the cron is the fallback, and the 20:17 slot takes
+# what turned green before the window opened.
 on:
   schedule:
     - cron: "17 20,21,22,23,0,1,2,3,4 * * *"
@@ -13,8 +15,8 @@ on:
 permissions:
   contents: read
 
-# Shared with update-packages.yml. Both push update/ branches and dispatch CI on them,
-# and a pull request the updater is still waiting on must not be judged half-finished.
+# Shared with update-packages.yml, which pushes update/ branches and opens their pull
+# requests: one it is still opening must not be judged half-finished.
 concurrency:
   group: package-updates
   cancel-in-progress: false

@@ -158,7 +158,7 @@ instead (it merges what is green, as it is) and is now `auto-merge.py`, `kaetzli
 the bash version is gone.
 
 `dispatch-ci.sh` was on this list and stays bash: it is `gh` and `git` in sequence (a
-check run, a dispatch, a wait), and its two `jq` expressions are one-liners.
+check run, a dispatch, finding the run), and its `jq` expressions are one-liners.
 
 `bump-version.sh` and `bump-snapshot.sh` stay bash: they are `sed -i` on `env.sh` and a
 download.
@@ -243,7 +243,7 @@ Dependencies: `pexpect` (and `ptyprocess` through it), `pytest`.
 | `image/build-rootfs.sh` | mostly cp, tar, setcap, mkfs.erofs and veritysetup in order. 907 lines is too long; split the reports out (item 3, as the SBOM was) and leave the commands |
 | `tools/lib.sh` | the bash scripts that remain still need it; the Python module is its counterpart, not its replacement |
 | `tools/prep.sh`, `fetch-sources.sh`, `build-image.sh`, `build-extension.sh`, `publish-oci.sh`, `merge-staging.sh`, `clean.sh`, `image-tags.sh`, `build-node-e2e.sh` | podman, tar and file operations in sequence |
-| `tools/dispatch-ci.sh` | `gh` and `git` in sequence: a check run, a dispatch, a wait for the run |
+| `tools/dispatch-ci.sh` | `gh` and `git` in sequence: a check run, a dispatch, finding the run |
 | `tools/check-patches.sh`, `sync-patches.sh`, `patch-cves.sh` | patch and git invocations; `sync-patches.sh` is the largest and could move later |
 | `tools/boot-qemu.sh`, `boot-firecracker.sh`, `boot-vz.sh`, `ssh.sh`, `demo.sh` | thin wrappers that exec a VMM or ssh; `boot-vz.sh` must run on macOS's bash 3.2 |
 | `test/check-tree-hygiene.sh` | runs inside the assembly image; a few `find` calls |

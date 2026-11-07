@@ -6,7 +6,8 @@ rebasing it onto the current main and building it again: one bump rarely affects
 another, CI runs on main after the merges, and a red main does not release. A pull
 request that no longer merges cleanly is GitHub's to refuse and a human's to fix.
 
-When is the workflow's cron (.github/workflows/auto-merge.yml), not this module.
+When is the workflow's (.github/workflows/auto-merge.yml, and ci.yml's update-check job),
+not this module's.
 """
 
 from __future__ import annotations
@@ -19,6 +20,9 @@ from collections.abc import Callable
 CI_CHECK = "Package update CI"
 HOLD_LABEL = "hold"
 PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+# ci.yml's job that turns the run's result into CI_CHECK and then starts this, so it is
+# still running when it is looked at; CI_CHECK already says what it would.
+REPORTER = "update-check"
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess]
 
@@ -32,6 +36,8 @@ def checks_state(rollup: list[dict]) -> str:
     check runs (status, conclusion) and commit statuses (state) alike."""
     checks = []
     for c in rollup:
+        if c.get("name") == REPORTER:
+            continue
         done = (c.get("status") or "COMPLETED") == "COMPLETED" and c.get("state") != "PENDING"
         result = c.get("conclusion") or c.get("state") or ""
         checks.append((c.get("name") or c.get("context"), done, result))

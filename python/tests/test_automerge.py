@@ -24,6 +24,9 @@ CI = "Package update CI"
         ([run_(CI), {"context": "ext", "state": "PENDING"}], "pending"),
         ([run_(CI), {"context": "ext", "state": "ERROR"}], "failed"),
         ([run_("result")], "untested"),
+        # ci.yml's update-check job completes the CI check and starts auto-merge, so it is
+        # still running when auto-merge looks: it cannot be what holds the merge back
+        ([run_(CI), run_("update-check", status="IN_PROGRESS", conclusion="")], "green"),
         ([], "untested"),
         # a failure wins over a running check: it needs a human either way
         ([run_("a", conclusion="FAILURE"), run_("b", status="QUEUED", conclusion="")], "failed"),

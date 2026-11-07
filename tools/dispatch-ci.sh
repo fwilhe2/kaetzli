@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
-# Run ci.yml on a branch whose head was pushed with GITHUB_TOKEN, and report the result on
-# its pull request as a check run:
+# Run ci.yml on a branch whose head was pushed with GITHUB_TOKEN, and put a pending
+# "Package update CI" check on its pull request:
 #
 #     ./tools/dispatch-ci.sh <branch> <pr-url>
 #
-# Prints the run's conclusion and exits 0 only when it is `success`.
-#
 # GitHub starts no workflow run for a push made with GITHUB_TOKEN, so this asks for one:
 # workflow_dispatch is the event the token is allowed to trigger. The run belongs to the
-# branch rather than to the pull request, which is why the result has to be copied onto
-# the pull request by hand, as the "Package update CI" check. And workflow_run is not
-# emitted for a workflow dispatched with this token, so nothing can be told when the run
-# ends — the caller stays alive until it does, which keeps the check from being left
-# pending forever.
-#
-# Shared by update-packages.yml (a freshly opened pull request) and auto-merge.yml (one
-# rebased onto main), which is the reason it is a script: both have to find the run
-# they dispatched and not an older one, and only the second has an older one to find.
+# branch rather than to the pull request, which is why its result has to be copied onto
+# the pull request as a check of its own. ci.yml's last job, `update-check`, does that
+# when it ends (workflow_run is not emitted for a run dispatched with this token, so
+# nothing outside the run can be told). This script does not wait for it: the update
+# workflow holds the concurrency group auto-merge.yml shares, and waiting here held it
+# for hours — six, the job limit, for a toolchain bump — while the merge window passed.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -73,17 +68,7 @@ if [ -z "$RUN_ID" ]; then
     exit 1
 fi
 
+gh api --method PATCH "repos/$REPO/check-runs/$CHECK_ID" -f details_url="$RUN_URL" >/dev/null
+
 gh pr comment "$PR_URL" \
-    --body "CI for \`${SHA:0:12}\`: $RUN_URL (the Package update CI check above will be updated when it finishes)" >&2
-
-# gh run watch can return before the run has finished (an API hiccup), and an empty
-# conclusion is refused by the check-runs API, leaving the check in progress forever.
-gh run watch "$RUN_ID" --exit-status >&2 || true
-until [ "$(gh run view "$RUN_ID" --json status --jq .status)" = completed ]; do sleep 60; done
-CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion')
-
-complete_check "$CONCLUSION" "$RUN_URL" "CI finished with conclusion: $CONCLUSION"
-echo "updated check $CHECK_ID: $CONCLUSION" >&2
-
-echo "$CONCLUSION"
-[ "$CONCLUSION" = success ]
+    --body "CI for \`${SHA:0:12}\`: $RUN_URL (the Package update CI check is updated when it finishes)" >&2

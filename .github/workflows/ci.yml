@@ -1008,6 +1008,54 @@ jobs:
           fi
           [ "$(echo "$RESULTS" | jq -r '.changes.result')" = success ] || { echo "changes did not run" >&2; exit 1; }
 
+  # The end of a run tools/dispatch-ci.sh started for an update/ pull request: its result
+  # becomes the "Package update CI" check that dispatch-ci.sh left in progress (it no
+  # longer waits; see there), which is what tools/auto-merge.py calls green. Inside the
+  # merge window (20:00-04:59 UTC, auto-merge.yml's cron) a green one also starts
+  # auto-merge.yml, so it is merged when it is ready rather than at the next cron slot,
+  # which GitHub fires hours late or not at all. Outside it, the 20:17 slot takes it.
+  update-check:
+    runs-on: ubuntu-26.04
+    needs: result
+    if: always() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/update/')
+    permissions:
+      checks: write # complete the check run
+      actions: write # dispatch auto-merge.yml
+    steps:
+      - name: Complete the Package update CI check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          CONCLUSION: ${{ needs.result.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/$REPO/commits/$SHA/check-runs?check_name=Package%20update%20CI" \
+              --jq '[.check_runs[] | select(.status != "completed")][0].id // empty')
+          fields=(-f name='Package update CI' -f status=completed -f conclusion="$CONCLUSION"
+                  -f details_url="$RUN_URL" -f 'output[title]=Package update CI'
+                  -f "output[summary]=CI finished with conclusion: $CONCLUSION")
+          if [ -n "$id" ]; then
+              gh api --method PATCH "repos/$REPO/check-runs/$id" "${fields[@]}" >/dev/null
+          else
+              # Dispatched by hand: no pending check to complete, so this run's is new.
+              gh api --method POST "repos/$REPO/check-runs" -f head_sha="$SHA" "${fields[@]}" >/dev/null
+          fi
+          echo "Package update CI on $SHA: $CONCLUSION"
+
+      - name: Start auto-merge in the merge window
+        if: needs.result.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          hour=$((10#$(date -u +%H)))
+          if [ "$hour" -ge 20 ] || [ "$hour" -lt 5 ]; then
+              gh workflow run auto-merge.yml --ref main --repo "$GITHUB_REPOSITORY"
+          else
+              echo "outside the merge window (20:00-04:59 UTC); auto-merge.yml's 20:17 run takes it"
+          fi
+
   # Both architectures as one manifest list, so one job once both exist. After boot: the
   # OCI image is the same userspace as the disk. Only on main, because `latest` has one
   # holder.

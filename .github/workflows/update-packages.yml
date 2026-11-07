@@ -312,5 +312,6 @@ jobs:
           echo "opened $PR_URL"
 
           # Never fails this job: a red build is news for the pull request, and the check
-          # run on it says so. tools/dispatch-ci.sh explains why CI has to be asked for.
+          # run on it says so. tools/dispatch-ci.sh explains why CI has to be asked for,
+          # and why it returns once the run has started instead of waiting for it.
           ./tools/dispatch-ci.sh "$BRANCH" "$PR_URL" || true
