@@ -60,7 +60,7 @@ These console lines appear on every QEMU boot and are harmless:
 
 To check the root rather than trust the log: `/sys/block/dm-*/dm/name` and `ro` show
 `root` and each extension as read-only verity devices, `systemd-sysext status` shows what
-is merged into `/usr`, and `test/verity.sh` shows a tampered image is refused. The image
+is merged into `/usr`, and `test/verity.py` shows a tampered image is refused. The image
 has no `dmsetup` or `veritysetup`.
 
 **Open:** in a guest, `spectre_v2` reports `BHI: Vulnerable` where the host reports `Not

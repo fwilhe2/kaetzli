@@ -1,0 +1,7 @@
+>> verity test FAILED: a tampered image booted to a shell — dm-verity is not checking the root
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+bash-5.3# Welcome to Kaetzli!
+
+kaetzli login: 

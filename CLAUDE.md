@@ -183,7 +183,7 @@ policy checks are done).
 ./test/persistent-var.py $BOOT  # /var disk survives two boots
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.sh $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
-./test/verity.sh $BOOT          # tampered image refused
+./test/verity.py $BOOT          # tampered image refused
 ./test/vmm.sh $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.sh $BOOT             # 3-node kubeadm via tools/k8s-demo.sh (KVM; skips without)
 ./test/node-conformance.sh $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
@@ -398,7 +398,7 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
 within `test/unit-exposure.txt`, and records boot time (unjudged; KVM vs KVM — the boot job opens `/dev/kvm` where the runner
 has it). **All boots use
 `test/qemu-lib.sh`**, also sourced by `tools/boot-qemu.sh`. Its Python twin `kaetzli.qemu`
-(pexpect) runs `boot.py`, `systemd.py`, `network.py`, `listeners.py`, `ssh.py`, `container.py`, `podman.py`, `rootless.py`, `persistent-var.py`, `sysext.py`; others migrate one by one
+(pexpect) runs `boot.py`, `systemd.py`, `network.py`, `listeners.py`, `ssh.py`, `container.py`, `podman.py`, `rootless.py`, `persistent-var.py`, `sysext.py`, `verity.py`; others migrate one by one
 (host-scripting.md item 7). Until then a change to one is a change to both;
 `python/tests/test_qemu_machine.py` holds command lines, patterns and login strings equal.
 **Every console is held to `CONSOLE_BAD`** (warnings, oopses, segfaults, emergency mode);

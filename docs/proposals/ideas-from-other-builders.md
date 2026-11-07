@@ -24,7 +24,7 @@ section 11 records what was considered and rejected, so it is not proposed again
 
 ## 1. Scan every boot's console for kernel and crash messages
 
-*Implemented:* `CONSOLE_BAD` and `console_check` in `test/qemu-lib.sh`. `test/verity.sh`
+*Implemented:* `CONSOLE_BAD` and `console_check` in `test/qemu-lib.sh`. `test/verity.py`
 also exempts the panic's `Call Trace:`, and `test/sysext.py`'s tampered boot the emergency
 mode its failed mount ends in. `Call Trace:` is in the list from the start: KVM boots of
 every qemu test were clean with it.
@@ -61,7 +61,7 @@ extension all leave the guest running, and no test fails unless a unit ends up f
 3. Call it from the shared cleanup/exit path in `qemu-lib.sh`, so every test that sources
    it gets the check without editing each test. Only call it on the success path: a test
    that has already failed should report its own reason first.
-4. `test/verity.sh` corrupts the image on purpose; set
+4. `test/verity.py` corrupts the image on purpose; set
    `CONSOLE_BAD_EXEMPT='device-mapper: verity'` there (and, if the kernel logs a stack
    for the I/O error, the matching part of that too).
 5. `test/boot.py` runs `/bin/bash` as PID 1 and exits through a poweroff; check that it

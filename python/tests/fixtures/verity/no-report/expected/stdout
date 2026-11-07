@@ -1,0 +1,2 @@
+>> flipped byte 0 of a copy of <tmp>/img/rootfs.erofs (0 -> 255)
+>> booting <tmp>/verity-tampered.erofs with <tmp>/img/bzImage (init=/bin/bash), waiting up to 30s

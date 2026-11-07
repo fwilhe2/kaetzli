@@ -32,6 +32,7 @@ from kaetzli.boot import (
     ssh,
     sysext,
     systemd,
+    verity,
 )
 from kaetzli.qemu import console, machine
 
@@ -45,6 +46,7 @@ TESTS = {
     "rootless": rootless,
     "persistent-var": persistent_var,
     "sysext": sysext,
+    "verity": verity,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -60,7 +62,7 @@ CASES = [
 @pytest.fixture
 def image(tmp_path, monkeypatch):
     (tmp_path / "img").mkdir()
-    (tmp_path / "img" / "rootfs.erofs").touch()
+    (tmp_path / "img" / "rootfs.erofs").write_bytes(bytes(4096))  # test/verity.py flips one
     (tmp_path / "img" / "bzImage").touch()
     (tmp_path / "img" / "rootfs.cmdline").write_text(
         'root=/dev/dm-0 ro dm-mod.create="root,,,ro,0 8 verity" dm-mod.waitfor=/dev/vda\n'
