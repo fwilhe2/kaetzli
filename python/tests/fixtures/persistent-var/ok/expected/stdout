@@ -1,0 +1,9 @@
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> first boot: /var on a blank disk, machine ID <machine-id>
+>> first boot OK: /var is ext4 on /dev/vdb, wrote files in /var/lib and both homes, and a podman image
+>> booting <tmp>/img/rootfs.erofs with <tmp>/img/bzImage (init=/usr/lib/systemd/systemd), waiting up to 30s
+>> got a login prompt, logging in as root
+>> second boot: the same disk
+>> second boot OK: the files, the podman image, the previous boot's journal and the machine ID all survived
+>> second boot ssh OK: this boot's key logged in as user, into the home the first boot wrote

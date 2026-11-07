@@ -4,7 +4,8 @@
 the SBOM, the size reports, the library checks and the policy checks, and item 6. Item 7
 has begun: the harness, `kaetzli.qemu`, and its first clients, `test/boot.py`,
 `test/systemd.py`, `test/network.py`, `test/listeners.py`, `test/ssh.py`,
-`test/container.py`, `test/podman.py` and `test/rootless.py`. CLAUDE.md (*Host-side code*)
+`test/container.py`, `test/podman.py`, `test/rootless.py` and
+`test/persistent-var.py`. CLAUDE.md (*Host-side code*)
 allows Python and Go for what runs on the host, in CI or in a builder container. This
 page reviews the scripts against that rule and orders the migration.
 
@@ -246,6 +247,12 @@ answer and the retried steps with `kaetzli.boot.podman`. Its golden is six guest
 (clean, no capabilities on the helpers, podman not rootless, one ID map, a panic in the
 container, no network through pasta); on a local image it agrees in 11 seconds where
 bash took 23.
+
+`test/persistent-var.sh` is `test/persistent-var.py`, two boots of one machine on a
+`/var` disk with a power-off between them (the fake qemu exits on a response marked
+`exit`). Its golden is five pairs of guests (clean, the first boot's check failing or
+panicking, the second's failing, user's home lost over ssh), the random machine ID
+written as `<machine-id>`; on a local image it agrees in 21 seconds where bash took 33.
 
 Next: the rest of the systemd-booting tests, one per pull request; then `tools/boot-qemu.sh` takes its command line from
 `kaetzli.qemu` (`boot-vz.sh` keeps what it needs of the bash, for macOS); then `vm.sh`

@@ -1,0 +1,19 @@
+[
+ [
+  "findmnt /var; cat /etc/machine-id",
+  "/var /dev/vdb ext4 rw\n"
+ ],
+ [
+  "findmnt /var; ls -la",
+  "/var /dev/vdb ext4 rw\n"
+ ],
+ [
+  "cat /proc/sys/kernel/random/boot_id > /var/lib",
+  "[   9.0] Kernel panic - not syncing: oops\n"
+ ],
+ [
+  "systemctl poweroff",
+  "[  20.0] reboot: Power down\n",
+  "exit"
+ ]
+]

@@ -1,0 +1,15 @@
+[
+ [
+  "findmnt /var; cat /etc/machine-id",
+  "/var /dev/vdb ext4 rw\n"
+ ],
+ [
+  "findmnt /var; ls -la",
+  "/var /dev/vdb ext4 rw\n"
+ ],
+ [
+  "systemctl poweroff",
+  "[  20.0] reboot: Power down\n",
+  "exit"
+ ]
+]

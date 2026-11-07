@@ -5,7 +5,8 @@ responses.json (and with ssh.json the host's ssh client, as fixtures/qemu/fake_s
 answers): a clean boot, and one broken in each way the test looks for; `timeout`
 and `env` (KEY=VALUE lines), when there, are its TIMEOUT and more of its environment.
 expected/ is what test/<test>.sh printed and returned against that same fake qemu (at
-its last commit, with <tmp> for the temporary directory), console tail and all; the
+its last commit, with <tmp> for the temporary directory and <machine-id> for a random
+machine ID), console tail and all; the
 Python has to reproduce it byte for byte.
 Deliberate differences are edited into expected/: listeners/extra names the Python
 module, where the expected list now lives, rather than the bash script; systemd/ok and
@@ -15,12 +16,22 @@ the two that pass with the boot's time.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
 import pytest
 
-from kaetzli.boot import container, listeners, network, podman, rootless, ssh, systemd
+from kaetzli.boot import (
+    container,
+    listeners,
+    network,
+    persistent_var,
+    podman,
+    rootless,
+    ssh,
+    systemd,
+)
 from kaetzli.qemu import console, machine
 
 TESTS = {
@@ -31,6 +42,7 @@ TESTS = {
     "container": container,
     "podman": podman,
     "rootless": rootless,
+    "persistent-var": persistent_var,
 }
 FIXTURES = Path(__file__).parent / "fixtures"
 FAKE = FIXTURES / "qemu" / "fake_guest.py"
@@ -70,6 +82,11 @@ def image(tmp_path, monkeypatch):
     return tmp_path
 
 
+def normalize(text: str, image: Path) -> str:
+    """The temporary directory as <tmp>, and a machine ID (random per run) as <machine-id>."""
+    return re.sub(r"\b[0-9a-f]{32}\b", "<machine-id>", text.replace(str(image), "<tmp>"))
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
     test, _ = case.split("/")
@@ -94,8 +111,8 @@ def test_the_output_is_the_bash_versions(case, image, capfd, monkeypatch):
     out, err = capfd.readouterr()
     expected = fixture / "expected"
     assert (
-        out.replace(str(image), "<tmp>"),
-        err.replace(str(image), "<tmp>"),
+        normalize(out, image),
+        normalize(err, image),
         rc,
     ) == (
         (expected / "stdout").read_bytes().decode(),  # not read_text: it eats \r
