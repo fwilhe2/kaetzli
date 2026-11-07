@@ -25,7 +25,7 @@
 #   QEMU_PROFILE  pc (default), microvm (Firecracker's devices; on amd64 KERNEL has to be
 #            an uncompressed vmlinux) or vz (Virtualization.framework's: hvc0, and
 #            VIRTIOFS_SOCKET/VSOCK_CID for virtiofs and vsock). See qemu_setup in
-#            test/qemu-lib.sh and test/vmm.sh. vz has no qemu monitor on the console, so
+#            test/qemu-lib.sh and test/vmm.py. vz has no qemu monitor on the console, so
 #            Ctrl-a x does not exit it: `poweroff` in the guest, or kill qemu.
 #
 # The guest gets one virtio-net NIC on qemu's user-mode network (10.0.2.15/24, gateway

@@ -653,7 +653,7 @@ jobs:
           path: artifacts/prebuilt
 
       # qemu-system-arm is the package with qemu-system-aarch64. virtiofsd, socat and
-      # vhost_vsock are test/vmm.sh's, which skips what the host cannot provide.
+      # vhost_vsock are test/vmm.py's, which skips what the host cannot provide.
       - name: Install qemu
         run: |
           sudo apt-get update
@@ -733,7 +733,7 @@ jobs:
         run: ./test/sysext.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check Firecracker- and Virtualization.framework-shaped boots
-        run: ./test/vmm.sh artifacts/rootfs.erofs rootfs/boot/bzImage
+        run: ./test/vmm.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Upload console log
         if: always()

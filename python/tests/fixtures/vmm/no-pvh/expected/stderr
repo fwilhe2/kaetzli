@@ -1,0 +1,1 @@
+error: output/vmlinux has no PVH entry note; Firecracker cannot boot it
