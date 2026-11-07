@@ -46,6 +46,7 @@ _PATCH_LISTING = threading.Lock()
 class Result:
     lines: list[str] = field(default_factory=list)  # the text report
     errors: list[str] = field(default_factory=list)  # stderr
+    failures: list[str] = field(default_factory=list)  # the report's ERROR lines
     updates: list[dict] = field(default_factory=list)
     failed: bool = False
 
@@ -54,6 +55,7 @@ class Result:
 
     def fail(self, label: str, current: str, rest: str, error: str | None = None) -> None:
         self.line(label, current, f"ERROR: {rest}")
+        self.failures.append(self.lines[-1])
         if error:
             self.errors.append(f"error: {error}")
         self.failed = True
@@ -200,6 +202,11 @@ def main(argv: list[str], http: Http | None = None) -> int:
         for r in pool.map(lambda p: check(p, http), packages):
             for line in r.errors:
                 print(line, file=sys.stderr, flush=True)
+            # stdout is the JSON, so the report's ERROR lines, which name the package,
+            # go to stderr: a bare curl error there would not say whose upstream failed.
+            if as_json:
+                for line in r.failures:
+                    print(line, file=sys.stderr, flush=True)
             if not as_json:
                 for line in r.lines:
                     print(line, flush=True)

@@ -11,7 +11,10 @@ CPE="cpe:2.3:a:gnu:ncurses:${VERSION}:*:*:*:*:*:*:*"
 # fixes (CVE-2025-69720, in 20251231). Each is signed by Thomas E. Dickey's key, pinned in
 # upstream-key.asc (19882D92DDA4C400C22C0D56CC2AF4472167BE03, the same from his site and
 # keyserver.ubuntu.com); tools/sync-patches.sh refuses one that does not verify.
-UPSTREAM_PATCHES="https://invisible-island.net/archives/ncurses/${VERSION}/"
+# The listing is upstream's own mirror: invisible-island.net is behind a Sucuri firewall
+# that answers GitHub's runners with 403 on most nights; invisible-mirror.net has the same
+# files and signatures without it.
+UPSTREAM_PATCHES="https://invisible-mirror.net/archives/ncurses/${VERSION}/"
 UPSTREAM_PATCH_REGEX="ncurses-${VERSION//./\\.}-[0-9]{8}\.patch\.gz"
 UPSTREAM_PATCH_SIG=".asc"
 # The release is patch 20251230 (VERSION in the tarball says so); the series is after it.

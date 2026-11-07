@@ -248,6 +248,15 @@ class TestCheck:
         assert out.startswith('[{"package":"attr","kind":"version",')
         assert [u["package"] for u in json.loads(out)] == ["attr", "acl"]
 
+    def test_json_names_what_failed_on_stderr(self, capsys):
+        # The update workflow reads stdout as JSON and sees only stderr: a failure has to
+        # say which package it was there, not only as a bare curl error.
+        src = upstream.Source.of("coreutils")
+        assert check.main(["--json", "coreutils"], http=FakeHttp()) == 1
+        out, err = capsys.readouterr()
+        assert out == "[]\n"
+        assert f"{'coreutils':<12} {src.version:<10} ERROR: upstream lookup failed" in err
+
     def test_json_with_nothing_is_an_empty_list(self, capsys):
         src = upstream.Source.of("coreutils")
         assert check.main(["--json", "coreutils"], http=FakeHttp({".*": listing(src.tarball)})) == 0
