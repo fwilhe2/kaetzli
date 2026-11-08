@@ -99,9 +99,16 @@ else
     # so the tree is reused like any other — and the stamp beside it names the set it was
     # patched with, so adding, editing or removing a patch re-extracts rather than building
     # a tree that no longer matches the checkout.
+    #
+    # The vendor tarball goes in the stamp too: it unpacks into the same tree, whose name
+    # comes from VERSION alone, so `bump-version.sh --vendor` would otherwise build the
+    # old libpcap-*/ while the SBOM names the new one. Only when there is one, so every
+    # other package's stamp stays what it was.
     stamp="$PKG_DIR/.$PACKAGE.patches"
-    if [ -d "$PKG_DIR/$PACKAGE" ] && [ "$(cat "$stamp" 2>/dev/null || true)" != "$(patches_digest "$PKG")" ]; then
-        echo "The patches for $PKG changed since $PKG_DIR/$PACKAGE was extracted; extracting again."
+    want_stamp=$(patches_digest "$PKG"
+                 [ -z "${VENDOR_TARBALL:-}" ] || echo "vendor $VENDOR_TARBALL $VENDOR_SHA256")
+    if [ -d "$PKG_DIR/$PACKAGE" ] && [ "$(cat "$stamp" 2>/dev/null || true)" != "$want_stamp" ]; then
+        echo "The patches or vendored sources for $PKG changed since $PKG_DIR/$PACKAGE was extracted; extracting again."
         as_owner rm -rf "$PKG_DIR/$PACKAGE"
     fi
     if [ ! -d "$PKG_DIR/$PACKAGE" ]; then
@@ -116,7 +123,7 @@ else
             tar -xf "downloads/$VENDOR_TARBALL" -C "$staging"
         fi
         apply_patches "$PKG" "$staging" "$BUILDER"
-        patches_digest "$PKG" > "$stamp"
+        printf '%s\n' "$want_stamp" > "$stamp"
         mv "$staging" "$PKG_DIR/$PACKAGE"
     else
         echo "Directory $PKG_DIR/$PACKAGE already exists, skipping extraction."
