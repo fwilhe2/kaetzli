@@ -1,0 +1,97 @@
+From 7a2f7618459180734df519ee7fcb77ada91bb249 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Sun, 8 Nov 2026 02:52:32 +0000
+Subject: [PATCH] [PATCH] PR modula2/125544: ISO reallocate does not call
+ allocate if the address is NIL
+
+This bugfix is for the ISO Storage.REALLOCATE procedure which is a GNU
+extension.  It should behave in the same way as the PIM version by
+first checking whether the pointer parameter is NIL and then calling
+ALLOCATE.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/125544
+	* gm2-libs-iso/Storage.def (REALLOCATE): Updated comment
+	describing new behavior.
+	* gm2-libs-iso/Storage.mod (REALLOCATE): Check addr
+	and call ALLOCATE if NIL else call lowerReallocate.
+	(lowerReallocate): New procedure.
+
+(cherry picked from commit 23229bea30efc917bdb0d65cc6bffade0d2017ea)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-libs-iso/Storage.def |  3 ++-
+ gcc/m2/gm2-libs-iso/Storage.mod | 33 ++++++++++++++++++++++++++-------
+ 2 files changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/gcc/m2/gm2-libs-iso/Storage.def b/gcc/m2/gm2-libs-iso/Storage.def
+index 24bf8537896f..586fb20ae67d 100644
+--- a/gcc/m2/gm2-libs-iso/Storage.def
++++ b/gcc/m2/gm2-libs-iso/Storage.def
+@@ -28,7 +28,8 @@ PROCEDURE DEALLOCATE (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
+   *)
+ 
+ PROCEDURE REALLOCATE (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
+-  (* Attempts to reallocate, amount of storage.  Effectively it
++  (* If addr is NIL then ALLOCATE is called otherwise it
++     attempts to reallocate amount of storage.  Effectively it
+      calls ALLOCATE, copies the amount of data pointed to by
+      addr into the new space and DEALLOCATES the addr.
+      This procedure is a GNU extension.
+diff --git a/gcc/m2/gm2-libs-iso/Storage.mod b/gcc/m2/gm2-libs-iso/Storage.mod
+index 4f853bf2fcfa..153386b96dce 100644
+--- a/gcc/m2/gm2-libs-iso/Storage.mod
++++ b/gcc/m2/gm2-libs-iso/Storage.mod
+@@ -89,17 +89,18 @@ BEGIN
+ END DEALLOCATE ;
+ 
+ 
+-PROCEDURE REALLOCATE (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
+-  (* Attempts to reallocate, amount of storage.  Effectively it
+-     calls ALLOCATE, copies the amount of data pointed to by
+-     addr into the new space and DEALLOCATES the addr.
+-     This procedure is a GNU extension.
+-  *)
++(*
++   LowerReallocate - attempts to reallocate amount of storage by
++                     calling ALLOCATE and then coping the amount of data
++                     pointed to by addr into the new space.
++                     Lastly the original addr is deallocated.
++*)
++
++PROCEDURE LowerReallocate (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL) ;
+ VAR
+    newa: SYSTEM.ADDRESS ;
+    n   : CARDINAL ;
+ BEGIN
+-   assert (initialized) ;
+    IF NOT IsIn (storageTree, addr)
+    THEN
+       RAISE (storageException, ORD(pointerToUnallocatedStorage),
+@@ -115,6 +116,24 @@ BEGIN
+    END ;
+    DEALLOCATE(addr, n) ;
+    addr := newa
++END LowerReallocate ;
++
++
++PROCEDURE REALLOCATE (VAR addr: SYSTEM.ADDRESS; amount: CARDINAL);
++  (* If addr is NIL then ALLOCATE is called otherwise it
++     attempts to reallocate amount of storage.  Effectively it
++     calls ALLOCATE, copies the amount of data pointed to by
++     addr into the new space and DEALLOCATES the addr.
++     This procedure is a GNU extension.
++  *)
++BEGIN
++   assert (initialized) ;
++   IF addr = NIL
++   THEN
++      ALLOCATE (addr, amount)
++   ELSE
++      LowerReallocate (addr, amount)
++   END
+ END REALLOCATE ;
+ 
+ 
