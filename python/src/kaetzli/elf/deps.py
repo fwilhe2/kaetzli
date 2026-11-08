@@ -90,11 +90,27 @@ def check(root: Path, given: str, allowlist: Path) -> int:
     elfs = scan.scan(root)
     pairs = [(lib, e.path) for e in elfs for lib in e.needed]
     missing = sorted({lib for lib, _ in pairs} - provided(root, elfs))
+    allowed = read_allowlist(allowlist)
+    # The allowlist is per library, so a line whose consumers are all gone waves the next
+    # one through unseen. Named, not failed: CI runs this per tree (the base, each
+    # extension over it, the OCI layer), and one tree's unused line is another's backlog.
+    # First, so the verdict stays the last line (size/trim.py shows only that on a pass).
+    unused = sorted(allowed - set(missing))
+    if unused:
+        print(f"Listed in {allowlist.name}, needed by nothing in {given}/:")
+        for lib in unused:
+            print(f"  {lib}")
+        print()
+    return _report(given, allowlist, pairs, missing, allowed)
+
+
+def _report(
+    given: str, allowlist: Path, pairs: list[tuple[str, str]], missing: list[str], allowed: set[str]
+) -> int:
     if not missing:
         print(f"All shared library dependencies in {given}/ are satisfied.")
         return 0
 
-    allowed = read_allowlist(allowlist)
     new = [x for x in missing if x not in allowed]
     known = [x for x in missing if x in allowed]
 

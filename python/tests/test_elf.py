@@ -138,6 +138,24 @@ class TestScanFiles:
 
 @needs_gcc
 class TestDeps:
+    # The allowlist is per library, so a line whose consumer is gone would wave through
+    # the next one: each run names what it did not need. Not a failure, since CI runs the
+    # check per tree (the base, each extension over it, the OCI layer) and one tree's
+    # unused line can be another's backlog.
+    @pytest.mark.parametrize(
+        ("tree", "unused"),
+        [("nolib", ["libgone.so.9"]), ("good", ["libfoo.so.1", "libgone.so.9"])],
+    )
+    def test_an_allowlisted_library_nothing_needs_is_named(self, trees, tmp_path, tree, unused):
+        a = tmp_path / "allowlist.txt"
+        a.write_text("# backlog\nlibfoo.so.1\nlibgone.so.9\n")
+        rc, out = check(deps, [str(trees[tree]), str(a)])
+        assert rc == 0
+        note = out.split("needed by nothing in", 1)[1].split("\n\n", 1)[0].splitlines()[1:]
+        assert [x.strip() for x in note] == unused
+        satisfied = f"All shared library dependencies in {trees[tree]}/ are satisfied."
+        assert out.splitlines()[-1] in ("No new unresolved dependencies.", satisfied)
+
     def test_a_link_is_read_inside_the_tree(self, trees, tmp_path):
         # An absolute link names the tree's own path, not the host's: libfoo.so.1 is
         # provided here by a link whose name is not one, to a target that is.

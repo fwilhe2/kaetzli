@@ -11,33 +11,15 @@
 #
 # One thing to know before adding a package that might want one of these: a line here
 # allowlists the *library*, not the consumer named in the comment beside it. A new
-# package that links libselinux gets filed under the entry below and the build passes,
-# and the binary is just as broken as it would have been without this file — see the
-# libselinux note in packages/iproute2/build.sh, where that nearly shipped an `ip` that
-# could not start. If a package you are adding could plausibly link something on this
+# package that links libcap-ng would be filed under the entry below and the build would
+# pass, the binary just as broken as without this file — see the libselinux note in
+# packages/iproute2/build.sh, where an entry here (since removed) nearly shipped an `ip`
+# that could not start. If a package you are adding could plausibly link something on this
 # list, read the binary's NEEDED rather than this check's exit status.
 
 # ---------------------------------------------------------------------------------
 # Degraded but not fatal: only the named tools break, and none are on the boot path.
-
-# util-linux fdisk, sfdisk — line editing.
-libreadline.so.8
+# check-rootfs-deps.py names any line here that nothing in the tree it checked needs.
 
 # util-linux setpriv.
 libcap-ng.so.0
-
-# e2fsprogs fuse2fs — mounting ext4 through FUSE.
-libfuse3.so.4
-
-# glibc nscd (name service cache daemon), makedb, and memusagestat (a profiling tool).
-# Building glibc --without-selinux would drop the libselinux reference, but nscd and
-# makedb are far enough off the boot path not to be worth a 13-minute glibc rebuild.
-libaudit.so.1
-libgd.so.3
-libselinux.so.1
-
-# pam_userdb — a PAM module we don't reference in image/files/etc/pam.d.
-libdb-5.3.so
-
-# zstd's CLI links liblz4 for --format=lz4; the library itself doesn't need it.
-liblz4.so.1
