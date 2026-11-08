@@ -85,7 +85,6 @@ def test_the_var_disk_keeps_its_machine_id_across_boots(sb, tmp_path):
 @pytest.mark.parametrize(
     ("kw", "says"),
     [
-        ({"sysexts": ["podman"]}, "SYSEXTS"),
         ({"profile": "microvm"}, "QEMU_PROFILE"),
     ],
 )
@@ -118,3 +117,48 @@ def test_another_variable_store_can_be_booted(sb):
     m = machine(sb, secureboot_vars="ovmf-vars-off.fd")
     vars_ = next(d for d in after(m.argv(), "-drive") if "unit=1" in d)
     assert Path(vars_.split("file=", 1)[1]).read_bytes() == b"off"
+
+
+def sealed(sb: Path, exts: str, var: bool) -> None:
+    (sb / "sealed").write_text(f"extensions={exts}\nvar={'true' if var else 'false'}\n")
+
+
+def extension(sb: Path, name: str = "podman") -> Path:
+    d = sb.parent / "extensions"
+    d.mkdir(exist_ok=True)
+    (d / f"{name}.raw").write_bytes(b"")
+    (d / f"{name}.dm-verity").write_text("0 8 verity 1 @DEV@ @DEV@\n")
+    return d
+
+
+# The UKI's command line carries the extensions' tables (tools/sign-uki.sh --ext), with
+# disk names that depend on whether a /var disk comes first: a boot must match it.
+def test_extensions_boot_when_the_uki_was_sealed_for_them(sb, tmp_path):
+    extension(sb)
+    sealed(sb, "podman", var=True)
+    m = machine(sb, sysexts=["podman"], var_disk=str(tmp_path / "var.img"))
+    drives = after(m.argv(), "-drive")
+    assert any(d.endswith(",id=ext-podman") for d in drives)
+
+
+@pytest.mark.parametrize(
+    ("exts", "var", "kw", "says"),
+    [
+        ("", False, {"sysexts": ["podman"]}, "sealed for no extensions"),
+        ("debug", False, {"sysexts": ["podman"]}, "sealed for debug"),
+        ("podman", False, {"sysexts": ["podman"], "var_disk": "/tmp/v.img"}, "without a /var disk"),
+        ("podman", True, {"sysexts": ["podman"]}, "with a /var disk"),
+        ("podman", False, {}, "sealed for podman"),
+    ],
+)
+def test_a_boot_the_uki_was_not_sealed_for_is_refused(sb, exts, var, kw, says):
+    extension(sb)
+    sealed(sb, exts, var)
+    with pytest.raises(Refused, match=says):
+        machine(sb, **kw)
+
+
+def test_without_a_sealed_file_extensions_are_refused(sb):
+    extension(sb)
+    with pytest.raises(Refused, match=r"sign-uki\.sh --ext"):
+        machine(sb, sysexts=["podman"])

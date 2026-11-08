@@ -1102,6 +1102,8 @@ func main() {
 		cmdRm(args)
 	case "print-argv":
 		cmdPrintArgv(args)
+	case "secureboot-files":
+		cmdSecureBootFiles(args)
 	case "version", "--version":
 		fmt.Println("kaetzli " + version)
 	case "help", "-h", "--help":

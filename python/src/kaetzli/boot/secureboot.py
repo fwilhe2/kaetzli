@@ -57,16 +57,17 @@ def main(argv: list[str]) -> int:
     var_disk = m.var_disk or "output/secureboot-var.img"
 
     def test() -> None:
+        # A fresh /var disk each run, unless VAR_DISK names one; only the signed boot has
+        # it. Before setup(), which holds the boot to what the UKI was sealed for.
+        if not m.var_disk:
+            for f in (var_disk, f"{var_disk}.machine-id", f"{var_disk}.fstab"):
+                Path(f).unlink(missing_ok=True)
+        m.var_disk = var_disk
         m.setup()
         m.preflight()
         m.ssh_setup("output/ssh-secureboot", port=None)
         root_cmdline = Path(m.root_cmdline_file()).read_text().strip()
         root_hash = root_cmdline.split(" sha256 ", 1)[1].split()[0]
-        # A fresh /var disk each run, unless VAR_DISK names one; only the signed boot has it.
-        if not m.var_disk:
-            for f in (var_disk, f"{var_disk}.machine-id", f"{var_disk}.fstab"):
-                Path(f).unlink(missing_ok=True)
-        m.var_disk = var_disk
 
         print(">> signed UKI, with init=/bin/bash passed from outside", flush=True)
         with b.guest("secureboot", exempt=EXEMPT) as g:
