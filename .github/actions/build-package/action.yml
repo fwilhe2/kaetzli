@@ -28,15 +28,19 @@ runs:
     - name: Get Cache key
       id: get_key
       shell: bash
+      # Inputs reach the scripts as variables, never as text spliced into them.
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
+        INPUT_ARCH: ${{ inputs.arch }}
       run: |
         source tools/lib.sh
-        load_env "${{ inputs.package }}"
+        load_env "$INPUT_PACKAGE"
         # Whether to compile against our glibc is the package's own NO_SYSROOT, rather than
         # an input the calling job could get out of step with: glibc is where the sysroot
         # comes from and the kernel links no libc.
         if [ -n "${NO_SYSROOT:-}" ]; then sysroot=false; else sysroot=true; fi
         echo "sysroot=$sysroot" >> $GITHUB_OUTPUT
-        PKG="packages/${{ inputs.package }}"
+        PKG="packages/$INPUT_PACKAGE"
         # glibc's env.sh, build.sh and patches are in here for every package: they are
         # compiled against that glibc, so changing its version, how it is configured or
         # which release-branch commits it carries has to rebuild all of them, not only glibc.
@@ -62,7 +66,7 @@ runs:
         # sourced: $PACKAGE in the key catches a version bump, that file the rest.
         follows=
         [ -z "${FOLLOWS:-}" ] || follows="packages/$FOLLOWS/env.sh"
-        sum=$(cat build.sh tools/lib.sh builder/build-package.sh packages/glibc/env.sh packages/glibc/build.sh $PKG/build.sh $PKG/env.sh $follows <(./tools/image-tags.sh builder) <(./tools/patch-cves.sh "${{ inputs.package }}") <(find packages/glibc/patches $PKG/src $PKG/licenses $PKG/patches -type f -print0 2>/dev/null | sort -z | xargs -0r cat) | md5sum | cut -d ' ' -f 1)
+        sum=$(cat build.sh tools/lib.sh builder/build-package.sh packages/glibc/env.sh packages/glibc/build.sh $PKG/build.sh $PKG/env.sh $follows <(./tools/image-tags.sh builder) <(./tools/patch-cves.sh "$INPUT_PACKAGE") <(find packages/glibc/patches $PKG/src $PKG/licenses $PKG/patches -type f -print0 2>/dev/null | sort -z | xargs -0r cat) | md5sum | cut -d ' ' -f 1)
         # And the half-month, so nothing is served from the cache for longer than about
         # two weeks. Every input above is pinned, but the claim that a pinned input still
         # builds is only tested by building it — a binary cached for a year says nothing
@@ -74,7 +78,7 @@ runs:
         period=${stamp:0:7}-$([ "${stamp:8:2}" -lt 15 ] && echo a || echo b)
         # arch has to be in the key: an amd64 and an arm64 build of the same package at
         # the same script hash produce entirely different, mutually useless binaries.
-        echo "key=${{ inputs.arch }}-$PACKAGE-$period-$sum" >> $GITHUB_OUTPUT
+        echo "key=$INPUT_ARCH-$PACKAGE-$period-$sum" >> $GITHUB_OUTPUT
 
     # The staging tree is this package's own files only, so the artifact doesn't ship a
     # copy of glibc with every package. The sysroot is a separate tree.
@@ -108,7 +112,9 @@ runs:
     - name: Build
       if: steps.cache-build.outputs.cache-hit != 'true'
       shell: bash
-      run: SYSROOT_DIR=sysroot ./build.sh ${{ inputs.package }}
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
+      run: SYSROOT_DIR=sysroot ./build.sh "$INPUT_PACKAGE"
 
     # A fresh build whose key some earlier run of the period already saved gets a warning
     # here and nothing else: entries are immutable, and the two are the same bytes anyway
@@ -122,6 +128,8 @@ runs:
 
     - name: Tar files to preserve permissions
       shell: bash
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
       run: |
         # Entries named rootfs/... and extensions/<name>/..., as they always were: the
         # rootfs job unpacks each into staging/<name>/ and merges them the way a local
@@ -129,7 +137,7 @@ runs:
         # Listed rather than `.`, which would name them ./rootfs/...: glibc's artifact is
         # unpacked with --strip-components=1 and tools/fetch-image.sh asks for the
         # kernel's rootfs/boot/bzImage by name.
-        tar cvf ${{ inputs.package }}.tar -C staging/${{ inputs.package }} $(ls -A staging/${{ inputs.package }})
+        tar cvf "$INPUT_PACKAGE.tar" -C "staging/$INPUT_PACKAGE" $(ls -A "staging/$INPUT_PACKAGE")
 
     - name: Upload Package
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
