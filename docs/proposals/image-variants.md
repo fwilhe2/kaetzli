@@ -58,4 +58,5 @@ them.
 - Decide how `/etc` overlays and `extra/` files interact with package selection.
 - Set per-variant size budgets and tests before adding variants to CI.
 - Consider a self-bootable disk platform separately; it requires a partition table and
-  bootloader, unlike the current EROFS filesystem image.
+  bootloader, unlike the current EROFS filesystem image ([cloud VPS](cloud-vps.md) is
+  one use).
