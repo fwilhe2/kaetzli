@@ -28,17 +28,19 @@ jobs:
           [ -z "$unformatted" ] || { echo "gofmt would change: $unformatted" >&2; exit 1; }
           go vet ./...
 
-      # sbverify (sbsigntools) checks internal/authenticode's signatures independently;
-      # required here, so that test cannot skip.
-      - name: Install sbverify
+      # sbverify (sbsigntools) checks internal/authenticode's signatures independently,
+      # virt-fw-vars (python3-virt-firmware) internal/efivars' stores; required here, so
+      # those tests cannot skip.
+      - name: Install sbverify and virt-fw-vars
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends sbsigntool
+          sudo apt-get install -y --no-install-recommends sbsigntool python3-virt-firmware
 
       - name: Tests
         working-directory: go
         env:
           KAETZLI_REQUIRE_SBVERIFY: "1"
+          KAETZLI_REQUIRE_VIRT_FW_VARS: "1"
         run: go test ./...
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
