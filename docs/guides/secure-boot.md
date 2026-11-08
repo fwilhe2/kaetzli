@@ -2,7 +2,7 @@
 
 **Status: implemented for amd64 under qemu (OVMF), with a persistent `/var`; you sign the
 UKI, and the launcher does it for you (`kaetzli start --secure-boot`).** Not yet: system
-extensions in this mode, a hostname per machine, arm64, and VMMs that boot without
+extensions in this mode, arm64, and VMMs that boot without
 firmware (Firecracker, Virtualization.framework).
 
 ## Why
@@ -32,9 +32,11 @@ kaetzli start --secure-boot --no-ext    # remembered; --no-secure-boot turns it 
   descriptors (`go/internal/firmware`): your certificate in db, and a PK and KEK made for
   the machine and thrown away (`go/internal/efivars`). Nothing but qemu and OVMF on the
   host (Debian, Ubuntu: `ovmf`; Fedora: `edk2-ovmf`).
-- Under Secure Boot the hostname is the image's (`kaetzli`): `systemd.hostname=` would
-  be on the sealed command line, and the image's `/etc/hostname` outranks the
-  `system.hostname` credential.
+- The machine's name is its hostname by the `system.hostname` credential, since
+  `systemd.hostname=` would be on the sealed command line. It takes because the image
+  ships no `/etc/hostname`, which would outrank it; `DEFAULT_HOSTNAME=kaetzli` in
+  os-release is the name when nothing gives one (`test/systemd.py` checks the credential
+  takes).
 
 ## Build, sign, boot
 
@@ -84,7 +86,8 @@ reproducible. Verify, then sign with your key: that key is the only secret, and 
 ## What is checked
 
 CI's boot job (amd64) also boots the launcher with `--secure-boot` on the runner's OVMF,
-and checks the kernel reports Secure Boot on and `/var` is its disk.
+and checks the kernel reports Secure Boot on, `/var` is its disk and the hostname is the
+machine's name.
 
 `test/secureboot.py` (CI's boot job, amd64): the signed UKI boots although the harness
 passes `init=/bin/bash`, the kernel reports Secure Boot on, `/proc/cmdline` carries the
@@ -100,7 +103,5 @@ shell, so the sealed command line of the first boot is Secure Boot's doing.
   seals, so `SECUREBOOT` refuses them. Next: extensions with signed verity root hashes,
   checked against the firmware's db through the kernel's platform keyring, so the user's
   key signs them as it signs the UKI.
-- **A hostname per machine.** The image's `/etc/hostname` outranks the credential; next,
-  systemd's `-Ddefault-hostname=kaetzli` in its place, so `system.hostname` takes.
 - **arm64** (AAVMF with Secure Boot) and **firmware-less VMMs**, which are handed a
   kernel and command line directly and so cannot enforce any of this.

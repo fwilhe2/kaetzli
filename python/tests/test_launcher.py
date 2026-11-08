@@ -87,8 +87,10 @@ def _both(launcher, image, tmp_path, *, arch, kvm, exts, secureboot=None):
         display_args=display, reboot=True, kvm=kvm, secureboot=str(secureboot or ""),
     )  # fmt: skip
     if secureboot:
-        # What qemu_ssh_setup sets for the key, which goes by fw_cfg.
+        # What qemu_ssh_setup sets for the key, and the hostname the stub would ignore on
+        # the command line, as a credential.
         m.ssh_pub = str(pub)
+        m.fwcfg_credentials = ["system.hostname=dev"]
         m.setup()
     m.nic_extra = ",hostfwd=tcp:127.0.0.1:2201-:22"
     m.append_extra = (

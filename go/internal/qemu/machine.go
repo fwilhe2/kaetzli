@@ -225,9 +225,14 @@ func (m Machine) Argv() ([]string, error) {
 		"-device", "virtio-blk-pci,drive=root")
 	argv = append(argv, varDrive...)
 	argv = append(argv, extDrives...)
-	// Under Secure Boot the hostname is the image's: systemd.hostname= is on the sealed
-	// command line, and /etc/hostname outranks the system.hostname credential.
-	argv = append(argv, "-nic", nic,
+	argv = append(argv, "-nic", nic)
+	if m.SecureBoot != nil && m.Hostname != "" {
+		// systemd.hostname= is on the command line the stub ignores; the credential takes,
+		// as the image ships no /etc/hostname. After the nic, where kaetzli.qemu puts its
+		// fwcfg_credentials.
+		argv = append(argv, "-fw_cfg", credentials+"system.hostname,string="+m.Hostname)
+	}
+	argv = append(argv,
 		"-append", root+" console="+m.console()+" init="+m.Init+
 			" systemd.set_credential=login.noauth:yes"+extra+varAppend+extAppend)
 	if len(m.Display) > 0 {
