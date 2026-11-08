@@ -123,6 +123,7 @@ func TestSecureBootBootsTheSignedUKIUnderSMMFirmware(t *testing.T) {
 		"name=opt/io.systemd.credentials/fstab.extra,file=" + filepath.Join(d, "var.img.fstab"),
 		"name=opt/io.systemd.credentials/system.machine_id,file=" + filepath.Join(d, "var.img.machine-id"),
 		"name=opt/io.systemd.credentials/ssh.authorized_keys.root,file=/m/ssh/id_ed25519.pub",
+		"name=opt/io.systemd.credentials/system.hostname,string=dev",
 	} {
 		if !slices.Contains(fw, want) {
 			t.Errorf("no -fw_cfg %s in %v", want, fw)

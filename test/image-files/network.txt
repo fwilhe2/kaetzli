@@ -2,3 +2,8 @@
 # and :5353 on every interface (test/listeners.py). erofs only, since the OCI flavour has
 # no systemd to read it.
 present:erofs etc/systemd/resolved.conf.d/50-no-multicast.conf
+
+# No static hostname: it would outrank the system.hostname credential, the only way to
+# name a machine booted from a signed UKI (DEFAULT_HOSTNAME in os-release instead;
+# test/systemd.py checks the credential takes).
+absent etc/hostname

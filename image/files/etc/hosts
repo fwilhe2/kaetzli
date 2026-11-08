@@ -3,9 +3,10 @@
 127.0.0.1       localhost
 ::1             localhost ip6-localhost ip6-loopback
 
-# 127.0.1.1, not 127.0.0.1: the hostname in /etc/hostname belongs to a machine whose
-# real address comes from DHCP and changes, so it gets its own loopback address rather
-# than sharing localhost's. Keep this in step with /etc/hostname.
+# 127.0.1.1, not 127.0.0.1: the default hostname (DEFAULT_HOSTNAME in os-release) belongs
+# to a machine whose real address comes from DHCP and changes, so it gets its own loopback
+# address rather than sharing localhost's. Keep this in step with os-release. A machine
+# given another name resolves it through resolved or nss-myhostname.
 127.0.1.1       kaetzli
 
 # The IPv6 multicast entries every distribution ships. Nothing in the image sends to

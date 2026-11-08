@@ -102,6 +102,12 @@ SYSCTL_CHECK = (
 FWCFG_CREDENTIAL = "kaetzli.fwcfg-probe=delivered"
 FWCFG_CHECK = "echo SYSTEMD'-FWCFG':[$(< /run/credentials/@system/kaetzli.fwcfg-probe)]"
 
+# The hostname by credential, how a machine booted from a signed UKI is named (its
+# systemd.hostname= would be on the sealed command line). It takes only while the image
+# ships no /etc/hostname, which outranks it.
+HOSTNAME_CREDENTIAL = "system.hostname=kaetzli-fwcfg"
+HOSTNAME_CHECK = "echo SYSTEMD'-HOSTNAME':[$(< /proc/sys/kernel/hostname)]"
+
 # --no-color: the transcript is read as text.
 FETCH_RUN = "fetch --no-color; echo FETCH'-DONE'"
 
@@ -321,6 +327,17 @@ def check(guest: Guest, fwcfg: bool) -> None:
             )
         _out(">> systemd OK: a credential arrived through fw_cfg")
 
+        guest.send(HOSTNAME_CHECK)
+        if not guest.wait(r"SYSTEMD-HOSTNAME:\[([^]]*)\]", 30):
+            guest.fail("could not read the hostname")
+        want = HOSTNAME_CREDENTIAL.split("=", 1)[1]
+        if guest.group() != want:
+            guest.fail(
+                f"the hostname is {guest.group()}, not {want} from the system.hostname "
+                "credential — does the image ship /etc/hostname, which outranks it?"
+            )
+        _out(">> systemd OK: the system.hostname credential named the machine")
+
     # Partly for the pleasure of seeing it in a CI log, and partly because fetch is
     # a fair canary: it links nothing but glibc and reads /etc/os-release, /proc and /sys,
     # so "it printed its own OS name" means the loader, the libc and the shipped /etc all
@@ -372,7 +389,7 @@ def main(argv: list[str]) -> int:
     def test() -> None:
         b.machine.setup()
         if b.machine.profile == "pc":
-            b.machine.fwcfg_credentials = [FWCFG_CREDENTIAL]
+            b.machine.fwcfg_credentials = [FWCFG_CREDENTIAL, HOSTNAME_CREDENTIAL]
         b.machine.preflight()
         with b.guest("systemd", diagnose=DIAGNOSE) as guest:
             guest.login(user)

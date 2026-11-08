@@ -706,7 +706,8 @@ jobs:
 
       # The same from the launcher, as a user runs it: its own key made, the UKI signed and
       # the variable store written in Go (go/internal/authenticode, efivars), the host's
-      # OVMF found through qemu's firmware descriptors, /var on its disk.
+      # OVMF found through qemu's firmware descriptors, /var on its disk, its name the
+      # guest's hostname.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: matrix.arch == 'amd64'
         with:
@@ -722,10 +723,12 @@ jobs:
           cp artifacts/rootfs.erofs artifacts/rootfs.cmdline artifacts/kaetzli.efi rootfs/boot/bzImage "$img/"
           export KAETZLI_HOME=$RUNNER_TEMP/kaetzli-home KAETZLI_CACHE=$RUNNER_TEMP/kaetzli-cache
           k=$RUNNER_TEMP/kaetzli
-          "$k" start --secure-boot --no-ext --image "$img" --size 2G
-          "$k" ssh --root 'journalctl -k -b | grep "Secure boot enabled" && findmnt -no SOURCE /var | grep -x /dev/vdb' ||
-              { "$k" stop --force; tail -n 60 "$KAETZLI_HOME/machines/kaetzli/console.log"; exit 1; }
-          "$k" stop
+          # Not the default name, which is also the image's default hostname.
+          "$k" start sbtest --secure-boot --no-ext --image "$img" --size 2G
+          "$k" ssh --root sbtest 'journalctl -k -b | grep "Secure boot enabled" &&
+              findmnt -no SOURCE /var | grep -x /dev/vdb && grep -x sbtest /proc/sys/kernel/hostname' ||
+              { "$k" stop sbtest --force; tail -n 60 "$KAETZLI_HOME/machines/sbtest/console.log"; exit 1; }
+          "$k" stop sbtest
 
       - name: Check for failed units, and say hello
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage

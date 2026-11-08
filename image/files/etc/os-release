@@ -29,3 +29,9 @@ ANSI_COLOR="0;36"
 # extension. image/build-extension.sh writes the matching line into what it builds.
 SYSEXT_LEVEL=1
 CONFEXT_LEVEL=1
+#
+# The hostname when nothing names the machine. Not /etc/hostname: a static hostname there
+# outranks the system.hostname credential, the one way to name a machine booted from a
+# signed UKI, whose command line (systemd.hostname=) is sealed (docs/guides/secure-boot.md).
+# PID 1 falls back to this, and systemd.hostname= and the credential both win over it.
+DEFAULT_HOSTNAME=kaetzli
