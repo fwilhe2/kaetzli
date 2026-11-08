@@ -26,6 +26,15 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py   # any kaetzli.qemu boot
 ./test/secureboot.py                   # what CI checks
 ```
 
+Or without building: every snapshot release has `uki-<arch>.efi`, unsigned, and
+`tools/fetch-image.sh` puts it beside the image as `output/boot-image/kaetzli.efi`:
+
+```sh
+./tools/fetch-image.sh
+./tools/sign-uki.sh --key K.pem --cert C.pem output/boot-image/kaetzli.efi
+SECUREBOOT=output/secureboot ./tools/boot-qemu.py
+```
+
 - `image/build-rootfs.sh` makes `output/kaetzli.efi` with `ukify` (the assembler image),
   from the kernel, `rootfs.cmdline` plus the console, os-release, and **our** systemd's
   stub (`packages/systemd`, `-Dbootloader=enabled`; the stub is removed from the image
@@ -39,6 +48,14 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py   # any kaetzli.qemu boot
 - `kaetzli.qemu` with `SECUREBOOT=<dir>` boots that on q35 with SMM, a copy of the
   variables per boot, and the credentials (`login.noauth`, the ssh key) over fw_cfg,
   since the command line is sealed.
+
+## Who signs: you
+
+Releases carry the UKI **unsigned**, and the project holds no signing key, by design. In a
+VM whoever runs the VMM owns the firmware's variables, so a key of ours would prove nothing
+that yours does not; what you need from us is that the UKI is the one CI built, and that is
+`SHA256SUMS` and its attestation (`tools/fetch-image.sh` checks both) and the UKI being
+reproducible. Verify, then sign with your key: that key is the only secret, and it is yours.
 
 ## What is checked
 
@@ -56,7 +73,8 @@ shell, so the sealed command line of the first boot is Secure Boot's doing.
   refuses them. Next: a `/var` found by label from the UKI's own command line, and
   extensions with signed verity root hashes, checked against the firmware's db through
   the kernel's platform keyring.
-- **Releases.** Signing with a key users can trust needs a CI secret and a published
-  certificate; until then releases carry no signed UKI.
+- **Signing on fetch.** The launcher and `tools/vm.sh` should make a key per user, sign the
+  UKI they fetched and verified, and enroll that key in each machine's variables, so Secure
+  Boot needs no step of yours.
 - **arm64** (AAVMF with Secure Boot) and **firmware-less VMMs**, which are handed a
   kernel and command line directly and so cannot enforce any of this.

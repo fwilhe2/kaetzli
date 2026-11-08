@@ -140,6 +140,7 @@ def artifacts(root: Path, arch: str, exts=("podman", "debug"), confexts=("podman
 
     w(f"rootfs.erofs-{arch}/rootfs.erofs", "erofs")
     w(f"rootfs.erofs-{arch}/rootfs.cmdline", "root=/dev/dm-0")
+    w(f"rootfs.erofs-{arch}/kaetzli.efi", "MZ")
     kernel_tar(root / f"package-kernel-{arch}/kernel.tar")
     for e in exts:
         w(f"extensions-{arch}/extensions/{e}.raw")
@@ -174,6 +175,7 @@ def test_collect_names_every_asset_by_arch(tmp_path):
         "sbom-ext-debug-amd64.json",
         "sbom-ext-podman-amd64.json",
         "sbom-oci-amd64.json",
+        "uki-amd64.efi",
         "vex-amd64.json",
     ]
     assert (tmp_path / "out/kernel-amd64").read_bytes() == b"kernel"
@@ -190,6 +192,13 @@ def test_a_missing_required_asset_is_a_problem_and_names_it(tmp_path):
     got = release.collect(tmp_path / "a", tmp_path / "out", "arm64", ["debug", "podman"])
     assert any("rootfs.cmdline" in p for p in got.problems)
     assert any("debug" in p and "sysext" in p for p in got.problems)
+
+
+def test_a_missing_uki_is_a_problem(tmp_path):
+    artifacts(tmp_path / "a", "amd64")
+    (tmp_path / "a/rootfs.erofs-amd64/kaetzli.efi").unlink()
+    got = release.collect(tmp_path / "a", tmp_path / "out", "amd64", ["debug", "podman"])
+    assert any("kaetzli.efi" in p and "uki-amd64.efi" in p for p in got.problems)
 
 
 def test_an_extension_named_in_env_sh_but_not_built_is_a_problem(tmp_path):
@@ -309,6 +318,12 @@ def test_notes_carry_the_notice_provenance_and_boot_instructions():
     assert "releases/latest/download/rootfs-amd64.erofs" in text
     assert "cve-arm64.ods" in text  # the missing workbook is said
     assert "20261101.000000-41" in text
+
+
+def test_the_notes_say_the_uki_is_unsigned_and_how_to_sign_it():
+    text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
+    assert "uki-<arch>.efi" in text and "unsigned" in text
+    assert "tools/sign-uki.sh" in text and "docs/guides/secure-boot.md" in text
 
 
 def test_notes_say_free_software_where_the_licenses_are_and_no_warranty():
@@ -458,6 +473,7 @@ def test_dry_run_writes_nothing_and_leaves_the_release_on_disk(both_arches):
     assert (out / "SHA256SUMS").is_file() and (out / "notes.md").is_file()
     listed = [line.split()[1] for line in (out / "SHA256SUMS").read_text().splitlines()]
     assert "rootfs-amd64.erofs" in listed and "rootfs-arm64.erofs" in listed
+    assert "uki-amd64.efi" in listed and "uki-arm64.efi" in listed
     assert release.SOURCE in listed
 
 
