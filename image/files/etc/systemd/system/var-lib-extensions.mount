@@ -1,0 +1,17 @@
+# Under Secure Boot, nothing from /var is merged as a sysext: an empty read-only tmpfs
+# over /var/lib/extensions before systemd-sysext runs. /var is a writable disk that nothing
+# verifies, and an image or directory there would merge without dm-verity, so a
+# change to that disk would run code the signed UKI and the root's verity never vouched
+# for (docs/guides/secure-boot.md). Extensions under Secure Boot are the attached ones,
+# their tables sealed into the UKI's command line. Without Secure Boot this is skipped,
+# and /var/lib/extensions merges as before (docs/guides/sysext.md).
+[Unit]
+Description=No unverified sysexts from /var under Secure Boot
+ConditionSecurity=uefi-secureboot
+Before=systemd-sysext.service
+
+[Mount]
+What=tmpfs
+Where=/var/lib/extensions
+Type=tmpfs
+Options=ro,nosuid,nodev,noexec,mode=0755

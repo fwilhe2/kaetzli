@@ -19,6 +19,7 @@ import (
 	"github.com/fwilhe2/kaetzli/go/internal/efivars"
 	"github.com/fwilhe2/kaetzli/go/internal/firmware"
 	"github.com/fwilhe2/kaetzli/go/internal/qemu"
+	"github.com/fwilhe2/kaetzli/go/internal/snapshot"
 	"github.com/fwilhe2/kaetzli/go/internal/uki"
 )
 
@@ -120,10 +121,31 @@ func newCert(cn string, years int) (*rsa.PrivateKey, *x509.Certificate, error) {
 	return key, cert, err
 }
 
+// sealedFiles are what a signature over img's UKI vouches for: the UKI, and the verity
+// tables of m's extensions, which go into its command line and pin the extensions' bytes.
+func sealedFiles(img string, m qemu.Machine) []string {
+	files := []string{"kaetzli.efi"}
+	for _, e := range m.Sysexts {
+		for _, d := range []string{"extensions", "confexts"} {
+			f := d + "/" + e + ".dm-verity"
+			if isFile(filepath.Join(img, f)) {
+				files = append(files, f)
+			}
+		}
+	}
+	return files
+}
+
 // prepareSecureBoot signs img's UKI, with m's extensions sealed into its command line,
 // with the user's key and writes the machine's variable store, both into dir/secureboot/,
-// and says which firmware boots them.
-func prepareSecureBoot(dir, img string, m qemu.Machine) (*qemu.SecureBoot, error) {
+// and says which firmware boots them. A snapshot's files are checked against its
+// SHA256SUMS first (fromSnapshot); an --image directory is the user's own build.
+func prepareSecureBoot(dir, img string, m qemu.Machine, fromSnapshot bool) (*qemu.SecureBoot, error) {
+	if fromSnapshot {
+		if err := snapshot.Verify(img, m.Arch, sealedFiles(img, m)...); err != nil {
+			return nil, fmt.Errorf("refusing to sign: %w (delete %s, and the next start fetches it again)", err, img)
+		}
+	}
 	unsigned, err := os.ReadFile(filepath.Join(img, "kaetzli.efi"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("%s has no kaetzli.efi, the UKI Secure Boot boots (snapshots before 20261108 have none: kaetzli update; or start --no-secure-boot)", img)

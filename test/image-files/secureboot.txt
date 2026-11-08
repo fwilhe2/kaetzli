@@ -1,0 +1,8 @@
+# Under Secure Boot nothing merges from /var (docs/guides/secure-boot.md): the mounts that
+# cover /var/lib/extensions and /var/lib/confexts, and the links that start them with
+# systemd-sysext and systemd-confext. Without them a change to the /var disk runs code the
+# signed UKI never vouched for. test/secureboot.py checks the mount is there.
+present:erofs etc/systemd/system/var-lib-extensions.mount
+present:erofs etc/systemd/system/var-lib-confexts.mount
+present:erofs etc/systemd/system/systemd-sysext.service.wants/var-lib-extensions.mount
+present:erofs etc/systemd/system/systemd-confext.service.wants/var-lib-confexts.mount

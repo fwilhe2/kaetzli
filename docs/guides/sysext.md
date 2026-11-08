@@ -43,7 +43,8 @@ merges it. This attachment method is also used by the Kubernetes demo.
 An extension may instead be placed on a persistent `/var` disk under
 `/var/lib/extensions/` or `/var/lib/confexts/`. systemd can merge it from there, but this
 loading path does not verify the image with dm-verity. The base image and attached
-extensions remain verified.
+extensions remain verified. Under Secure Boot this path is closed: nothing on `/var` is
+merged ([secure-boot.md](secure-boot.md)).
 
 `systemd-sysext status` and `systemd-confext status` show the active merges in the guest.
 

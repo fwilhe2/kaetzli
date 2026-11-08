@@ -27,8 +27,10 @@ kaetzli start --secure-boot --ext podman   # remembered; --no-secure-boot turns 
 
 - The first time, it makes **your key**: `secureboot/db.key` and `db.crt` in the
   launcher's data directory (beside `machines/`). Keep `db.key` private.
-- Each start signs the snapshot's UKI, verified against `SHA256SUMS` when it was fetched,
-  with that key (`go/internal/authenticode`). It then writes the machine's firmware
+- Each start signs the snapshot's UKI with that key, after checking it and the attached
+  extensions' verity tables against the snapshot's `SHA256SUMS` again (not only when it
+  was fetched, so the signature never covers a cache changed since; an `--image`
+  directory is your own build and is not checked) (`go/internal/authenticode`). It then writes the machine's firmware
   variables fresh from the template of the host's OVMF, found through qemu's firmware
   descriptors (`go/internal/firmware`): your certificate in db, and a PK and KEK made for
   the machine and thrown away (`go/internal/efivars`). Nothing but qemu and OVMF on the
@@ -81,6 +83,13 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py
 - What Secure Boot seals is the kernel, the command line and through it the root: what
   the image *is*. Credentials come with the VMM's invocation, as the disks do, and are
   not sealed; who may log in, and which disk is `/var`, is the caller's to say.
+- **Nothing on `/var` is merged as an extension.** `/var` is a writable disk nothing
+  verifies, and systemd merges `/var/lib/extensions` and `/var/lib/confexts` without
+  dm-verity, so a change to that disk would run unsealed code. Under Secure Boot
+  `var-lib-extensions.mount` and `var-lib-confexts.mount` (`ConditionSecurity=uefi-secureboot`,
+  started with `systemd-sysext` and `systemd-confext`) cover both with an empty
+  read-only tmpfs; `test/secureboot.py` checks it. The data on `/var` is still yours to
+  protect: Secure Boot vouches for the code, not for what that code reads.
 
 ## Who signs: you
 
