@@ -529,7 +529,7 @@ jobs:
 
       # What tools/fetch-image.sh checks a download against before installing it: this
       # run, its commit and arch, and the SHA-256 of every file in the three artifacts a
-      # boot needs, by artifact name and path inside it (the format is in that script).
+      # boot needs (the unsigned UKI included: fetch refuses an unlisted file), by artifact name and path inside it (the format is in that script).
       # The kernel is the package artifact this job downloaded, the one fetch takes too.
       - name: Write the boot bundle's manifest
         env:
@@ -543,6 +543,7 @@ jobs:
             echo "arch $ARCH"
             entry output/rootfs.erofs "rootfs.erofs-$ARCH/rootfs.erofs"
             entry output/rootfs.cmdline "rootfs.erofs-$ARCH/rootfs.cmdline"
+            entry output/kaetzli.efi "rootfs.erofs-$ARCH/kaetzli.efi"
             entry "artifacts/package-kernel-$ARCH/kernel.tar" "package-kernel-$ARCH/kernel.tar"
             find output/extensions output/confexts -type f | LC_ALL=C sort | while read -r f; do
               entry "$f" "extensions-$ARCH/${f#output/}"

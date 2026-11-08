@@ -313,6 +313,9 @@ def collect(artifacts: Path, out: Path, arch: str, extensions: list[str]) -> Col
     rootfs = artifacts / f"rootfs.erofs-{arch}"
     take(rootfs / "rootfs.erofs", f"rootfs-{arch}.erofs")
     take(rootfs / "rootfs.cmdline", f"rootfs-{arch}.cmdline")
+    # The kernel and that command line sealed in one EFI binary, unsigned: what a user
+    # signs with their own key for Secure Boot (docs/guides/secure-boot.md).
+    take(rootfs / "kaetzli.efi", f"uki-{arch}.efi")
 
     kernel = out / f"kernel-{arch}"
     if _kernel(artifacts / f"package-kernel-{arch}/kernel.tar", kernel):
@@ -582,6 +585,15 @@ def notes(
     for arch in ARCHES:
         lines += [*_boot(repo, arch), ""]
     lines += [*_launcher(repo), ""]
+    lines += [
+        "`uki-<arch>.efi` is the kernel and `rootfs-<arch>.cmdline` (the root hash) in one "
+        "unified kernel image, **unsigned**: the project holds no signing key. Verify it, "
+        "sign it with your own key and enroll that key in the firmware, and the VMM can no "
+        "longer swap the root hash (`tools/sign-uki.sh --key K.pem --cert C.pem`, amd64 for "
+        "now; "
+        f"[docs/guides/secure-boot.md](https://github.com/{repo}/blob/{sha}/docs/guides/secure-boot.md)).",
+        "",
+    ]
     lines.append(
         "The extensions attach as described in "
         f"[docs/guides/sysext.md](https://github.com/{repo}/blob/{sha}/docs/guides/sysext.md)."

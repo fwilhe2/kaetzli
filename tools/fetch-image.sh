@@ -41,6 +41,10 @@
 # failed or refused fetch leaves the previous bundle as it was. A run from before the
 # manifest existed is refused; pin a newer one.
 #
+# Where the build made one, the unsigned unified kernel image comes too, as kaetzli.efi
+# beside the image: tools/sign-uki.sh signs it (docs/guides/secure-boot.md). Optional,
+# since older snapshots and runs have none.
+#
 # bundle.txt, one record per line, `#` comments (written in ci.yml's rootfs job):
 #   run <id>
 #   commit <sha>
@@ -105,7 +109,7 @@ if [ -d "$OUT" ]; then
     for f in "$OUT"/* "$OUT"/.[!.]*; do
         [ -e "$f" ] || [ -L "$f" ] || continue
         case "${f##*/}" in
-            rootfs.erofs|rootfs.cmdline|bzImage|extensions|confexts|ci-run|bundle.txt|snapshot|SHA256SUMS) ;;
+            rootfs.erofs|rootfs.cmdline|bzImage|kaetzli.efi|extensions|confexts|ci-run|bundle.txt|snapshot|SHA256SUMS) ;;
             *) die "$OUT holds ${f##*/}, which is not part of an image bundle; set OUT to another directory" ;;
         esac
     done
@@ -134,7 +138,7 @@ install_bundle() {
 
     echo
     echo "Downloaded and verified into $OUT/ ($what):"
-    ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
+    ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/kaetzli.efi "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
     if [ "$ARCH" = "$host_arch" ]; then
         echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.py"
     else
@@ -180,7 +184,7 @@ if [ -z "$RUN_ARG" ]; then
             case "$digest" in *[!0-9a-f]*) die "malformed digest in SHA256SUMS: $digest" ;; esac
             case "$asset" in */*|.*|*[!A-Za-z0-9._-]*) die "refusing asset name in SHA256SUMS: $asset" ;; esac
             case "$asset" in
-                rootfs-"$ARCH".erofs|rootfs-"$ARCH".cmdline|kernel-"$ARCH"|\
+                rootfs-"$ARCH".erofs|rootfs-"$ARCH".cmdline|kernel-"$ARCH"|uki-"$ARCH".efi|\
                 *-"$ARCH".sysext.raw|*-"$ARCH".sysext.dm-verity|\
                 *-"$ARCH".confext.raw|*-"$ARCH".confext.dm-verity)
                     printf '%s %s\n' "$asset" "$digest" >> "$tmp/wanted" ;;
@@ -217,6 +221,9 @@ if [ -z "$RUN_ARG" ]; then
         mv "$tmp/rel/rootfs-$ARCH.erofs" "$new/rootfs.erofs"
         mv "$tmp/rel/rootfs-$ARCH.cmdline" "$new/rootfs.cmdline"
         mv "$tmp/rel/kernel-$ARCH" "$new/bzImage"
+        if [ -f "$tmp/rel/uki-$ARCH.efi" ]; then
+            mv "$tmp/rel/uki-$ARCH.efi" "$new/kaetzli.efi"
+        fi
         while read -r asset _; do
             case "$asset" in
                 *-"$ARCH".sysext.*)  d=extensions ext=${asset%-"$ARCH".sysext.*} suffix=${asset##*.sysext.} ;;
@@ -368,6 +375,9 @@ mkdir -p "$parent"
 new=$(mktemp -d "$parent/.$(basename "$OUT").new.XXXXXX")
 trap 'rm -rf "$tmp" "$new"' EXIT
 cp "$tmp/art/$rootfs_art/rootfs.erofs" "$tmp/art/$rootfs_art/rootfs.cmdline" "$new/"
+if grep -q "^$rootfs_art/kaetzli.efi " "$tmp/listed"; then
+    cp "$tmp/art/$rootfs_art/kaetzli.efi" "$new/"
+fi
 cp "$tmp/kernel/rootfs/boot/bzImage" "$new/bzImage"
 if [ "$have_ext" = 1 ]; then
     cp -R "$tmp/art/$ext_art"/. "$new/"
