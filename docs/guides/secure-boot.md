@@ -1,9 +1,10 @@
 # Secure Boot
 
 **Status: implemented for amd64 under qemu (OVMF), with a persistent `/var`; you sign the
-UKI, and the launcher does it for you (`kaetzli start --secure-boot`).** Not yet: system
-extensions in this mode, arm64, and VMMs that boot without
-firmware (Firecracker, Virtualization.framework).
+UKI, and the launcher does it for you (`kaetzli start --secure-boot`), extensions
+included.** Not yet: extensions in this mode outside the launcher (`kaetzli.qemu`'s
+`SECUREBOOT`), arm64, and VMMs that boot without firmware (Firecracker,
+Virtualization.framework).
 
 ## Why
 
@@ -21,7 +22,7 @@ passes. A different root hash means a different UKI, which the signature does no
 ## With the launcher
 
 ```sh
-kaetzli start --secure-boot --no-ext    # remembered; --no-secure-boot turns it off
+kaetzli start --secure-boot --ext podman   # remembered; --no-secure-boot turns it off
 ```
 
 - The first time, it makes **your key**: `secureboot/db.key` and `db.crt` in the
@@ -32,6 +33,12 @@ kaetzli start --secure-boot --no-ext    # remembered; --no-secure-boot turns it 
   descriptors (`go/internal/firmware`): your certificate in db, and a PK and KEK made for
   the machine and thrown away (`go/internal/efivars`). Nothing but qemu and OVMF on the
   host (Debian, Ubuntu: `ovmf`; Fedora: `edk2-ovmf`).
+- **Extensions** are verified by the kernel as without Secure Boot, from their dm-verity
+  tables, which the launcher writes into the UKI's own command line (its `.cmdline`
+  section, `go/internal/uki`) before signing it: your signature covers the tables, the
+  tables (verified against `SHA256SUMS` with the snapshot) pin the extensions' bytes. A
+  different set of extensions is a different UKI, signed at that start. The tables share
+  the kernel's 2047 bytes with the root's, which the launcher checks.
 - The machine's name is its hostname by the `system.hostname` credential, since
   `systemd.hostname=` would be on the sealed command line. It takes because the image
   ships no `/etc/hostname`, which would outrank it; `DEFAULT_HOSTNAME=kaetzli` in
@@ -85,9 +92,9 @@ reproducible. Verify, then sign with your key: that key is the only secret, and 
 
 ## What is checked
 
-CI's boot job (amd64) also boots the launcher with `--secure-boot` on the runner's OVMF,
-and checks the kernel reports Secure Boot on, `/var` is its disk and the hostname is the
-machine's name.
+CI's boot job (amd64) also boots the launcher with `--secure-boot --ext podman` on the
+runner's OVMF, and checks the kernel reports Secure Boot on, `/var` is its disk, the
+hostname is the machine's name and podman merged.
 
 `test/secureboot.py` (CI's boot job, amd64): the signed UKI boots although the harness
 passes `init=/bin/bash`, the kernel reports Secure Boot on, `/proc/cmdline` carries the
@@ -99,9 +106,8 @@ shell, so the sealed command line of the first boot is Secure Boot's doing.
 
 ## Not yet
 
-- **Extensions.** Their `dm-mod.create=` tables are arguments on the command line the UKI
-  seals, so `SECUREBOOT` refuses them. Next: extensions with signed verity root hashes,
-  checked against the firmware's db through the kernel's platform keyring, so the user's
-  key signs them as it signs the UKI.
+- **Extensions outside the launcher.** `kaetzli.qemu`'s `SECUREBOOT` still refuses
+  `SYSEXTS`: `tools/sign-uki.sh` would have to write the tables into the UKI as the
+  launcher does.
 - **arm64** (AAVMF with Secure Boot) and **firmware-less VMMs**, which are handed a
   kernel and command line directly and so cannot enforce any of this.

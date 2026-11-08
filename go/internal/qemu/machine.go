@@ -5,6 +5,7 @@ package qemu
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ type Machine struct {
 	Display []string
 	Reboot  bool // a guest's reboot restarts qemu in place rather than ending it
 	// Boot the signed UKI under UEFI with Secure Boot instead of Kernel
-	// (docs/guides/secure-boot.md): amd64, no extensions yet.
+	// (docs/guides/secure-boot.md): amd64. Its command line must be SealedCmdline's.
 	SecureBoot *SecureBoot
 }
 
@@ -164,14 +165,64 @@ var (
 	waitFor   = regexp.MustCompile(`dm-mod\.waitfor=([^ ]*)`)
 )
 
+// mergeTables joins the extensions' tables to the root's dm-mod.create= and their disks
+// to what the kernel waits for (test/qemu-lib.sh's two sed expressions, line by line).
+func mergeTables(root, tables, wait string) string {
+	if tables == "" {
+		return root
+	}
+	lines := strings.Split(root, "\n")
+	for i, line := range lines {
+		if loc := lastQuote.FindStringIndex(line); loc != nil {
+			line = line[:loc[0]] + tables + `"`
+		}
+		if loc := waitFor.FindStringSubmatchIndex(line); loc != nil {
+			line = line[:loc[1]] + wait + line[loc[1]:]
+		}
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
+}
+
+// SealedCmdline is the command line for the machine's UKI, given the one it was built
+// with (the root's table and the console): the extensions' tables and mounts, as Argv
+// puts them on -append. Under Secure Boot the stub ignores -append, so the launcher
+// writes this into the UKI before signing it, and the kernel verifies the extensions
+// from it as it does without Secure Boot.
+func (m Machine) SealedCmdline(ukiCmdline string) (string, error) {
+	_, extAppend, tables, wait, err := m.sysexts()
+	if err != nil {
+		return "", err
+	}
+	if tables == "" {
+		return ukiCmdline, nil
+	}
+	// Not mergeTables: the UKI's table is followed by the console, so its closing quote is
+	// not the line's last character.
+	open := strings.Index(ukiCmdline, `dm-mod.create="`)
+	if open < 0 {
+		return "", errors.New("the UKI's command line has no dm-mod.create= table to join the extensions' to")
+	}
+	start := open + len(`dm-mod.create="`)
+	end := strings.IndexByte(ukiCmdline[start:], '"')
+	loc := waitFor.FindStringSubmatchIndex(ukiCmdline)
+	if end < 0 || loc == nil {
+		return "", errors.New("the UKI's command line has no closed dm-mod.create= table and dm-mod.waitfor=")
+	}
+	end += start
+	out := ukiCmdline[:end] + tables + ukiCmdline[end:]
+	if loc[1] > end { // dm-mod.waitfor= after the table: past what was just inserted
+		loc[1] += len(tables)
+	}
+	out = out[:loc[1]] + wait + out[loc[1]:]
+	return out + extAppend, nil
+}
+
 // Argv is the command line after the binary.
 func (m Machine) Argv() ([]string, error) {
 	if m.SecureBoot != nil {
 		if m.Arch != "amd64" {
 			return nil, fmt.Errorf("Secure Boot is amd64 only for now")
-		}
-		if len(m.Sysexts) > 0 {
-			return nil, fmt.Errorf("Secure Boot cannot take extensions yet: their verity tables would go on the command line the signed UKI seals")
 		}
 	}
 	raw, err := os.ReadFile(m.Cmdline)
@@ -187,19 +238,7 @@ func (m Machine) Argv() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if tables != "" {
-		lines := strings.Split(root, "\n")
-		for i, line := range lines {
-			if loc := lastQuote.FindStringIndex(line); loc != nil {
-				line = line[:loc[0]] + tables + `"`
-			}
-			if loc := waitFor.FindStringSubmatchIndex(line); loc != nil {
-				line = line[:loc[1]] + wait + line[loc[1]:]
-			}
-			lines[i] = line
-		}
-		root = strings.Join(lines, "\n")
-	}
+	root = mergeTables(root, tables, wait)
 
 	extra := ""
 	if len(m.PubKey) > 0 {

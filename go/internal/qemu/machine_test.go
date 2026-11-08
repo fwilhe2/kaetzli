@@ -138,15 +138,48 @@ func TestSecureBootBootsTheSignedUKIUnderSMMFirmware(t *testing.T) {
 	}
 }
 
-func TestSecureBootRefusesWhatItCannotSeal(t *testing.T) {
-	d := image(t)
-	ext := secureBoot(t, d)
-	ext.Sysexts, ext.ExtDir = []string{"podman"}, d
-	arm := secureBoot(t, d)
+func TestSecureBootRefusesArm64(t *testing.T) {
+	arm := secureBoot(t, image(t))
 	arm.Arch = "arm64"
-	for name, m := range map[string]Machine{"extensions": ext, "arm64": arm} {
-		if _, err := m.Argv(); err == nil {
-			t.Errorf("%s: no error", name)
+	if _, err := arm.Argv(); err == nil {
+		t.Error("no error")
+	}
+}
+
+// Under Secure Boot the extensions' tables go into the UKI's own command line, which the
+// launcher signs: the same merge as -append's, onto the UKI's command line, and the disks
+// as without Secure Boot.
+func TestSecureBootSealsTheExtensionsIntoTheUKIsCommandLine(t *testing.T) {
+	d := image(t)
+	m := secureBoot(t, d)
+	m.Sysexts, m.ExtDir = []string{"podman", "kubernetes"}, d
+	ukiCmdline := `root=/dev/dm-0 dm-mod.waitfor=/dev/vda dm-mod.create="root,,,ro,0 8 verity x" console=ttyS0`
+	got, err := m.SealedCmdline(ukiCmdline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `root=/dev/dm-0 dm-mod.waitfor=/dev/vda,/dev/vdc,/dev/vdd,/dev/vde dm-mod.create="root,,,ro,0 8 verity x` +
+		`;ext-podman,,,ro,0 8 verity 1 /dev/vdc /dev/vdc;ext-kubernetes,,,ro,0 9 verity 1 /dev/vdd /dev/vdd;conf-kubernetes,,,ro,0 1 verity 1 /dev/vde /dev/vde"` +
+		` console=ttyS0` +
+		` systemd.mount-extra=/dev/mapper/ext-podman:/run/extensions/podman:erofs:ro` +
+		` systemd.mount-extra=/dev/mapper/ext-kubernetes:/run/extensions/kubernetes:erofs:ro` +
+		` systemd.mount-extra=/dev/mapper/conf-kubernetes:/run/confexts/kubernetes:erofs:ro`
+	if got != want {
+		t.Fatalf("SealedCmdline:\n got %s\nwant %s", got, want)
+	}
+	argv, err := m.Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	drives := after(argv, "-drive")
+	for _, id := range []string{"ext-podman", "ext-kubernetes", "conf-kubernetes"} {
+		if !slices.ContainsFunc(drives, func(dr string) bool { return strings.HasSuffix(dr, ",id="+id) }) {
+			t.Errorf("no disk for %s", id)
 		}
+	}
+	// Without extensions the UKI's command line is left as it is.
+	plain := secureBoot(t, d)
+	if same, _ := plain.SealedCmdline(ukiCmdline); same != ukiCmdline {
+		t.Errorf("no extensions changed it: %s", same)
 	}
 }

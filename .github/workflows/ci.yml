@@ -707,7 +707,8 @@ jobs:
       # The same from the launcher, as a user runs it: its own key made, the UKI signed and
       # the variable store written in Go (go/internal/authenticode, efivars), the host's
       # OVMF found through qemu's firmware descriptors, /var on its disk, its name the
-      # guest's hostname.
+      # guest's hostname, and the podman extension's table sealed into the UKI's command
+      # line, so it merges.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: matrix.arch == 'amd64'
         with:
@@ -721,12 +722,14 @@ jobs:
           img=$RUNNER_TEMP/secureboot-image
           mkdir -p "$img"
           cp artifacts/rootfs.erofs artifacts/rootfs.cmdline artifacts/kaetzli.efi rootfs/boot/bzImage "$img/"
+          cp -R artifacts/extensions artifacts/confexts "$img/"
           export KAETZLI_HOME=$RUNNER_TEMP/kaetzli-home KAETZLI_CACHE=$RUNNER_TEMP/kaetzli-cache
           k=$RUNNER_TEMP/kaetzli
           # Not the default name, which is also the image's default hostname.
-          "$k" start sbtest --secure-boot --no-ext --image "$img" --size 2G
+          "$k" start sbtest --secure-boot --ext podman --image "$img" --size 2G
           "$k" ssh --root sbtest 'journalctl -k -b | grep "Secure boot enabled" &&
-              findmnt -no SOURCE /var | grep -x /dev/vdb && grep -x sbtest /proc/sys/kernel/hostname' ||
+              findmnt -no SOURCE /var | grep -x /dev/vdb && grep -x sbtest /proc/sys/kernel/hostname &&
+              systemd-sysext status --no-pager | grep -w podman && podman --version' ||
               { "$k" stop sbtest --force; tail -n 60 "$KAETZLI_HOME/machines/sbtest/console.log"; exit 1; }
           "$k" stop sbtest
 
