@@ -357,7 +357,9 @@ def check(guest: Guest, fwcfg: bool) -> None:
         guest.fail("fetch ran but printed no OS field — /etc/os-release unreadable?")
     # No /var disk and a verity root: the setup fields have one right answer each, and
     # they are what a user goes by to judge whether what they install survives a reboot.
-    for want in ("Root: erofs, read-only, dm-verity", "State: in memory", "Image: "):
+    # Secure Boot by name only: this boot has no UEFI, test/secureboot.py judges the value.
+    wants = ("Root: erofs, read-only, dm-verity", "State: in memory", "Image: ", "Secure Boot: ")
+    for want in wants:
         if want not in said:
             guest.fail(f"fetch did not print '{want}'")
     _out(">> fetch OK")

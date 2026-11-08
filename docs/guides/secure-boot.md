@@ -47,6 +47,11 @@ kaetzli start --secure-boot --ext podman   # remembered; --no-secure-boot turns 
   ships no `/etc/hostname`, which would outrank it; `DEFAULT_HOSTNAME=kaetzli` in
   os-release is the name when nothing gives one (`test/systemd.py` checks the credential
   takes).
+- **To check from inside**, `fetch` prints `Secure Boot: enabled`, read from the
+  firmware's `SecureBoot` variable (the same byte as
+  `od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-*`, last field; no `mokutil` needed).
+  `disabled` is UEFI without enforcement, `unavailable` a kernel no UEFI started (plain
+  `kaetzli start`, qemu's `-kernel`), so nothing checked it.
 
 ## Build, sign, boot
 

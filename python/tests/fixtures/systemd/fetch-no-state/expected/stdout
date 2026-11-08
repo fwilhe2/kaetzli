@@ -14,5 +14,6 @@
         ( o.o )     OS: Kaetzli
                     Image: c4927070eaaa (verity root hash)
                     Root: erofs, read-only, dm-verity
+                    Secure Boot: unavailable (not booted through UEFI)
                     Status: in memory (/var is tmpfs, lost at shutdown)
    

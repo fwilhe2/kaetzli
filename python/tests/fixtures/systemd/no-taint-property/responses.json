@@ -29,7 +29,7 @@
  ],
  [
   "fetch",
-  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     OS: Kaetzli\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nFETCH-DONE\n"
+  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     OS: Kaetzli\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 Secure Boot: unavailable (not booted through UEFI)\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nFETCH-DONE\n"
  ],
  [
   "systemctl --failed",

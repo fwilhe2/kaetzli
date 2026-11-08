@@ -16,16 +16,18 @@ Boot on:
             credential fw_cfg carried. Then: the kernel said "Secure boot enabled",
             /proc/cmdline is the UKI's (the root hash from rootfs.cmdline, no init=), the
             ssh key credential arrived, /var is the disk the credentials named
-            (fstab.extra), with the machine ID kept beside it (system.machine_id), and
+            (fstab.extra), with the machine ID kept beside it (system.machine_id), fetch
+            says "Secure Boot: enabled", and
             /var/lib/extensions and /var/lib/confexts are covered by an empty read-only
             tmpfs, so nothing on that unverified disk merges.
   unsigned  output/kaetzli.efi, the same UKI before signing: the firmware has to refuse
             it, so Linux never starts.
   control   The signed UKI again, with the firmware's default variables (Secure Boot
             off, ovmf-vars-off.fd). Now the stub takes the command line it is passed, so
-            the kernel says Secure Boot is disabled and init=/bin/bash gives a shell. Were
-            the injected argument ignored here too, the first boot's result would not be
-            Secure Boot's doing, and the test would prove nothing: so that fails too.
+            the kernel says Secure Boot is disabled, init=/bin/bash gives a shell, and fetch
+            in it says so too. Were the injected argument ignored here too, the first
+            boot's result would not be Secure Boot's doing, and the test would prove
+            nothing: so that fails too.
 
 test/verity.py is the other half: that a root whose bytes differ from the hash does not
 mount. This one shows nobody can hand the kernel a different hash.
@@ -78,6 +80,7 @@ def main(argv: list[str]) -> int:
             g.send(
                 f"echo {BEGIN[:6]}'{BEGIN[6:]}'; cat /proc/cmdline; "
                 f"ls /run/credentials/@system/; findmnt -no SOURCE /var; cat /etc/machine-id; "
+                "fetch --no-color | grep 'Secure Boot:'; "
                 "for d in extensions confexts; do "
                 'echo "SB-VARLIB $d $(findmnt -no FSTYPE,OPTIONS /var/lib/$d)"; done; '
                 f"echo {MARKER[:6]}'{MARKER[6:]}'"
@@ -90,6 +93,8 @@ def main(argv: list[str]) -> int:
                 g.fail("the kernel took the command line passed from outside")
             if root_hash not in tail:
                 g.fail(f"/proc/cmdline does not carry the image's root hash {root_hash}")
+            if "Secure Boot: enabled" not in tail:
+                g.fail("fetch does not say 'Secure Boot: enabled' (the SecureBoot variable)")
             if "ssh.authorized_keys.root" not in tail:
                 g.fail("the ssh key credential did not arrive by fw_cfg")
             if "/dev/vdb" not in tail:
@@ -143,6 +148,16 @@ def main(argv: list[str]) -> int:
                     "without Secure Boot the injected init=/bin/bash was not honoured either: "
                     "the signed boot's sealed command line is not Secure Boot's doing"
                 )
+            # bash is PID 1, so nothing mounted /sys or efivarfs: what systemd would.
+            g.mark()
+            g.send(
+                "mount -t sysfs sysfs /sys; mount -t efivarfs efivarfs /sys/firmware/efi/efivars; "
+                f"fetch --no-color | grep 'Secure Boot:'; echo {MARKER[:6]}'{MARKER[6:]}'"
+            )
+            if not g.wait(MARKER, 30):
+                g.fail("no answer from the shell")
+            if "Secure Boot: disabled" not in (g.before or ""):
+                g.fail(f"with Secure Boot off, fetch does not say so: {g.before!r}")
             g.stop()
         print(">> control: Secure Boot off, the injected init= gave a shell", flush=True)
 

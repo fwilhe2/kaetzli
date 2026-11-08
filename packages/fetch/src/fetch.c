@@ -2,7 +2,8 @@
  * fetch - the summary neofetch prints, for a system that will never have neofetch.
  *
  * Everything here comes from uname(2), getifaddrs(3), the environment, /proc, /sys and
- * a few files systemd leaves in /run and /usr (resolved's servers, merged extensions).
+ * a few files systemd leaves in /run and /usr (resolved's servers, merged extensions),
+ * and the firmware's Secure Boot variables.
  * Nothing is executed and nothing is asked over D-Bus. There is no
  * dependency beyond glibc, which is the point twice over: nothing has to be packaged to
  * make it build, and test/check-rootfs-deps.py has nothing to report about the result.
@@ -470,6 +471,51 @@ static void add_root(void)
 		add("Root", "%s on %s, %s", type, fsname, ro ? "read-only" : "writable");
 }
 
+/*
+ * Whether the firmware verified what it booted. The state is two of the firmware's own
+ * variables, which efivarfs (systemd mounts it wherever there is UEFI) shows to anyone:
+ * 4 bytes of attributes, then the value, one byte. SecureBoot is 1 when the firmware
+ * enforces signatures; SetupMode is 1 when no platform key is enrolled, so nothing could
+ * be enforced. No /sys/firmware/efi means the kernel was not started by UEFI at all (qemu's
+ * -kernel, Firecracker), and so nothing checked it. In a container /sys is the host's,
+ * whose firmware says nothing about this system: no line.
+ */
+#define EFI_GLOBAL "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+
+static int efi_flag(const char *name)
+{
+	char path[128];
+	unsigned char b[5];
+
+	snprintf(path, sizeof path, "/sys/firmware/efi/efivars/%s-" EFI_GLOBAL, name);
+	FILE *f = fopen(path, "re");
+	if (!f)
+		return -1;
+	size_t n = fread(b, 1, sizeof b, f);
+	fclose(f);
+	return n == sizeof b ? b[4] : -1;
+}
+
+static void add_secureboot(void)
+{
+	if (in_container())
+		return;
+	if (access("/sys/firmware/efi", F_OK) != 0) {
+		add("Secure Boot", "unavailable (not booted through UEFI)");
+		return;
+	}
+	int sb = efi_flag("SecureBoot");
+
+	if (sb == 1)
+		add("Secure Boot", "enabled");
+	else if (sb == 0)
+		add("Secure Boot", efi_flag("SetupMode") == 1 ?
+			"disabled (setup mode: no platform key)" : "disabled");
+	else if (access("/sys/firmware/efi/efivars/", R_OK) == 0)
+		add("Secure Boot", "unsupported by the firmware");
+	/* efivarfs not mounted: nothing to go by. */
+}
+
 /* Twelve hex digits, as git abbreviates: enough to tell builds apart at a glance. The
  * full hash is in /proc/cmdline for anyone who needs to compare it with rootfs.cmdline. */
 static void add_image(void)
@@ -683,6 +729,7 @@ int main(int argc, char **argv)
 		add("Init", "%s", buf);
 	add_image();
 	add_root();
+	add_secureboot();
 	add_state();
 	add_extensions();
 	add_network();
