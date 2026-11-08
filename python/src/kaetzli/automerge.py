@@ -1,7 +1,10 @@
 """Merge the green pull requests update-packages.yml opened (tools/auto-merge.py).
 
 Green means the "Package update CI" check passed and no other check failed or is still
-running. A pull request labelled `hold` is left alone. Each is merged as it is, without
+running. A pull request labelled `hold` is left alone, and so is one that changes more
+than a bump does (outside_scope): CI being green says the change builds, not that it is
+only the bump the workflow made, and anyone who can push to an update/ branch could have
+added to it. Each is merged as it is, without
 rebasing it onto the current main and building it again: one bump rarely affects
 another, CI runs on main after the merges, and a red main does not release. A pull
 request that no longer merges cleanly is GitHub's to refuse and a human's to fix.
@@ -13,6 +16,7 @@ not this module's.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -25,6 +29,34 @@ PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 REPORTER = "update-check"
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess]
+
+# What update-packages.yml's bumps write: a package's env.sh (bump-version.sh) and its
+# upstream patch series (sync-patches.sh), or for the Debian snapshot the two
+# Containerfiles (bump-snapshot.sh). Never build.sh, our own patches or a signing key
+# (upstream-key.asc is a person's decision, tools/pin-upstream-key.sh), and never two
+# packages at once.
+_BUMP = re.compile(r"packages/([^/]+)/(env\.sh|patches/upstream/.+)")
+SNAPSHOT_FILES = {"builder/Containerfile", "image/Containerfile"}
+# `gh pr view --json files` lists at most this many; a list that long may not be all.
+GH_FILES_CAP = 100
+
+
+def outside_scope(files: list[str]) -> list[str]:
+    """The files a bump would not have changed: empty for one that is only a bump."""
+    if not files:
+        return ["(no files)"]
+    if len(files) >= GH_FILES_CAP:
+        return [f"({GH_FILES_CAP} files or more: gh lists no more)"]
+    if SNAPSHOT_FILES & set(files):
+        return [f for f in files if f not in SNAPSHOT_FILES]
+    out, pkg = [], None
+    for f in files:
+        m = _BUMP.fullmatch(f)
+        if m and pkg in (None, m[1]):
+            pkg = m[1]
+        else:
+            out.append(f)
+    return out
 
 
 def _run(argv: list[str]) -> subprocess.CompletedProcess:
@@ -81,10 +113,14 @@ def main(argv: list[str] | None = None, run: Runner = _run) -> int:
 
     merged_any = False
     for pr in update_prs(run):
-        view = _gh_json(run, ["gh", "pr", "view", str(pr), "--json", "statusCheckRollup"])
+        view = _gh_json(run, ["gh", "pr", "view", str(pr), "--json", "statusCheckRollup,files"])
         state = checks_state(view["statusCheckRollup"])
         print(f"#{pr}: {state}", flush=True)
         if state != "green":
+            continue
+        if outside := outside_scope([f["path"] for f in view.get("files") or []]):
+            what = ", ".join(outside)
+            print(f"::warning::#{pr}: changes more than a bump, needs a human: {what}")
             continue
         if dry_run:
             print("  would merge")

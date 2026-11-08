@@ -48,12 +48,45 @@ ROLLUPS = {
     234: [run_(CI)],
     238: [run_(CI)],
 }
+FILES = {
+    233: ["packages/expat/env.sh"],
+    234: ["packages/cri-o/env.sh"],
+    238: ["packages/glibc/env.sh", "packages/glibc/patches/upstream/0001-x.patch"],
+}
+
+
+@pytest.mark.parametrize(
+    "files, outside",
+    [
+        (["packages/curl/env.sh"], []),
+        (["packages/bash/env.sh", "packages/bash/patches/upstream/bash53-004"], []),
+        (["packages/bash/patches/upstream/bash53-005"], []),
+        (["builder/Containerfile", "image/Containerfile"], []),
+        # what a bump never touches
+        (["packages/curl/env.sh", ".github/workflows/ci.yml"], [".github/workflows/ci.yml"]),
+        (["packages/curl/build.sh"], ["packages/curl/build.sh"]),
+        (["packages/curl/patches/ours.patch"], ["packages/curl/patches/ours.patch"]),
+        # a signing key is a person's decision (tools/pin-upstream-key.sh), never a bot's
+        (
+            ["packages/curl/env.sh", "packages/curl/upstream-key.asc"],
+            ["packages/curl/upstream-key.asc"],
+        ),
+        # one package per bump, and a snapshot bump is a bump of nothing else
+        (["packages/curl/env.sh", "packages/zlib/env.sh"], ["packages/zlib/env.sh"]),
+        (["builder/Containerfile", "packages/curl/env.sh"], ["packages/curl/env.sh"]),
+        ([], ["(no files)"]),
+        (["packages/curl/env.sh"] * 100, ["(100 files or more: gh lists no more)"]),
+    ],
+)
+def test_outside_scope(files, outside):
+    assert automerge.outside_scope(files) == outside
 
 
 class FakeGh:
-    def __init__(self, refuse=()):
+    def __init__(self, refuse=(), files=None):
         self.calls = []
         self.refuse = set(refuse)
+        self.files = FILES | (files or {})
 
     def __call__(self, argv):
         self.calls.append(argv)
@@ -61,7 +94,9 @@ class FakeGh:
         if argv[:3] == ["gh", "pr", "list"]:
             out = json.dumps(PRS)
         elif argv[:3] == ["gh", "pr", "view"]:
-            out = json.dumps({"statusCheckRollup": ROLLUPS[int(argv[3])]})
+            n = int(argv[3])
+            files = [{"path": f} for f in self.files[n]]
+            out = json.dumps({"statusCheckRollup": ROLLUPS[n], "files": files})
         elif argv[:3] == ["gh", "pr", "merge"] and int(argv[3]) in self.refuse:
             rc = 1
         return subprocess.CompletedProcess(argv, rc, out, "")
@@ -106,3 +141,15 @@ def test_nothing_merged_dispatches_nothing():
 
 def test_usage():
     assert automerge.main(["--bogus"], run=FakeGh()) == 2
+
+
+def test_a_green_pull_request_that_changes_more_than_a_bump_is_left(capsys):
+    gh = FakeGh(files={234: ["packages/cri-o/env.sh", "packages/cri-o/build.sh"]})
+    assert automerge.main([], run=gh) == 0
+    assert gh.acted() == [
+        ["gh", "pr", "merge", "238", "--rebase", "--delete-branch"],
+        ["gh", "workflow", "run", "ci.yml", "--ref", "main"],
+    ]
+    out = capsys.readouterr().out
+    assert "#234: changes more than a bump" in out
+    assert "packages/cri-o/build.sh" in out

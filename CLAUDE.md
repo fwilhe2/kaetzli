@@ -146,7 +146,9 @@ policy checks are done).
 ./build.sh glibc            # first — everything compiles against it
 ./build.sh <pkg>            # one package into staging/<pkg>/, then rootfs/ re-merged
 ./tools/merge-staging.sh    # rootfs/ + extensions/ from staging/; fails on a file two packages install
-./tools/bump-version.sh <pkg> <ver> [--vendor]  # VERSION + SHA256, tarball verified
+./tools/bump-version.sh <pkg> <ver> [--vendor]  # VERSION + SHA256, tarball verified (and signed, with SIG_URL)
+./tools/verify-signature.sh [pkg...]     # pinned tarballs vs upstream's signature and upstream-key.asc
+./tools/pin-upstream-key.sh <pkg> [url]  # add the key that signed the pinned release (a reviewed commit)
 ./tools/check-updates.py [pkg...]   # upstream releases since the pinned VERSION/VENDOR_VERSION/patch series
 ./tools/check-snapshot.py           # is the pinned Debian snapshot still current?
 ./tools/bump-snapshot.sh            # move builder + assembler to the newest dated sid snapshot
@@ -274,6 +276,12 @@ compile, install); CI's `build` matrix is generated from `packages/`. Shared mac
 - **Versions**: `PACKAGE`, `TARBALL`, `URL` derive from `VERSION`; never hardcode a version
   elsewhere. Bump with `tools/bump-version.sh` (VERSION alone fails `sources` as *CHECKSUM
   MISMATCH*).
+- **Signatures**: where upstream signs releases, `SIG_URL` (derived from `URL`) and
+  `packages/<pkg>/upstream-key.asc` (the keys allowed, pinned in git) hold every bump and
+  every CI run to upstream's signature (`tools/verify-signature.sh`); the SHA256 alone is
+  trust on first use. A release by an unpinned key stops the bump: `tools/pin-upstream-key.sh`,
+  a person's commit, and `tools/auto-merge.py` never merges a pull request that touches
+  a key (nor anything beyond one package's `env.sh` and `patches/upstream/`).
 - **Patches** (`docs/guides/patches.md`): `patches/upstream/*` (upstream's series, or a
   release branch as `git format-patch` — glibc follows `release/<v>/master`; owned by
   `tools/sync-patches.sh`, `-p$UPSTREAM_PATCH_STRIP`), then `patches/*.patch` (ours, `-p1`,
