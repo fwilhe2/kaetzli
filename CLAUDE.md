@@ -212,7 +212,7 @@ policy checks are done).
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
 ./tools/k8s-demo.py up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
-./tools/sign-uki.sh [--key K --cert C] [UKI]  # → output/secureboot/: signed UKI + OVMF with our key
+./tools/sign-uki.sh [--key K --cert C] [--ext a,b [--var]] [UKI]  # → output/secureboot/: signed UKI + OVMF (the launcher's Go code)
 ./tools/build-launcher.sh [OUT] [VERSION]
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
 ./tools/release.py name|publish [--dry-run]
@@ -377,8 +377,8 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   is **half of the image** (the only place the root hash is): `root=/dev/dm-0` and a
   `dm-mod.create=` table. No initrd (`CONFIG_DM_INIT`), so the kernel cannot check a
   signature on the hash; `output/kaetzli.efi` (UKI: kernel, that command line, our
-  systemd's stub; unsigned, reproducible) does, once `tools/sign-uki.sh` signs it and OVMF
-  enforces Secure Boot (`docs/guides/secure-boot.md`). Extensions likewise (`<name>.dm-verity`,
+  systemd's stub; unsigned, reproducible) does, once `tools/sign-uki.sh` signs it (or the
+  launcher enrolls its digest) and OVMF enforces Secure Boot (`docs/guides/secure-boot.md`). Extensions likewise (`<name>.dm-verity`,
   joined by `qemu_sysexts`); `image/files/etc/udev/rules.d/10-dm-init.rules` names dm-init's
   devices, or systemd waits forever.
 - **Everything writable is RAM** (`/var` via `var.mount`, `/tmp`); mount points ship empty, so

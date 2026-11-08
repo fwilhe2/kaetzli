@@ -2,9 +2,8 @@
 
 **Status: implemented for amd64 under qemu (OVMF), with a persistent `/var` and
 extensions: the launcher (`kaetzli start --secure-boot`) needs no key, and you can sign
-the UKI with your own.** Not yet: extensions in this mode outside the launcher (`kaetzli.qemu`'s
-`SECUREBOOT`), arm64, and VMMs that boot without firmware (Firecracker,
-Virtualization.framework).
+the UKI with your own.** Not yet: arm64. Out of reach by design: VMMs that boot without
+firmware (Firecracker, Virtualization.framework).
 
 ## Why
 
@@ -72,11 +71,18 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py
   stub (`packages/systemd`, `-Dbootloader=enabled`; the stub is removed from the image
   itself, as is everything else that option installs). Unsigned, it is byte-reproducible
   and checked by the reproducible job like the image.
-- `tools/sign-uki.sh` signs it (`sbsign`) and writes `output/secureboot/`: the signed
-  UKI, OVMF's Secure Boot firmware (`ovmf-code.fd`, from the pinned assembler image),
-  and its variable store (`ovmf-vars.fd`) with the certificate enrolled as PK, KEK and db
-  and Secure Boot on (`virt-fw-vars`). Without `--key` the key is made for the run and
-  thrown away: it proves the mechanism, not who built the image.
+- `tools/sign-uki.sh` signs it and writes `output/secureboot/`: the signed UKI, OVMF's
+  Secure Boot firmware (`ovmf-code.fd`, from the pinned assembler image), and its
+  variable store (`ovmf-vars.fd`) with a PK and KEK made for it and thrown away, the
+  certificate in db and Secure Boot on. The signing and the store are the launcher's
+  code (`kaetzli secureboot-files`, run in the golang container `go/go.mod` names): one
+  implementation, which `go.yml` holds to `sbverify` and `virt-fw-vars`. Without
+  `--key` the key is made for the run and never written: it proves the mechanism, not
+  who built the image. `--ext podman,debug [--var]` writes those extensions' tables into
+  the UKI's command line first, as the launcher does, and records it in `sealed`;
+  `kaetzli.qemu` then boots `SYSEXTS` under Secure Boot, and refuses a boot whose
+  extensions or `/var` disk differ from what the UKI was sealed for (the disks' names
+  are in the tables).
 - `kaetzli.qemu` with `SECUREBOOT=<dir>` boots that on q35 with SMM, a copy of the
   variables per boot, and the credentials (`login.noauth`, the ssh key) over fw_cfg,
   since the command line is sealed. A `VAR_DISK` goes the same way: `fstab.extra` (the
@@ -122,8 +128,13 @@ shell, so the sealed command line of the first boot is Secure Boot's doing.
 
 ## Not yet
 
-- **Extensions outside the launcher.** `kaetzli.qemu`'s `SECUREBOOT` still refuses
-  `SYSEXTS`: `tools/sign-uki.sh` would have to write the tables into the UKI as the
-  launcher does.
-- **arm64** (AAVMF with Secure Boot) and **firmware-less VMMs**, which are handed a
-  kernel and command line directly and so cannot enforce any of this.
+- **arm64.** AAVMF has a Secure Boot build, but arm64 has no SMM: unless qemu also runs
+  a secure world, the guest itself can rewrite db, so it would enforce less than on
+  amd64, and the guide would have to say so.
+
+## Out of reach, by design
+
+**Firmware-less VMMs** (Firecracker, and Virtualization.framework's direct Linux boot)
+are handed a kernel and a command line, with no firmware to check either, so whoever
+starts the VMM chooses the root hash. There, verity proves the root matches *a* hash; the
+VMM's invocation is what you trust.

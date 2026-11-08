@@ -114,16 +114,45 @@ class Machine:
                 raise Refused("SECUREBOOT is amd64 only for now")
             if self.profile != "pc":
                 raise Refused(f"SECUREBOOT boots the pc profile, not QEMU_PROFILE={self.profile}")
-            if self.sysexts:
-                raise Refused(
-                    "SECUREBOOT cannot take SYSEXTS yet: their verity tables belong in the "
-                    "signed UKI's command line, which tools/sign-uki.sh does not write "
-                    "(kaetzli start --secure-boot --ext does; docs/guides/secure-boot.md)"
-                )
+            self._check_sealed()
         if self.kvm is None:
             self.kvm = kvm_usable()
         if not self.kvm:
             print("note: /dev/kvm not available, emulating (slow)", flush=True)
+
+    def _check_sealed(self) -> None:
+        """The UKI's command line carries the extensions' tables, the stub ignores -append:
+        a boot has to attach the extensions, and the /var disk before them, that it was
+        sealed for (`sealed`, written by tools/sign-uki.sh), or the kernel waits for disks
+        that are not there, or verifies the wrong ones."""
+        path = Path(self.secureboot) / "sealed"
+        if not path.is_file():
+            if self.sysexts:
+                raise Refused(
+                    f"SECUREBOOT={self.secureboot} has no `sealed`: its UKI carries no "
+                    "extensions' tables (tools/sign-uki.sh --ext "
+                    f"{','.join(self.sysexts)} writes them)"
+                )
+            return
+        fields = dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
+        exts = fields.get("extensions", "").split()
+        hint = (
+            f"tools/sign-uki.sh --ext {','.join(self.sysexts)}"
+            if self.sysexts
+            else ("tools/sign-uki.sh")
+        )
+        if exts != list(self.sysexts):
+            what = " ".join(exts) if exts else "no extensions"
+            raise Refused(
+                f"SECUREBOOT={self.secureboot}'s UKI was sealed for {what}, not "
+                f"SYSEXTS={' '.join(self.sysexts)!r} (its command line is signed: {hint})"
+            )
+        if exts and (fields.get("var") == "true") != bool(self.var_disk):
+            which = "with a /var disk" if fields.get("var") == "true" else "without a /var disk"
+            raise Refused(
+                f"SECUREBOOT={self.secureboot}'s UKI was sealed {which}, which comes before "
+                f"the extensions' disks and names them ({hint}{' --var' if self.var_disk else ''})"
+            )
 
     @property
     def qemu(self) -> str:
