@@ -192,6 +192,19 @@ class TestCheck:
         assert r.updates == [{"package": "coreutils", "kind": "version",
                               "current": src.version, "latest": "999.0", "url": url}]  # fmt: skip
 
+    @pytest.mark.parametrize(
+        "version", ['1.0"; touch "$SENTINEL', "1.0$(touch $SENTINEL)", "1.0`x`", "1 0", "", "1.0\n"]
+    )
+    def test_a_version_that_is_not_a_version_is_never_evaluated(self, version, tmp_path,
+                                                                monkeypatch):  # fmt: skip
+        # It comes from upstream (a tag, a listing) and is written into env.sh for bash to
+        # evaluate; the numeric filter in upstream.latest is not what should stop a quote.
+        sentinel = tmp_path / "evaluated"
+        monkeypatch.setenv("SENTINEL", str(sentinel))
+        with pytest.raises(ValueError, match="not a version"):
+            check.url_for_version("coreutils", version)
+        assert not sentinel.exists()
+
     def test_an_announced_release_that_is_not_there(self):
         src = upstream.Source.of("coreutils")
         r = check.check("coreutils", FakeHttp({".*": listing(bumped("coreutils", "999.0"))}))

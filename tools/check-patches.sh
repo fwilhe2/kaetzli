@@ -24,6 +24,12 @@ version=
 if [ "${1:-}" = --version ]; then
     version=${2:?--version needs a version}
     shift 2
+    # Written into env.sh for eval below, so version characters only (as
+    # python/src/kaetzli/updates/check.py's VERSION_CHARS): no quote, no sed delimiter.
+    if ! [[ $version =~ ^[0-9A-Za-z][0-9A-Za-z._+~-]*$ ]]; then
+        echo "error: '$version' is not a version" >&2
+        exit 1
+    fi
 fi
 
 packages=()

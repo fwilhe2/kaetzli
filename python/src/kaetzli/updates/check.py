@@ -71,11 +71,20 @@ class Result:
         self.updates.append(entry)
 
 
+# Every version any env.sh pins, from 1.2.3 to tzdata's 2025b, ca-certificates'
+# 20250419+nmu1 and passt's 2025_01_21.4f2c8e7: nothing bash would read as syntax.
+VERSION_CHARS = re.compile(r"[0-9A-Za-z][0-9A-Za-z._+~-]*")
+
+
 def url_for_version(pkg: str, version: str, prefix: str = "") -> str:
     """The URL a package would download if its env.sh said VERSION=<version>. env.sh
     derives PACKAGE, TARBALL and URL from VERSION, so rewriting that one line is all an
     update ever has to do — here and in the pull request the workflow opens. It is
-    evaluated by bash, as env.sh always is."""
+    evaluated by bash, as env.sh always is — so the version, which comes from upstream (a
+    tag, a listing), is held to version characters first. upstream.latest's numeric
+    filter would stop a quote today, but that is not what it is for."""
+    if not VERSION_CHARS.fullmatch(version):
+        raise ValueError(f"{version!r} is not a version (expected {VERSION_CHARS.pattern})")
     text = (repo.ROOT / "packages" / pkg / "env.sh").read_text()
     text = re.sub(rf"^{prefix}VERSION=.*$", f'{prefix}VERSION="{version}"', text, flags=re.M)
     out = subprocess.run(
