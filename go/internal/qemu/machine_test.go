@@ -76,3 +76,76 @@ func TestPanickedSeesAKernelThatGaveUp(t *testing.T) {
 		t.Error("a healthy console is not a panic")
 	}
 }
+
+func secureBoot(t *testing.T, d string) Machine {
+	t.Helper()
+	return Machine{Arch: "amd64", KVM: true, Mem: "2048", CPUs: "2", Kernel: "unused", Rootfs: "r",
+		Init: "/init", Cmdline: filepath.Join(d, "rootfs.cmdline"), VarDisk: filepath.Join(d, "var.img"),
+		PubKey: []byte("ssh-ed25519 AAAA\n"), PubKeyFile: "/m/ssh/id_ed25519.pub", Hostname: "dev",
+		SecureBoot: &SecureBoot{UKI: "/m/kaetzli.efi", Code: "/fw/code.fd", Vars: "/m/ovmf-vars.fd"}}
+}
+
+func after(argv []string, flag string) []string {
+	var out []string
+	for i, a := range argv {
+		if a == flag && i+1 < len(argv) {
+			out = append(out, argv[i+1])
+		}
+	}
+	return out
+}
+
+// The UKI's stub ignores -append, so what the guest needs goes by fw_cfg, as kaetzli.qemu
+// passes it (python/tests/test_launcher.py holds the two equal).
+func TestSecureBootBootsTheSignedUKIUnderSMMFirmware(t *testing.T) {
+	d := image(t)
+	argv, err := secureBoot(t, d).Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k := after(argv, "-kernel"); len(k) != 1 || k[0] != "/m/kaetzli.efi" {
+		t.Fatalf("-kernel %v", k)
+	}
+	if !slices.Contains(after(argv, "-machine"), "q35,smm=on") ||
+		!slices.Contains(after(argv, "-global"), "driver=cfi.pflash01,property=secure,value=on") {
+		t.Fatalf("no q35 with SMM and secure flash: %v", argv)
+	}
+	drives := after(argv, "-drive")
+	for _, want := range []string{"if=pflash,format=raw,unit=0,file=/fw/code.fd,readonly=on",
+		"if=pflash,format=raw,unit=1,file=/m/ovmf-vars.fd"} {
+		if !slices.Contains(drives, want) {
+			t.Errorf("no -drive %s", want)
+		}
+	}
+	fw := after(argv, "-fw_cfg")
+	for _, want := range []string{
+		"name=opt/io.systemd.credentials/login.noauth,string=yes",
+		"name=opt/io.systemd.credentials/fstab.extra,file=" + filepath.Join(d, "var.img.fstab"),
+		"name=opt/io.systemd.credentials/system.machine_id,file=" + filepath.Join(d, "var.img.machine-id"),
+		"name=opt/io.systemd.credentials/ssh.authorized_keys.root,file=/m/ssh/id_ed25519.pub",
+	} {
+		if !slices.Contains(fw, want) {
+			t.Errorf("no -fw_cfg %s in %v", want, fw)
+		}
+	}
+	b, err := os.ReadFile(filepath.Join(d, "var.img.fstab"))
+	if err != nil || string(b) != "/dev/vdb /var ext4 x-systemd.makefs,x-systemd.growfs 0 0\n" {
+		t.Errorf("var.img.fstab = %q, %v", b, err)
+	}
+	if app := after(argv, "-append")[0]; strings.Contains(app, "/var") {
+		t.Errorf("-append mounts /var, which a boot with Secure Boot off would do twice: %s", app)
+	}
+}
+
+func TestSecureBootRefusesWhatItCannotSeal(t *testing.T) {
+	d := image(t)
+	ext := secureBoot(t, d)
+	ext.Sysexts, ext.ExtDir = []string{"podman"}, d
+	arm := secureBoot(t, d)
+	arm.Arch = "arm64"
+	for name, m := range map[string]Machine{"extensions": ext, "arm64": arm} {
+		if _, err := m.Argv(); err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+}

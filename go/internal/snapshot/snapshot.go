@@ -86,7 +86,8 @@ func Sums(data []byte) (map[string]string, error) {
 }
 
 // Wanted maps the assets one architecture boots from to where they go in a bundle laid
-// out as tools/fetch-image.sh lays it out (rootfs.erofs, bzImage, extensions/, confexts/).
+// out as tools/fetch-image.sh lays it out (rootfs.erofs, bzImage, kaetzli.efi when the
+// snapshot has one, extensions/, confexts/).
 func Wanted(sums map[string]string, arch string) (map[string]string, error) {
 	out := map[string]string{}
 	for asset := range sums {
@@ -97,6 +98,8 @@ func Wanted(sums map[string]string, arch string) (map[string]string, error) {
 			out[asset] = "rootfs.cmdline"
 		case asset == "kernel-"+arch:
 			out[asset] = "bzImage"
+		case asset == "uki-"+arch+".efi":
+			out[asset] = "kaetzli.efi" // unsigned; start --secure-boot signs it
 		default:
 			for _, k := range [][2]string{{"sysext", "extensions"}, {"confext", "confexts"}} {
 				for _, suffix := range []string{"raw", "dm-verity"} {

@@ -22,6 +22,7 @@ var assets = map[string]string{
 	"rootfs-amd64.erofs":                 "root amd64",
 	"rootfs-amd64.cmdline":               "root=/dev/dm-0\n",
 	"kernel-amd64":                       "kernel amd64",
+	"uki-amd64.efi":                      "MZ uki amd64",
 	"podman-amd64.sysext.raw":            "podman",
 	"podman-amd64.sysext.dm-verity":      "0 8 verity\n",
 	"kubernetes-amd64.confext.raw":       "conf",
@@ -96,6 +97,7 @@ func TestFetchLaysOutWhatAnArchBoots(t *testing.T) {
 	for f, want := range map[string]string{
 		"rootfs.erofs": "root amd64", "bzImage": "kernel amd64", "extensions/podman.raw": "podman",
 		"confexts/kubernetes.dm-verity": "0 8 verity\n", "snapshot": name + "\n",
+		"kaetzli.efi": "MZ uki amd64",
 	} {
 		b, err := os.ReadFile(filepath.Join(dir, f))
 		if err != nil || string(b) != want {
@@ -141,6 +143,15 @@ func TestWantedRequiresTheRootAndKernel(t *testing.T) {
 	a := map[string]string{"rootfs-amd64.erofs": "x", "rootfs-amd64.cmdline": "y"}
 	if _, err := Wanted(a, "amd64"); err == nil || !strings.Contains(err.Error(), "kernel-amd64") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// Snapshots before #284 have no UKI: they still boot, only not with --secure-boot.
+func TestTheUKIIsOptional(t *testing.T) {
+	a := map[string]string{"rootfs-arm64.erofs": "x", "rootfs-arm64.cmdline": "y", "kernel-arm64": "z"}
+	w, err := Wanted(a, "arm64")
+	if err != nil || len(w) != 3 {
+		t.Fatalf("Wanted = %v, %v", w, err)
 	}
 }
 

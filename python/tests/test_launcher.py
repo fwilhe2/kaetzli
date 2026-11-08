@@ -55,7 +55,7 @@ def image(tmp_path) -> Path:
     return d
 
 
-def _both(launcher, image, tmp_path, *, arch, kvm, exts):
+def _both(launcher, image, tmp_path, *, arch, kvm, exts, secureboot=None):
     var = tmp_path / "vm" / "var.img"
     var.parent.mkdir()
     var.write_bytes(b"")
@@ -69,6 +69,8 @@ def _both(launcher, image, tmp_path, *, arch, kvm, exts):
             "--console-port", "40001", "--qmp-port", "40002", "--log", str(log)]  # fmt: skip
     for e in exts:
         argv += ["--ext", e]
+    if secureboot:
+        argv += ["--secureboot", str(secureboot)]
     got = json.loads(subprocess.run([str(launcher), *argv], capture_output=True, text=True,
                                     check=True).stdout)  # fmt: skip
 
@@ -82,8 +84,12 @@ def _both(launcher, image, tmp_path, *, arch, kvm, exts):
         rootfs=str(image / "rootfs.erofs"), kernel=str(image / "bzImage"),
         init="/usr/lib/systemd/systemd", arch=arch, profile="pc", mem="3072", cpus="4",
         var_disk=str(var), sysexts=list(exts), extensions=str(image),
-        display_args=display, reboot=True, kvm=kvm,
+        display_args=display, reboot=True, kvm=kvm, secureboot=str(secureboot or ""),
     )  # fmt: skip
+    if secureboot:
+        # What qemu_ssh_setup sets for the key, which goes by fw_cfg.
+        m.ssh_pub = str(pub)
+        m.setup()
     m.nic_extra = ",hostfwd=tcp:127.0.0.1:2201-:22"
     m.append_extra = (
         " systemd.set_credential_binary=ssh.authorized_keys.root:"
@@ -91,6 +97,15 @@ def _both(launcher, image, tmp_path, *, arch, kvm, exts):
         + " systemd.hostname=dev"
     )
     want = [m.qemu, *m.argv(), "-qmp", "tcp:127.0.0.1:40002,server=on,wait=off"]
+    if secureboot:
+        # The harness boots a fresh copy of the variables each time; the launcher a store of
+        # the machine's own, which it writes before each start.
+        want = [
+            f"if=pflash,format=raw,unit=1,file={secureboot / 'ovmf-vars.fd'}"
+            if a.startswith("if=pflash,format=raw,unit=1,")
+            else a
+            for a in want
+        ]
     return got, want
 
 
@@ -101,3 +116,15 @@ def _both(launcher, image, tmp_path, *, arch, kvm, exts):
 def test_the_launchers_command_line_is_the_harness(launcher, image, tmp_path, arch, kvm, exts):
     got, want = _both(launcher, image, tmp_path, arch=arch, kvm=kvm, exts=exts)
     assert got == want
+
+
+@needs_go
+@pytest.mark.parametrize("kvm", [True, False])
+def test_the_launchers_secure_boot_command_line_is_the_harness(launcher, image, tmp_path, kvm):
+    sb = tmp_path / "secureboot"
+    sb.mkdir()
+    for f in ("kaetzli.efi", "ovmf-code.fd", "ovmf-vars.fd"):
+        (sb / f).write_bytes(b"x")
+    got, want = _both(launcher, image, tmp_path, arch="amd64", kvm=kvm, exts=(), secureboot=sb)
+    assert got == want
+    assert "q35,smm=on" in got

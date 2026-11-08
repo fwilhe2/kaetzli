@@ -3,7 +3,7 @@
 // commands and defaults, with images from the latest snapshot release.
 //
 //	kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G]
-//	              [--image DIR | --snapshot NAME|latest]
+//	              [--image DIR | --snapshot NAME|latest] [--secure-boot | --no-secure-boot]
 //	kaetzli ssh [--root] [NAME] [command...]
 //	kaetzli console [NAME]           the serial console (Ctrl-] to leave)
 //	kaetzli stop [NAME] [--force]
@@ -56,7 +56,8 @@ type config struct {
 	Exts          []string `json:"exts"`
 	Mem           string   `json:"mem"`
 	CPUs          string   `json:"cpus"`
-	Image         string   `json:"image"` // "" for snapshots, else a directory
+	Image         string   `json:"image"`                 // "" for snapshots, else a directory
+	SecureBoot    bool     `json:"secure_boot,omitempty"` // the UKI, signed with the user's key (secureboot.go)
 	rollout.State          // which snapshot: pinned, last good, failed here
 }
 
@@ -229,7 +230,8 @@ func sshConfig(dir string, port int) error {
 // machine is the qemu machine for a start; the ports are this boot's.
 func machine(name string, c config, img string, p ports) qemu.Machine {
 	dir, _ := filepath.Abs(machineDir(name))
-	pub, err := os.ReadFile(filepath.Join(dir, "ssh", "id_ed25519.pub"))
+	pubFile := filepath.Join(dir, "ssh", "id_ed25519.pub")
+	pub, err := os.ReadFile(pubFile)
 	if err != nil {
 		die("%v", err)
 	}
@@ -238,7 +240,7 @@ func machine(name string, c config, img string, p ports) qemu.Machine {
 		Kernel: filepath.Join(img, "bzImage"), Rootfs: filepath.Join(img, "rootfs.erofs"),
 		Cmdline: filepath.Join(img, "rootfs.cmdline"), Init: "/usr/lib/systemd/systemd",
 		VarDisk: filepath.Join(dir, "var.img"), Sysexts: c.Exts, ExtDir: img,
-		SSHPort: p.SSH, PubKey: pub, Hostname: name, Reboot: true,
+		SSHPort: p.SSH, PubKey: pub, PubKeyFile: pubFile, Hostname: name, Reboot: true,
 		Display: display(p.Console, filepath.Join(dir, "console.log")),
 	}
 }
@@ -277,6 +279,7 @@ func cmdStart(args []string) {
 	name, rest := nameArg(args)
 	var exts []string
 	setExts, imageArg, snapArg, mem, cpus, size := false, "", "", "", "", "8G"
+	secureBoot := ""
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
 			if i+1 >= len(rest) {
@@ -311,6 +314,10 @@ func cmdStart(args []string) {
 			cpus = next()
 		case "--size":
 			size = next()
+		case "--secure-boot":
+			secureBoot = "on"
+		case "--no-secure-boot":
+			secureBoot = "off"
 		default:
 			die("unknown option '%s' (kaetzli help)", rest[i])
 		}
@@ -330,7 +337,7 @@ func cmdStart(args []string) {
 		}
 		create(name, size)
 	} else if pid, ok := running(dir); ok {
-		if !setExts && imageArg == "" && snapArg == "" && mem == "" && cpus == "" {
+		if !setExts && imageArg == "" && snapArg == "" && mem == "" && cpus == "" && secureBoot == "" {
 			var p ports
 			_ = readJSON(filepath.Join(dir, "ports.json"), &p)
 			say("'%s' is running already (pid %d, ssh 127.0.0.1:%d): kaetzli ssh%s", name, pid, p.SSH, hint(name))
@@ -364,6 +371,18 @@ func cmdStart(args []string) {
 	if cpus != "" {
 		c.CPUs = cpus
 	}
+	if secureBoot != "" {
+		c.SecureBoot = secureBoot == "on"
+	}
+	if c.SecureBoot {
+		// Checked before anything is remembered: these ride the command line the UKI seals.
+		if c.Arch != "amd64" {
+			die("--secure-boot is amd64 only for now")
+		}
+		if len(c.Exts) > 0 {
+			die("--secure-boot cannot take extensions yet (their verity tables would go on the command line the signed UKI seals): --no-ext, or --no-secure-boot")
+		}
+	}
 	img, snap := image(c)
 	if c.Image != "" {
 		// A copy, as tools/vm.sh makes: qemu reads the root for as long as the guest runs,
@@ -380,6 +399,13 @@ func cmdStart(args []string) {
 	for first := true; ; first = false {
 		p := ports{SSH: freePort(), Console: freePort(), QMP: freePort(), Image: img}
 		m := machine(name, c, img, p)
+		if c.SecureBoot {
+			sb, err := prepareSecureBoot(dir, img, m.Binary())
+			if err != nil {
+				die("--secure-boot: %v", err)
+			}
+			m.SecureBoot = sb
+		}
 		argv, err := m.Argv()
 		if err != nil {
 			die("%v", err)
@@ -408,8 +434,12 @@ func cmdStart(args []string) {
 			die("could not start %s: %v", m.Binary(), err)
 		}
 		_ = os.WriteFile(filepath.Join(dir, "qemu.pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
-		say("'%s' started (pid %d, %s MB, %s CPUs, extensions: %s, image: %s)", name, pid, c.Mem, c.CPUs,
-			orNone(strings.Join(c.Exts, " ")), describe(img))
+		sbNote := ""
+		if c.SecureBoot {
+			sbNote = ", Secure Boot"
+		}
+		say("'%s' started (pid %d, %s MB, %s CPUs, extensions: %s, image: %s%s)", name, pid, c.Mem, c.CPUs,
+			orNone(strings.Join(c.Exts, " ")), describe(img), sbNote)
 
 		werr := waitUp(dir, p.SSH, log)
 		if werr == nil {
@@ -486,6 +516,9 @@ func syncImage(src, dst string) (string, error) {
 	want := map[string]bool{}
 	for _, f := range []string{"rootfs.erofs", "rootfs.cmdline", "bzImage"} {
 		want[f] = true
+	}
+	if isFile(filepath.Join(src, "kaetzli.efi")) {
+		want["kaetzli.efi"] = true // the unsigned UKI, for --secure-boot
 	}
 	for _, d := range []string{"extensions", "confexts"} {
 		entries, _ := os.ReadDir(filepath.Join(src, d))
@@ -768,6 +801,9 @@ func cmdInfo(args []string) {
 	fmt.Printf("machine     %s (%s)\n", name, dir)
 	fmt.Printf("arch        %s, %s MB, %s CPUs\n", c.Arch, c.Mem, c.CPUs)
 	fmt.Printf("extensions  %s\n", orNone(strings.Join(c.Exts, " ")))
+	if c.SecureBoot {
+		fmt.Printf("secure boot on: the UKI signed with %s\n", filepath.Join(keyDir(), "db.key"))
+	}
 	if pid, ok := running(dir); ok {
 		var p ports
 		_ = readJSON(filepath.Join(dir, "ports.json"), &p)
@@ -936,7 +972,10 @@ func cmdPrintArgv(args []string) {
 			if err != nil {
 				die("%v", err)
 			}
-			m.PubKey = b
+			m.PubKey, m.PubKeyFile = b, v
+		case "--secureboot":
+			m.SecureBoot = &qemu.SecureBoot{UKI: filepath.Join(v, "kaetzli.efi"),
+				Code: filepath.Join(v, "ovmf-code.fd"), Vars: filepath.Join(v, "ovmf-vars.fd")}
 		case "--hostname":
 			m.Hostname = v
 		case "--console-port":
@@ -1024,7 +1063,7 @@ func tail(path string, n int) {
 const usage = `kaetzli: kaetzli virtual machines, from the latest snapshot release
 
   kaetzli start [NAME] [--ext a,b | --no-ext] [--mem MB] [--cpus N] [--size 8G]
-                [--image DIR | --snapshot NAME|latest]
+                [--image DIR | --snapshot NAME|latest] [--secure-boot | --no-secure-boot]
   kaetzli ssh [--root] [NAME] [command...]
   kaetzli console [NAME]           the serial console (Ctrl-] to leave)
   kaetzli stop [NAME] [--force]
@@ -1036,7 +1075,9 @@ const usage = `kaetzli: kaetzli virtual machines, from the latest snapshot relea
   kaetzli rm [NAME] [--yes]
   kaetzli version
 
-NAME defaults to kaetzli. Options to start are remembered.
+NAME defaults to kaetzli. Options to start are remembered. --secure-boot (amd64, no
+extensions yet) boots the image's UKI signed with your own key, made once, under firmware
+that trusts only it.
 Machines: KAETZLI_HOME (default: the platform's data directory). Images: KAETZLI_CACHE.
 `
 
