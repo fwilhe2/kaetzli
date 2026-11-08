@@ -1,9 +1,9 @@
 # Secure Boot
 
 **Status: implemented for amd64 under qemu (OVMF), with a persistent `/var`; you sign the
-UKI.** Not yet: signing on fetch in the launcher and `tools/vm.sh`, system extensions in
-this mode, arm64, and VMMs that boot without firmware (Firecracker,
-Virtualization.framework).
+UKI, and the launcher does it for you (`kaetzli start --secure-boot`).** Not yet: system
+extensions in this mode, a hostname per machine, arm64, and VMMs that boot without
+firmware (Firecracker, Virtualization.framework).
 
 ## Why
 
@@ -17,6 +17,24 @@ A **unified kernel image** closes that: the kernel, the command line with the ro
 and systemd's EFI stub in one PE binary, signed. Under Secure Boot the firmware runs only
 an image signed by an enrolled key, and the stub then ignores any command line the VMM
 passes. A different root hash means a different UKI, which the signature does not cover.
+
+## With the launcher
+
+```sh
+kaetzli start --secure-boot --no-ext    # remembered; --no-secure-boot turns it off
+```
+
+- The first time, it makes **your key**: `secureboot/db.key` and `db.crt` in the
+  launcher's data directory (beside `machines/`). Keep `db.key` private.
+- Each start signs the snapshot's UKI, verified against `SHA256SUMS` when it was fetched,
+  with that key (`go/internal/authenticode`). It then writes the machine's firmware
+  variables fresh from the template of the host's OVMF, found through qemu's firmware
+  descriptors (`go/internal/firmware`): your certificate in db, and a PK and KEK made for
+  the machine and thrown away (`go/internal/efivars`). Nothing but qemu and OVMF on the
+  host (Debian, Ubuntu: `ovmf`; Fedora: `edk2-ovmf`).
+- Under Secure Boot the hostname is the image's (`kaetzli`): `systemd.hostname=` would
+  be on the sealed command line, and the image's `/etc/hostname` outranks the
+  `system.hostname` credential.
 
 ## Build, sign, boot
 
@@ -65,6 +83,9 @@ reproducible. Verify, then sign with your key: that key is the only secret, and 
 
 ## What is checked
 
+CI's boot job (amd64) also boots the launcher with `--secure-boot` on the runner's OVMF,
+and checks the kernel reports Secure Boot on and `/var` is its disk.
+
 `test/secureboot.py` (CI's boot job, amd64): the signed UKI boots although the harness
 passes `init=/bin/bash`, the kernel reports Secure Boot on, `/proc/cmdline` carries the
 image's root hash and not the injected argument, the credentials arrived, and `/var` is
@@ -79,8 +100,7 @@ shell, so the sealed command line of the first boot is Secure Boot's doing.
   seals, so `SECUREBOOT` refuses them. Next: extensions with signed verity root hashes,
   checked against the firmware's db through the kernel's platform keyring, so the user's
   key signs them as it signs the UKI.
-- **Signing on fetch.** The launcher and `tools/vm.sh` should make a key per user, sign the
-  UKI they fetched and verified, and enroll that key in each machine's variables, so Secure
-  Boot needs no step of yours.
+- **A hostname per machine.** The image's `/etc/hostname` outranks the credential; next,
+  systemd's `-Ddefault-hostname=kaetzli` in its place, so `system.hostname` takes.
 - **arm64** (AAVMF with Secure Boot) and **firmware-less VMMs**, which are handed a
   kernel and command line directly and so cannot enforce any of this.

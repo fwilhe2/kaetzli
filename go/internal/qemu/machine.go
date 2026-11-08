@@ -16,24 +16,38 @@ const letters = "bcdefghijklmnopqrstuvwxyz"
 
 // Machine is what one boot needs. Paths are as given; the caller makes them absolute.
 type Machine struct {
-	Arch     string // amd64 or arm64
-	KVM      bool
-	Mem      string
-	CPUs     string
-	Kernel   string
-	Rootfs   string
-	Cmdline  string // rootfs.cmdline, the kernel arguments that carry the root hash
-	Init     string
-	VarDisk  string // the raw /var disk; its machine ID is VarDisk + ".machine-id"
-	Sysexts  []string
-	ExtDir   string // where extensions/ and confexts/ are
-	SSHPort  int
-	PubKey   []byte // the login key, as ssh-keygen wrote it
-	Hostname string
+	Arch    string // amd64 or arm64
+	KVM     bool
+	Mem     string
+	CPUs    string
+	Kernel  string
+	Rootfs  string
+	Cmdline string // rootfs.cmdline, the kernel arguments that carry the root hash
+	Init    string
+	VarDisk string // the raw /var disk; its machine ID is VarDisk + ".machine-id"
+	Sysexts []string
+	ExtDir  string // where extensions/ and confexts/ are
+	SSHPort int
+	PubKey  []byte // the login key, as ssh-keygen wrote it
+	// Where PubKey is: under Secure Boot it goes by fw_cfg, which reads a file.
+	PubKeyFile string
+	Hostname   string
 	// Replace -nographic: the launcher's console is a socket, not its terminal.
 	Display []string
 	Reboot  bool // a guest's reboot restarts qemu in place rather than ending it
+	// Boot the signed UKI under UEFI with Secure Boot instead of Kernel
+	// (docs/guides/secure-boot.md): amd64, no extensions yet.
+	SecureBoot *SecureBoot
 }
+
+// SecureBoot is a signed UKI and the firmware that boots only what its db trusts.
+type SecureBoot struct {
+	UKI  string // signed with the key in Vars' db
+	Code string // the firmware's code, read-only
+	Vars string // its variable store, written by the firmware
+}
+
+const credentials = "name=opt/io.systemd.credentials/"
 
 // Binary is the qemu for the machine's architecture.
 func (m Machine) Binary() string {
@@ -75,6 +89,16 @@ func (m Machine) varDisk() ([]string, string, error) {
 		"-drive", "id=var,file=" + m.VarDisk + ",format=raw,if=none",
 		"-device", "virtio-blk-pci,drive=var",
 	}
+	if m.SecureBoot != nil {
+		// The stub ignores the command line: the same two settings go by fw_cfg
+		// (secureBoot), fstab.extra as systemd.mount-extra=, system.machine_id as
+		// systemd.machine_id=.
+		fstab := []byte("/dev/vdb /var ext4 x-systemd.makefs,x-systemd.growfs 0 0\n")
+		if err := os.WriteFile(m.VarDisk+".fstab", fstab, 0o644); err != nil {
+			return nil, "", err
+		}
+		return drive, "", nil
+	}
 	appendArgs := " systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs" +
 		" systemd.machine_id=" + string(id)
 	return drive, appendArgs, nil
@@ -114,6 +138,27 @@ func (m Machine) sysexts() (drives []string, appendArgs, tables, waitfor string,
 	return drives, appendArgs, tables, waitfor, nil
 }
 
+// secureBoot is kaetzli.qemu's _secureboot: q35 with SMM (OVMF's Secure Boot build needs
+// it), the code and the variable store as flash, and the credentials by fw_cfg.
+func (m Machine) secureBoot() []string {
+	sb := m.SecureBoot
+	creds := []string{"-fw_cfg", credentials + "login.noauth,string=yes"}
+	if m.VarDisk != "" {
+		creds = append(creds,
+			"-fw_cfg", credentials+"fstab.extra,file="+m.VarDisk+".fstab",
+			"-fw_cfg", credentials+"system.machine_id,file="+m.VarDisk+".machine-id")
+	}
+	if m.PubKeyFile != "" {
+		creds = append(creds, "-fw_cfg", credentials+"ssh.authorized_keys.root,file="+m.PubKeyFile)
+	}
+	return append([]string{
+		"-machine", "q35,smm=on",
+		"-global", "driver=cfi.pflash01,property=secure,value=on",
+		"-drive", "if=pflash,format=raw,unit=0,file=" + sb.Code + ",readonly=on",
+		"-drive", "if=pflash,format=raw,unit=1,file=" + sb.Vars,
+	}, creds...)
+}
+
 var (
 	lastQuote = regexp.MustCompile(`"$`)
 	waitFor   = regexp.MustCompile(`dm-mod\.waitfor=([^ ]*)`)
@@ -121,6 +166,14 @@ var (
 
 // Argv is the command line after the binary.
 func (m Machine) Argv() ([]string, error) {
+	if m.SecureBoot != nil {
+		if m.Arch != "amd64" {
+			return nil, fmt.Errorf("Secure Boot is amd64 only for now")
+		}
+		if len(m.Sysexts) > 0 {
+			return nil, fmt.Errorf("Secure Boot cannot take extensions yet: their verity tables would go on the command line the signed UKI seals")
+		}
+	}
 	raw, err := os.ReadFile(m.Cmdline)
 	if err != nil {
 		return nil, err
@@ -162,11 +215,18 @@ func (m Machine) Argv() ([]string, error) {
 	}
 
 	argv := append([]string{}, m.accel()...)
-	argv = append(argv, "-m", m.Mem, "-smp", m.CPUs, "-kernel", m.Kernel,
+	kernel := m.Kernel
+	if m.SecureBoot != nil {
+		argv = append(argv, m.secureBoot()...)
+		kernel = m.SecureBoot.UKI
+	}
+	argv = append(argv, "-m", m.Mem, "-smp", m.CPUs, "-kernel", kernel,
 		"-drive", "id=root,file="+m.Rootfs+",format=raw,if=none,readonly=on",
 		"-device", "virtio-blk-pci,drive=root")
 	argv = append(argv, varDrive...)
 	argv = append(argv, extDrives...)
+	// Under Secure Boot the hostname is the image's: systemd.hostname= is on the sealed
+	// command line, and /etc/hostname outranks the system.hostname credential.
 	argv = append(argv, "-nic", nic,
 		"-append", root+" console="+m.console()+" init="+m.Init+
 			" systemd.set_credential=login.noauth:yes"+extra+varAppend+extAppend)

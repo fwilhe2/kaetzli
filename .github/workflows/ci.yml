@@ -658,14 +658,15 @@ jobs:
           path: artifacts/prebuilt
 
       # qemu-system-arm is the package with qemu-system-aarch64. virtiofsd, socat and
-      # vhost_vsock are test/vmm.py's, which skips what the host cannot provide.
+      # vhost_vsock are test/vmm.py's, which skips what the host cannot provide. ovmf is
+      # the Secure Boot firmware the launcher finds through qemu's firmware descriptors.
       - name: Install qemu
         run: |
           sudo apt-get update
           if [ "${{ matrix.arch }}" = arm64 ]; then
             sudo apt-get install -y --no-install-recommends qemu-system-arm ipxe-qemu qemu-efi-aarch64
           else
-            sudo apt-get install -y --no-install-recommends qemu-system-x86
+            sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf
           fi
           sudo apt-get install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
@@ -702,6 +703,29 @@ jobs:
           podman login ghcr.io -u '${{ github.actor }}' -p '${{ secrets.GITHUB_TOKEN }}'
           ./tools/sign-uki.sh artifacts/kaetzli.efi
           ./test/secureboot.py artifacts/rootfs.erofs
+
+      # The same from the launcher, as a user runs it: its own key made, the UKI signed and
+      # the variable store written in Go (go/internal/authenticode, efivars), the host's
+      # OVMF found through qemu's firmware descriptors, /var on its disk.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: matrix.arch == 'amd64'
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
+
+      - name: Check the launcher boots with Secure Boot
+        if: matrix.arch == 'amd64'
+        run: |
+          (cd go && CGO_ENABLED=0 go build -o "$RUNNER_TEMP/kaetzli" ./cmd/kaetzli)
+          img=$RUNNER_TEMP/secureboot-image
+          mkdir -p "$img"
+          cp artifacts/rootfs.erofs artifacts/rootfs.cmdline artifacts/kaetzli.efi rootfs/boot/bzImage "$img/"
+          export KAETZLI_HOME=$RUNNER_TEMP/kaetzli-home KAETZLI_CACHE=$RUNNER_TEMP/kaetzli-cache
+          k=$RUNNER_TEMP/kaetzli
+          "$k" start --secure-boot --no-ext --image "$img" --size 2G
+          "$k" ssh --root 'journalctl -k -b | grep "Secure boot enabled" && findmnt -no SOURCE /var | grep -x /dev/vdb' ||
+              { "$k" stop --force; tail -n 60 "$KAETZLI_HOME/machines/kaetzli/console.log"; exit 1; }
+          "$k" stop
 
       - name: Check for failed units, and say hello
         run: ./test/systemd.py artifacts/rootfs.erofs rootfs/boot/bzImage
