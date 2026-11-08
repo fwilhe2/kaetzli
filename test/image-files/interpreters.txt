@@ -1,7 +1,8 @@
 # Constraint 5: bash is the image's one interpreter. A script for any other is either
 # dead weight or a dependency nobody argued for, and `make install` is where they sneak
 # in — glib's gdb auto-load scripts were python (packages/glib/build.sh). By extension
-# only: a script named without one is a judgement for the package that installs it.
+# here; test/check-tree-hygiene.sh reads every file's #! line, which also catches a script
+# named without one. Those found so far are named below.
 absent *.py
 absent *.pyc
 absent *.pl
@@ -10,3 +11,9 @@ absent *.rb
 absent *.lua
 absent *.js
 absent usr/share/gdb
+
+# Without an extension, so only by name: iproute2's routel is python, OpenSSL's c_rehash
+# perl, and etc/ssl/misc holds its CA.pl and tsget (packages/iproute2, openssl/build.sh).
+absent usr/bin/routel
+absent usr/bin/c_rehash
+absent etc/ssl/misc

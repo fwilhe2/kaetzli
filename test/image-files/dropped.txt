@@ -1,0 +1,65 @@
+# What packages delete after `make install` with drop_installed, where no topic file
+# fits: tools for hardware a VM lacks, bug-report and config scripts, build-time
+# generators. drop_installed fails when its file is not there to delete, which catches a
+# rename; these lines catch the other direction, a drop line that goes away.
+
+# bash: bashbug, and the loadable builtins' headers (packages/bash/build.sh).
+absent usr/bin/bashbug
+absent usr/lib/bash
+
+# curl-config describes the headers the trim removes (packages/curl/build.sh).
+absent usr/bin/curl-config
+
+# e2fsprogs: tools for disks a VM's are not, and com_err's build-time generators.
+absent usr/bin/badblocks
+absent usr/bin/e4crypt
+absent usr/bin/e2undo
+absent usr/bin/e2freefrag
+absent usr/bin/filefrag
+absent usr/bin/mklost+found
+absent usr/bin/logsave
+absent usr/bin/compile_et
+absent usr/bin/mk_cmds
+
+# elfutils ships its libraries for systemd and perf, not debuginfod's client.
+absent usr/bin/debuginfod-find
+
+# findutils' locate database, which nothing builds.
+absent usr/bin/locate
+absent usr/bin/updatedb
+
+# openssh: host-based auth, PKCS#11 and security-key helpers, the agent (logins are by
+# a per-boot key), and the moduli file for a DH group exchange config does not enable.
+absent usr/libexec/ssh-keysign
+absent usr/libexec/ssh-pkcs11-helper
+absent usr/libexec/ssh-sk-helper
+absent usr/bin/ssh-agent
+absent usr/bin/ssh-add
+absent etc/ssh/moduli
+
+# pcre2 ships its library for glib, not its grep, test driver or config script.
+absent usr/bin/pcre2grep
+absent usr/bin/pcre2test
+absent usr/bin/pcre2-config
+
+# util-linux tools for hardware clocks, serial lines, zoned and optical disks, swap
+# labels and the like (packages/util-linux/build.sh).
+absent usr/bin/colrm
+absent usr/bin/look
+absent usr/bin/namei
+absent usr/bin/lsclocks
+absent usr/bin/mcookie
+absent usr/bin/uuidparse
+absent usr/bin/ldattach
+absent usr/bin/rtcwake
+absent usr/bin/readprofile
+absent usr/bin/ctrlaltdel
+absent usr/bin/isosize
+absent usr/bin/blkzone
+absent usr/bin/blkpr
+absent usr/bin/swaplabel
+absent usr/bin/fadvise
+
+# zstd's wrappers around grep and less, for compressed files (packages/zstd/build.sh).
+absent usr/bin/zstdgrep
+absent usr/bin/zstdless

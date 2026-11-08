@@ -7,3 +7,27 @@ present:erofs etc/systemd/resolved.conf.d/50-no-multicast.conf
 # name a machine booted from a signed UKI (DEFAULT_HOSTNAME in os-release instead;
 # test/systemd.py checks the credential takes).
 absent etc/hostname
+
+# iptables is iptables-nft (CLAUDE.md, Networking): the legacy backend, ebtables and
+# arptables, and iptables-xml are deleted after install (packages/iptables/build.sh).
+absent usr/bin/xtables-legacy-multi
+absent usr/bin/iptables-xml
+absent usr/bin/ip*tables-legacy*
+absent usr/bin/ebtables*
+absent usr/bin/arptables*
+# iproute2's tools for hardware, RDMA, TIPC and statistics daemons, none of which a VM
+# has or runs (packages/iproute2/build.sh).
+absent usr/bin/dcb
+absent usr/bin/devlink
+absent usr/bin/dpll
+absent usr/bin/rdma
+absent usr/bin/vdpa
+absent usr/bin/netshaper
+absent usr/bin/tipc
+absent usr/bin/genl
+absent usr/bin/ifstat
+absent usr/bin/lnstat
+absent usr/bin/ctstat
+absent usr/bin/rtstat
+absent usr/bin/rtacct
+absent usr/bin/rtmon

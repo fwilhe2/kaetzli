@@ -11,3 +11,17 @@ absent usr/lib/systemd/systemd-bless-boot
 absent usr/lib/systemd/system-generators/systemd-bless-boot-generator
 absent usr/lib/systemd/system/systemd-boot-random-seed.service
 absent usr/lib/systemd/system/systemd-bootctl.socket
+
+# The rest of what packages/systemd/build.sh drops with bootctl: boot counting, the
+# services and sockets that would run it, and the stub's tmpfiles line.
+absent usr/lib/systemd/systemd-boot-check-no-failures
+absent usr/lib/systemd/system/systemd-bless-boot.service
+absent usr/lib/systemd/system/systemd-boot-check-no-failures.service
+absent usr/lib/systemd/system/sysinit.target.wants/systemd-boot-random-seed.service
+absent usr/lib/systemd/system/systemd-boot-clear-sysfail.service
+absent usr/lib/systemd/system/systemd-boot-update.service
+absent usr/lib/systemd/system/systemd-bootctl@.service
+absent usr/lib/systemd/system/sockets.target.wants/systemd-bootctl.socket
+absent usr/lib/systemd/system/systemd-sysupdate-notify-bootctl@.service
+absent usr/lib/systemd/system/systemd-sysupdate-notify-bootctl.socket
+absent usr/lib/tmpfiles.d/20-systemd-stub.conf

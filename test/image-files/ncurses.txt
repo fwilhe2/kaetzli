@@ -8,3 +8,15 @@ absent usr/lib/*-linux-gnu/pkgconfig/*
 # What bash, procps and the rest do link.
 present usr/lib/libncursesw.so.6
 present usr/lib/libtinfo.so.6
+
+# ncurses' terminfo compiler and tools, and its config script; clear and tput stay
+# (packages/ncurses/build.sh).
+absent usr/bin/tic
+absent usr/bin/captoinfo
+absent usr/bin/infotocap
+absent usr/bin/infocmp
+absent usr/bin/toe
+absent usr/bin/tset
+absent usr/bin/reset
+absent usr/bin/tabs
+absent usr/bin/ncursesw6-config

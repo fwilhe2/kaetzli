@@ -10,3 +10,20 @@ absent usr/lib64/libBrokenLocale.so
 # older glibc name the compatibility stubs in NEEDED.
 present usr/lib/libc_malloc_debug.so.0
 present usr/lib/libpthread.so.0
+
+# glibc's tools for building locales, catalogues and databases, tracing and the time
+# zone sources, all done at build time or not at all here (packages/glibc/build.sh).
+absent usr/bin/gencat
+absent usr/bin/makedb
+absent usr/bin/iconvconfig
+absent usr/bin/localedef
+absent usr/bin/mtrace
+absent usr/bin/sotruss
+absent usr/bin/sprof
+absent usr/bin/pcprofiledump
+absent usr/bin/xtrace
+absent usr/bin/pldd
+absent usr/bin/sln
+absent usr/bin/zic
+absent usr/bin/zdump
+absent usr/bin/tzselect
