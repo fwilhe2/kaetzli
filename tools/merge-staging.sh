@@ -40,6 +40,21 @@ as_owner() { "$@" 2>/dev/null || podman unshare "$@"; }
 
 trees=$(find "$STAGING" -mindepth 1 -maxdepth 1 -type d ! -name '.*' | sort)
 
+# Every tree is a package this checkout defines. staging/ outlives a branch switch, so a
+# package built on another branch would otherwise be merged into this one's image, SBOM
+# and tests, which CI (artifacts of this commit only) would never see.
+orphans=()
+for t in $trees; do
+    [ -f "packages/$(basename "$t")/env.sh" ] || orphans+=("$(basename "$t")")
+done
+if [ ${#orphans[@]} -gt 0 ]; then
+    echo "error: staging/ holds packages this checkout does not define (another branch's?):" >&2
+    printf '    %s\n' "${orphans[@]}" >&2
+    echo "Remove them, then merge again:" >&2
+    echo "    rm -rf$(printf ' staging/%s' "${orphans[@]}") && ./tools/merge-staging.sh" >&2
+    exit 1
+fi
+
 # A staging tree holds rootfs/, extensions/ or both, and nothing else: anything beside
 # them would be copied to the top of the checkout by the merge below.
 for t in $trees; do
