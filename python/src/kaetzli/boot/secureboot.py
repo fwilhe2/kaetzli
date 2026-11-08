@@ -14,8 +14,9 @@ Boot on:
             that honoured, PID 1 would be a shell and no getty would ever ask for a login;
             the stub ignores it, so systemd starts, and the login goes through on the
             credential fw_cfg carried. Then: the kernel said "Secure boot enabled",
-            /proc/cmdline is the UKI's (the root hash from rootfs.cmdline, no init=), and
-            the ssh key credential arrived.
+            /proc/cmdline is the UKI's (the root hash from rootfs.cmdline, no init=), the
+            ssh key credential arrived, and /var is the disk the credentials named
+            (fstab.extra), with the machine ID kept beside it (system.machine_id).
   unsigned  output/kaetzli.efi, the same UKI before signing: the firmware has to refuse
             it, so Linux never starts.
   control   The signed UKI again, with the firmware's default variables (Secure Boot
@@ -51,6 +52,7 @@ def main(argv: list[str]) -> int:
     m = b.machine
     m.init = "/bin/bash"  # the tamper: on the command line the stub must ignore
     m.secureboot = m.secureboot or "output/secureboot"
+    var_disk = m.var_disk or "output/secureboot-var.img"
 
     def test() -> None:
         m.setup()
@@ -58,6 +60,11 @@ def main(argv: list[str]) -> int:
         m.ssh_setup("output/ssh-secureboot", port=None)
         root_cmdline = Path(m.root_cmdline_file()).read_text().strip()
         root_hash = root_cmdline.split(" sha256 ", 1)[1].split()[0]
+        # A fresh /var disk each run, unless VAR_DISK names one; only the signed boot has it.
+        if not m.var_disk:
+            for f in (var_disk, f"{var_disk}.machine-id", f"{var_disk}.fstab"):
+                Path(f).unlink(missing_ok=True)
+        m.var_disk = var_disk
 
         print(">> signed UKI, with init=/bin/bash passed from outside", flush=True)
         with b.guest("secureboot", exempt=EXEMPT) as g:
@@ -67,7 +74,8 @@ def main(argv: list[str]) -> int:
             g.mark()
             g.send(
                 f"echo {BEGIN[:6]}'{BEGIN[6:]}'; cat /proc/cmdline; "
-                f"ls /run/credentials/@system/; echo {MARKER[:6]}'{MARKER[6:]}'"
+                f"ls /run/credentials/@system/; findmnt -no SOURCE /var; cat /etc/machine-id; "
+                f"echo {MARKER[:6]}'{MARKER[6:]}'"
             )
             if not g.wait(MARKER, 60):
                 g.fail("no answer from the guest")
@@ -79,10 +87,18 @@ def main(argv: list[str]) -> int:
                 g.fail(f"/proc/cmdline does not carry the image's root hash {root_hash}")
             if "ssh.authorized_keys.root" not in tail:
                 g.fail("the ssh key credential did not arrive by fw_cfg")
+            if "/dev/vdb" not in tail:
+                g.fail("/var is not the disk the fstab.extra credential named")
+            machine_id = Path(f"{var_disk}.machine-id").read_text().strip()
+            if machine_id not in tail:
+                g.fail(f"the machine ID is not the disk's {machine_id} (system.machine_id)")
             g.stop()
         print(
-            ">> signed: Secure Boot on, the UKI's command line, credentials by fw_cfg", flush=True
+            ">> signed: Secure Boot on, the UKI's command line, credentials by fw_cfg, "
+            "/var on its disk",
+            flush=True,
         )
+        m.var_disk = ""
 
         print(">> unsigned UKI, the same firmware", flush=True)
         signed = os.path.join(m.secureboot, "kaetzli.efi")

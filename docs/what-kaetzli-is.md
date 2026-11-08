@@ -133,8 +133,8 @@ image: systemd's stub, the kernel, and the command line with the root hash. Unde
 with Secure Boot on (amd64), the firmware runs only that signed image, and the stub ignores
 a command line passed from outside, so the root hash cannot be swapped. `test/secureboot.py`
 boots the signed image with `init=/bin/bash` injected and checks that `/proc/cmdline` is
-the sealed one, and that an unsigned image is refused. Not covered yet: arm64, extensions
-and a `/var` disk in this mode. Releases carry the UKI unsigned (`uki-<arch>.efi`) and the
+the sealed one, and that an unsigned image is refused; a `/var` disk comes by credentials.
+Not covered yet: arm64 and extensions in this mode. Releases carry the UKI unsigned (`uki-<arch>.efi`) and the
 project holds no key: you sign it with yours, after verifying it (the tool makes a throwaway
 key unless given one).
 

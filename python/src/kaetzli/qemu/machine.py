@@ -64,8 +64,8 @@ class Machine:
     hint: str = ""  # names the command that would make a missing file
     kvm: bool | None = None  # default: whether /dev/kvm is writable
     # A directory from tools/sign-uki.sh: boot its signed UKI under Secure Boot firmware
-    # instead of `kernel` (docs/guides/secure-boot.md). pc on amd64, no /var disk or
-    # extensions yet: their arguments ride the command line the UKI seals.
+    # instead of `kernel` (docs/guides/secure-boot.md). pc on amd64; a /var disk by
+    # credentials, no extensions yet: their arguments ride the command line the UKI seals.
     secureboot: str = ""
     secureboot_vars: str = "ovmf-vars.fd"  # the variable store in it to boot with
     # What qemu_ssh_setup adds.
@@ -114,12 +114,11 @@ class Machine:
                 raise Refused("SECUREBOOT is amd64 only for now")
             if self.profile != "pc":
                 raise Refused(f"SECUREBOOT boots the pc profile, not QEMU_PROFILE={self.profile}")
-            for setting, value in (("VAR_DISK", self.var_disk), ("SYSEXTS", self.sysexts)):
-                if value:
-                    raise Refused(
-                        f"SECUREBOOT cannot take {setting} yet: its arguments would go on the "
-                        "command line the signed UKI seals (docs/guides/secure-boot.md)"
-                    )
+            if self.sysexts:
+                raise Refused(
+                    "SECUREBOOT cannot take SYSEXTS yet: their verity tables would go on the "
+                    "command line the signed UKI seals (docs/guides/secure-boot.md)"
+                )
         if self.kvm is None:
             self.kvm = kvm_usable()
         if not self.kvm:
@@ -233,6 +232,14 @@ class Machine:
             "-drive", f"id=var,file={self.var_disk},format=raw,if=none",
             "-device", "virtio-blk-pci,drive=var",
         ]  # fmt: skip
+        if self.secureboot:
+            # The stub ignores the command line, so the same two settings go as credentials
+            # by fw_cfg (_secureboot): fstab-generator reads fstab.extra as it does
+            # systemd.mount-extra=, PID 1 takes system.machine_id as systemd.machine_id=.
+            Path(f"{self.var_disk}.fstab").write_text(
+                "/dev/vdb /var ext4 x-systemd.makefs,x-systemd.growfs 0 0\n"
+            )
+            return drive, ""
         machine_id = mid.read_text().rstrip("\n")  # as bash's $(cat) reads it
         append = (
             " systemd.mount-extra=/dev/vdb:/var:ext4:x-systemd.makefs,x-systemd.growfs"
@@ -286,6 +293,13 @@ class Machine:
         with os.fdopen(fd, "wb") as out:
             out.write((d / self.secureboot_vars).read_bytes())
         creds = ["-fw_cfg", "name=opt/io.systemd.credentials/login.noauth,string=yes"]
+        if self.var_disk:
+            creds += [
+                "-fw_cfg",
+                f"name=opt/io.systemd.credentials/fstab.extra,file={self.var_disk}.fstab",
+                "-fw_cfg",
+                f"name=opt/io.systemd.credentials/system.machine_id,file={self.var_disk}.machine-id",
+            ]
         if self.ssh_pub:
             creds += [
                 "-fw_cfg",
