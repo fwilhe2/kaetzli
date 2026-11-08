@@ -1,8 +1,8 @@
 # Secure Boot
 
-**Status: implemented for amd64 under qemu (OVMF), with a persistent `/var`; you sign the
-UKI, and the launcher does it for you (`kaetzli start --secure-boot`), extensions
-included.** Not yet: extensions in this mode outside the launcher (`kaetzli.qemu`'s
+**Status: implemented for amd64 under qemu (OVMF), with a persistent `/var` and
+extensions: the launcher (`kaetzli start --secure-boot`) needs no key, and you can sign
+the UKI with your own.** Not yet: extensions in this mode outside the launcher (`kaetzli.qemu`'s
 `SECUREBOOT`), arm64, and VMMs that boot without firmware (Firecracker,
 Virtualization.framework).
 
@@ -15,9 +15,10 @@ the hash here: dm-verity reads one only from a keyring that userspace fills, and
 is set up by `dm-mod.create=` before there is any userspace (and there is no initrd).
 
 A **unified kernel image** closes that: the kernel, the command line with the root hash,
-and systemd's EFI stub in one PE binary, signed. Under Secure Boot the firmware runs only
-an image signed by an enrolled key, and the stub then ignores any command line the VMM
-passes. A different root hash means a different UKI, which the signature does not cover.
+and systemd's EFI stub in one PE binary. Under Secure Boot the firmware runs only an
+image its db admits, by a key that signed it or by the image's own digest, and the stub
+then ignores any command line the VMM passes. A different root hash means a different
+UKI, which db does not admit.
 
 ## With the launcher
 
@@ -25,22 +26,23 @@ passes. A different root hash means a different UKI, which the signature does no
 kaetzli start --secure-boot --ext podman   # remembered; --no-secure-boot turns it off
 ```
 
-- The first time, it makes **your key**: `secureboot/db.key` and `db.crt` in the
-  launcher's data directory (beside `machines/`). Keep `db.key` private.
-- Each start signs the snapshot's UKI with that key, after checking it and the attached
-  extensions' verity tables against the snapshot's `SHA256SUMS` again (not only when it
-  was fetched, so the signature never covers a cache changed since; an `--image`
-  directory is your own build and is not checked) (`go/internal/authenticode`). It then writes the machine's firmware
-  variables fresh from the template of the host's OVMF, found through qemu's firmware
-  descriptors (`go/internal/firmware`): your certificate in db, and a PK and KEK made for
-  the machine and thrown away (`go/internal/efivars`). Nothing but qemu and OVMF on the
-  host (Debian, Ubuntu: `ovmf`; Fedora: `edk2-ovmf`).
+- **No key.** Each start checks the snapshot's UKI and the attached extensions' verity
+  tables against its `SHA256SUMS` again (not only when it was fetched; an `--image`
+  directory is your own build and is not checked), writes the tables into the UKI, and
+  writes the machine's firmware variables fresh from the template of the host's OVMF,
+  found through qemu's firmware descriptors (`go/internal/firmware`): **that UKI's
+  Authenticode digest** in db, and a PK and KEK made for the machine and thrown away
+  (`go/internal/efivars`). The firmware then boots exactly that image: not another one,
+  and not the machine's UKI of an earlier start either, which a key that signed both would
+  still let in. Nothing but qemu and OVMF on the host (Debian, Ubuntu: `ovmf`; Fedora:
+  `edk2-ovmf`). Launchers from before made `secureboot/db.key` in their data directory;
+  nothing uses it now, and it can go.
 - **Extensions** are verified by the kernel as without Secure Boot, from their dm-verity
   tables, which the launcher writes into the UKI's own command line (its `.cmdline`
-  section, `go/internal/uki`) before signing it: your signature covers the tables, the
+  section, `go/internal/uki`) before taking its digest: the digest covers the tables, the
   tables (verified against `SHA256SUMS` with the snapshot) pin the extensions' bytes. A
-  different set of extensions is a different UKI, signed at that start. The tables share
-  the kernel's 2047 bytes with the root's, which the launcher checks.
+  different set of extensions is a different UKI, admitted at that start. The tables
+  share the kernel's 2047 bytes with the root's, which the launcher checks.
 - The machine's name is its hostname by the `system.hostname` credential, since
   `systemd.hostname=` would be on the sealed command line. It takes because the image
   ships no `/etc/hostname`, which would outrank it; `DEFAULT_HOSTNAME=kaetzli` in
@@ -91,13 +93,18 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py
   read-only tmpfs; `test/secureboot.py` checks it. The data on `/var` is still yours to
   protect: Secure Boot vouches for the code, not for what that code reads.
 
-## Who signs: you
+## Who signs: nobody, or you
 
 Releases carry the UKI **unsigned**, and the project holds no signing key, by design. In a
 VM whoever runs the VMM owns the firmware's variables, so a key of ours would prove nothing
 that yours does not; what you need from us is that the UKI is the one CI built, and that is
 `SHA256SUMS` and its attestation (`tools/fetch-image.sh` checks both) and the UKI being
-reproducible. Verify, then sign with your key: that key is the only secret, and it is yours.
+reproducible.
+
+The launcher writes a machine's variables at every start, so it enrolls the image itself
+and needs no key at all. A key is for firmware whose variables outlive one boot and that
+you do not rewrite: sign the UKI with yours (`tools/sign-uki.sh --key K.pem --cert C.pem`)
+and enroll its certificate. That key is then the only secret, and it is yours.
 
 ## What is checked
 

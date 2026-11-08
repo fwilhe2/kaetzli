@@ -183,6 +183,18 @@ func Variables(b []byte) ([]Variable, error) {
 // --set-pk/--add-kek/--add-db/--secure-boot writes into an empty store. Variables of the
 // same names already there are replaced; the others stay.
 func EnrollSecureBoot(template []byte, pk, kek, db *x509.Certificate, owner GUID) ([]byte, error) {
+	return Enroll(template, pk, kek, X509List(db, owner), owner)
+}
+
+// Enroll is EnrollSecureBoot with db any EFI_SIGNATURE_LIST: X509List's certificate, or
+// SHA256List's image digest, which makes the firmware boot exactly that unsigned image.
+func Enroll(template []byte, pk, kek *x509.Certificate, db []byte, owner GUID) ([]byte, error) {
+	if len(db) < 28 || int(binary.LittleEndian.Uint32(db[16:])) != len(db) {
+		return nil, errors.New("db is not one EFI_SIGNATURE_LIST")
+	}
+	if GUID(db[:16]) == certSHA256 && binary.LittleEndian.Uint32(db[24:]) != 16+sha256.Size {
+		return nil, errors.New("an EFI_CERT_SHA256 entry holds a 32-byte digest")
+	}
 	start, end, err := store(template)
 	if err != nil {
 		return nil, err
@@ -194,9 +206,9 @@ func EnrollSecureBoot(template []byte, pk, kek, db *x509.Certificate, owner GUID
 	auth := uint32(attrNV | attrBS | attrRT | attrTimeAuth)
 	empty := sha256.Sum256(nil)
 	ours := []Variable{
-		{Name: "PK", GUID: globalVariable, Attributes: auth, Time: authTime, Data: x509List(pk, owner)},
-		{Name: "KEK", GUID: globalVariable, Attributes: auth, Time: authTime, Data: x509List(kek, owner)},
-		{Name: "db", GUID: imageSecurityDatabase, Attributes: auth, Time: authTime, Data: x509List(db, owner)},
+		{Name: "PK", GUID: globalVariable, Attributes: auth, Time: authTime, Data: X509List(pk, owner)},
+		{Name: "KEK", GUID: globalVariable, Attributes: auth, Time: authTime, Data: X509List(kek, owner)},
+		{Name: "db", GUID: imageSecurityDatabase, Attributes: auth, Time: authTime, Data: db},
 		// A dbx that exists, revoking nothing real (the SHA-256 of nothing): tools that
 		// update it expect one, as virt-fw-vars writes it.
 		{Name: "dbx", GUID: imageSecurityDatabase, Attributes: auth, Time: authTime, Data: sigList(certSHA256, owner, empty[:])},
@@ -242,7 +254,12 @@ func EnrollSecureBoot(template []byte, pk, kek, db *x509.Certificate, owner GUID
 	return out, nil
 }
 
-func x509List(c *x509.Certificate, owner GUID) []byte { return sigList(certX509, owner, c.Raw) }
+// X509List is an EFI_SIGNATURE_LIST of one certificate.
+func X509List(c *x509.Certificate, owner GUID) []byte { return sigList(certX509, owner, c.Raw) }
+
+// SHA256List is an EFI_SIGNATURE_LIST of one image's Authenticode SHA-256
+// (authenticode.Digest): in db, the firmware boots that image unsigned, and only it.
+func SHA256List(digest []byte, owner GUID) []byte { return sigList(certSHA256, owner, digest) }
 
 // sigList is an EFI_SIGNATURE_LIST of one EFI_SIGNATURE_DATA: owner, then the signature.
 func sigList(typ, owner GUID, sig []byte) []byte {

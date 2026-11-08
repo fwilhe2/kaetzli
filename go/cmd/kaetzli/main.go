@@ -57,7 +57,7 @@ type config struct {
 	Mem           string   `json:"mem"`
 	CPUs          string   `json:"cpus"`
 	Image         string   `json:"image"`                 // "" for snapshots, else a directory
-	SecureBoot    bool     `json:"secure_boot,omitempty"` // the UKI, signed with the user's key (secureboot.go)
+	SecureBoot    bool     `json:"secure_boot,omitempty"` // the UKI, its digest alone in db (secureboot.go)
 	rollout.State          // which snapshot: pinned, last good, failed here
 }
 
@@ -796,7 +796,7 @@ func cmdInfo(args []string) {
 	fmt.Printf("arch        %s, %s MB, %s CPUs\n", c.Arch, c.Mem, c.CPUs)
 	fmt.Printf("extensions  %s\n", orNone(strings.Join(c.Exts, " ")))
 	if c.SecureBoot {
-		fmt.Printf("secure boot on: the UKI signed with %s\n", filepath.Join(keyDir(), "db.key"))
+		fmt.Printf("secure boot on: the firmware boots only this start's UKI (its digest in db)\n")
 	}
 	if pid, ok := running(dir); ok {
 		var p ports
@@ -1070,8 +1070,8 @@ const usage = `kaetzli: kaetzli virtual machines, from the latest snapshot relea
   kaetzli version
 
 NAME defaults to kaetzli. Options to start are remembered. --secure-boot (amd64) boots
-the image's UKI, with the extensions' verity tables in its command line, signed with your
-own key, made once, under firmware that trusts only it.
+the image's UKI, with the extensions' verity tables in its command line, under firmware
+that admits that one image and nothing else.
 Machines: KAETZLI_HOME (default: the platform's data directory). Images: KAETZLI_CACHE.
 `
 
