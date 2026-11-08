@@ -19,6 +19,7 @@ import (
 	"github.com/fwilhe2/kaetzli/go/internal/efivars"
 	"github.com/fwilhe2/kaetzli/go/internal/firmware"
 	"github.com/fwilhe2/kaetzli/go/internal/qemu"
+	"github.com/fwilhe2/kaetzli/go/internal/uki"
 )
 
 // The owner GUID of what the launcher enrolls, as tools/sign-uki.sh's.
@@ -26,7 +27,8 @@ var owner = efivars.MustGUID("8d5b5c0e-6b8f-4c5a-9d2e-4b6174a7a1e1")
 
 // The Secure Boot model (docs/guides/secure-boot.md): the project holds no key. Each user
 // has one, made here once, and it signs the UKI of the snapshot the launcher verified
-// against SHA256SUMS. Each machine's firmware trusts that key alone: a variable store
+// against SHA256SUMS, with the machine's extensions' verity tables (verified with it)
+// written into its command line first, so the kernel verifies them as it verifies the root. Each machine's firmware trusts that key alone: a variable store
 // written from the firmware's template before every start, with the user's certificate in
 // db and a PK and KEK made for it and thrown away (nothing ever needs to update the
 // store in place; changing the key means writing it again).
@@ -118,18 +120,32 @@ func newCert(cn string, years int) (*rsa.PrivateKey, *x509.Certificate, error) {
 	return key, cert, err
 }
 
-// prepareSecureBoot signs img's UKI with the user's key and writes the machine's variable
-// store, both into dir/secureboot/, and says which firmware boots them.
-func prepareSecureBoot(dir, img, qemuBinary string) (*qemu.SecureBoot, error) {
+// prepareSecureBoot signs img's UKI, with m's extensions sealed into its command line,
+// with the user's key and writes the machine's variable store, both into dir/secureboot/,
+// and says which firmware boots them.
+func prepareSecureBoot(dir, img string, m qemu.Machine) (*qemu.SecureBoot, error) {
 	unsigned, err := os.ReadFile(filepath.Join(img, "kaetzli.efi"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("%s has no kaetzli.efi, the UKI Secure Boot boots (snapshots before 20261108 have none: kaetzli update; or start --no-secure-boot)", img)
 	} else if err != nil {
 		return nil, err
 	}
-	bin, err := exec.LookPath(qemuBinary)
+	if len(m.Sysexts) > 0 {
+		base, err := uki.Cmdline(unsigned)
+		if err != nil {
+			return nil, err
+		}
+		sealed, err := m.SealedCmdline(base)
+		if err != nil {
+			return nil, err
+		}
+		if unsigned, err = uki.SetCmdline(unsigned, sealed); err != nil {
+			return nil, fmt.Errorf("the extensions' tables: %w", err)
+		}
+	}
+	bin, err := exec.LookPath(m.Binary())
 	if err != nil {
-		return nil, fmt.Errorf("%s not found: install qemu", qemuBinary)
+		return nil, fmt.Errorf("%s not found: install qemu", m.Binary())
 	}
 	fw, err := firmware.SecureBoot(firmware.Dirs(bin), "x86_64")
 	if err != nil {

@@ -374,14 +374,8 @@ func cmdStart(args []string) {
 	if secureBoot != "" {
 		c.SecureBoot = secureBoot == "on"
 	}
-	if c.SecureBoot {
-		// Checked before anything is remembered: these ride the command line the UKI seals.
-		if c.Arch != "amd64" {
-			die("--secure-boot is amd64 only for now")
-		}
-		if len(c.Exts) > 0 {
-			die("--secure-boot cannot take extensions yet (their verity tables would go on the command line the signed UKI seals): --no-ext, or --no-secure-boot")
-		}
+	if c.SecureBoot && c.Arch != "amd64" {
+		die("--secure-boot is amd64 only for now") // before anything is remembered
 	}
 	img, snap := image(c)
 	if c.Image != "" {
@@ -400,7 +394,7 @@ func cmdStart(args []string) {
 		p := ports{SSH: freePort(), Console: freePort(), QMP: freePort(), Image: img}
 		m := machine(name, c, img, p)
 		if c.SecureBoot {
-			sb, err := prepareSecureBoot(dir, img, m.Binary())
+			sb, err := prepareSecureBoot(dir, img, m)
 			if err != nil {
 				die("--secure-boot: %v", err)
 			}
@@ -1075,9 +1069,9 @@ const usage = `kaetzli: kaetzli virtual machines, from the latest snapshot relea
   kaetzli rm [NAME] [--yes]
   kaetzli version
 
-NAME defaults to kaetzli. Options to start are remembered. --secure-boot (amd64, no
-extensions yet) boots the image's UKI signed with your own key, made once, under firmware
-that trusts only it.
+NAME defaults to kaetzli. Options to start are remembered. --secure-boot (amd64) boots
+the image's UKI, with the extensions' verity tables in its command line, signed with your
+own key, made once, under firmware that trusts only it.
 Machines: KAETZLI_HOME (default: the platform's data directory). Images: KAETZLI_CACHE.
 `
 

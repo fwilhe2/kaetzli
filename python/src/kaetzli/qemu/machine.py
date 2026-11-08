@@ -116,8 +116,9 @@ class Machine:
                 raise Refused(f"SECUREBOOT boots the pc profile, not QEMU_PROFILE={self.profile}")
             if self.sysexts:
                 raise Refused(
-                    "SECUREBOOT cannot take SYSEXTS yet: their verity tables would go on the "
-                    "command line the signed UKI seals (docs/guides/secure-boot.md)"
+                    "SECUREBOOT cannot take SYSEXTS yet: their verity tables belong in the "
+                    "signed UKI's command line, which tools/sign-uki.sh does not write "
+                    "(kaetzli start --secure-boot --ext does; docs/guides/secure-boot.md)"
                 )
         if self.kvm is None:
             self.kvm = kvm_usable()
