@@ -111,15 +111,16 @@ class Binary:
 
 
 def examine(path: Path, rel: str) -> Binary | None:
-    """One file's hardening, or None when it is not an executable or shared object."""
+    """One file's hardening, or None when it is not an executable or shared object;
+    scan.Unreadable when it starts like ELF and cannot be read (scan.py says why)."""
     try:
         with open(path, "rb") as f:
             if f.read(4) != b"\x7fELF":
                 return None
             f.seek(0)
             return _examine(ELFFile(f), rel)
-    except Exception:
-        return None
+    except Exception as e:
+        raise scan.Unreadable([(rel, scan.reason(e))]) from e
 
 
 def _examine(elf: ELFFile, rel: str) -> Binary | None:
@@ -194,10 +195,21 @@ def _cfi(section: NoteSection, machine: str) -> bool | None:
     return False if machine in ("EM_X86_64", "EM_AARCH64") else None
 
 
-def _chunk(args: tuple[str, str, list[str]]) -> list[tuple[str, Binary]]:
+def _chunk(
+    args: tuple[str, str, list[str]],
+) -> tuple[list[tuple[str, Binary]], list[tuple[str, str]]]:
     staging, pkg, rels = args
     tree = Path(staging) / pkg
-    return [(pkg, b) for rel in rels if (b := examine(tree / rel, rel)) is not None]
+    out, unreadable = [], []
+    for rel in rels:
+        try:
+            b = examine(tree / rel, rel)
+        except scan.Unreadable as u:
+            unreadable += [(f"{pkg}/{r}", why) for r, why in u.files]
+            continue
+        if b is not None:
+            out.append((pkg, b))
+    return out, unreadable
 
 
 def staged(staging: Path) -> list[str]:
@@ -206,7 +218,8 @@ def staged(staging: Path) -> list[str]:
 
 
 def scan_staging(staging: Path) -> dict[str, list[Binary]]:
-    """Every package's ELF executables and shared objects, by package."""
+    """Every package's ELF executables and shared objects, by package. scan.Unreadable,
+    naming each as <pkg>/<path>, when any cannot be read."""
     work = []
     for pkg in staged(staging):
         rels = scan.regular_files(staging / pkg)
@@ -217,8 +230,11 @@ def scan_staging(staging: Path) -> dict[str, list[Binary]]:
     else:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
             parts = list(pool.map(_chunk, work))
+    unreadable = [u for _, us in parts for u in us]
+    if unreadable:
+        raise scan.Unreadable(unreadable)
     out: dict[str, list[Binary]] = defaultdict(list)
-    for part in parts:
+    for part, _ in parts:
         for pkg, b in part:
             out[pkg].append(b)
     return dict(out)
@@ -313,7 +329,8 @@ def main(argv: list[str]) -> int:
     if not Path(given).is_dir():
         print(f"error: no such directory: {given}", file=sys.stderr)
         sys.exit(1)
-    return check(Path(given), given, Path(argv[1]) if len(argv) > 1 else ALLOWLIST)
+    allowlist = Path(argv[1]) if len(argv) > 1 else ALLOWLIST
+    return scan.judged(check, given, Path(given), given, allowlist)
 
 
 if __name__ == "__main__":

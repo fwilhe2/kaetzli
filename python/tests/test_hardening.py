@@ -126,6 +126,18 @@ def test_a_fortified_file_that_takes_printfs_address_passes(tmp_path, empty):
 
 
 @needs_gcc
+def test_a_broken_elf_fails_and_is_named_with_its_package(tmp_path, empty):
+    # Beside a good binary, so the failure is not "nothing was judged".
+    staging = _staging(tmp_path / "staging", {"good": GOOD})
+    broken = staging / "trunc" / "rootfs" / "usr" / "bin" / "trunc"
+    broken.parent.mkdir(parents=True)
+    broken.write_bytes(b"\x7fELF\x02\x01\x01" + b"\0" * 40)
+    rc, out = check([str(staging), str(empty)])
+    assert rc == 1
+    assert "trunc/rootfs/usr/bin/trunc" in out
+
+
+@needs_gcc
 def test_a_file_finding_names_the_file(tmp_path, empty):
     staging = _staging(tmp_path / "staging", {"lazy": BROKEN["lazy"]})
     _, out = check([str(staging), str(empty)])

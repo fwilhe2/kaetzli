@@ -126,7 +126,7 @@ def check(root: Path, given: str, allowlist: Path) -> int:
 
 def main(argv: list[str]) -> int:
     given, root = scan.tree_or_exit(argv)
-    return check(root, given, Path(argv[1]) if len(argv) > 1 else ALLOWLIST)
+    return scan.judged(check, given, root, given, Path(argv[1]) if len(argv) > 1 else ALLOWLIST)
 
 
 if __name__ == "__main__":

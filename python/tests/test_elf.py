@@ -63,6 +63,16 @@ def test_a_missing_tree_is_an_error(module, tmp_path, capsys):
     assert f"error: no such directory: {tmp_path}/none" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("module", [deps, versions, resolution])
+def test_a_broken_elf_fails_the_check_and_is_named(module, tmp_path):
+    # Truncated: what a check would otherwise pass without having read a byte of it.
+    (tmp_path / "usr" / "bin").mkdir(parents=True)
+    (tmp_path / "usr" / "bin" / "truncated").write_bytes(b"\x7fELF\x02\x01\x01" + b"\0" * 40)
+    rc, out = check(module, [str(tmp_path)])
+    assert rc == 1
+    assert "usr/bin/truncated" in out
+
+
 @needs_gcc
 class TestScan:
     def test_what_a_library_says(self, trees):
@@ -100,9 +110,21 @@ class TestScanFiles:
         assert scan.read(tmp_path, "script") is None
         assert scan.read(tmp_path, "empty") is None
 
-    def test_a_broken_elf_is_skipped(self, tmp_path):
+    def test_a_broken_elf_is_an_error(self, tmp_path):
+        # The bash versions sent readelf's errors to /dev/null, so a file that starts like
+        # ELF and cannot be read was skipped, and a check that skips passes. Not kept.
         (tmp_path / "broken").write_bytes(b"\x7fELF" + struct.pack("<B", 9) + b"\0" * 8)
-        assert scan.read(tmp_path, "broken") is None
+        with pytest.raises(scan.Unreadable) as e:
+            scan.read(tmp_path, "broken")
+        assert [rel for rel, _ in e.value.files] == ["broken"]
+
+    def test_every_broken_elf_is_named(self, tmp_path):
+        for name in ("a", "b"):
+            (tmp_path / name).write_bytes(b"\x7fELF" + b"\0" * 12)
+        (tmp_path / "script").write_text("#!/bin/sh\n")
+        with pytest.raises(scan.Unreadable) as e:
+            scan.scan(tmp_path, jobs=1)
+        assert [rel for rel, _ in e.value.files] == ["a", "b"]
 
     def test_regular_files_leave_links_out(self, tmp_path):
         (tmp_path / "d").mkdir()

@@ -139,6 +139,14 @@ old=$(tree old old)
 expect fail "symbol-versions: a missing version is reported" FOO_2 ./test/check-symbol-versions.py "$old"
 expect fail "symbol-resolution: a missing symbol is reported" foo_new ./test/check-symbol-resolution.py "$old"
 
+# A file that starts like ELF but cannot be read: skipping it, as readelf's errors to
+# /dev/null once did, is a pass on something nobody looked at. Truncated mid-header.
+trunc=$(tree trunc new)
+head -c 40 "$src/app" > "$trunc/usr/bin/truncated"
+expect fail "rootfs-deps: a truncated ELF is reported"       usr/bin/truncated ./test/check-rootfs-deps.py "$trunc" "$empty"
+expect fail "symbol-versions: a truncated ELF is reported"   usr/bin/truncated ./test/check-symbol-versions.py "$trunc"
+expect fail "symbol-resolution: a truncated ELF is reported" usr/bin/truncated ./test/check-symbol-resolution.py "$trunc"
+
 # The loader matches NEEDED against file names, and a symlink is one: here libfoo.so.1
 # exists only as a link to a file whose name and SONAME are something else. This is the
 # libtinfo.so.6 -> libtinfow.so.6 arrangement that check-symbol-resolution.py once got
@@ -207,6 +215,11 @@ execstack exec-stack      -Wl,-z,execstack
 nossp     stack-protector -fno-stack-protector
 nofortify fortify         -U_FORTIFY_SOURCE
 EOF
+cp -a "$hstage" "$work/hardening-trunc"
+mkdir -p "$work/hardening-trunc/trunc/rootfs/usr/bin"
+head -c 40 "$hstage/good/rootfs/usr/bin/good" > "$work/hardening-trunc/trunc/rootfs/usr/bin/trunc"
+expect fail "hardening: a truncated ELF is reported, with its package" trunc/rootfs/usr/bin/trunc \
+    ./test/check-hardening.py "$work/hardening-trunc" "$empty"
 
 # ---------------------------------------------------------------------------------
 # Kernel config

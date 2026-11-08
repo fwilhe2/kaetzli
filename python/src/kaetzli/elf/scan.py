@@ -12,14 +12,17 @@ definitions of their section number, and an undefined one would have been a defi
 of `UND`.
 
 Every regular file is opened (`find -type f`: not a symlink, which is counted separately);
-one that is not ELF, or that pyelftools cannot read, is not ELF here either, as readelf's
-errors went to /dev/null. The files are read in parallel, one process per CPU.
+one that is not ELF is skipped. One that starts with the ELF magic and that pyelftools
+cannot read is an error (Unreadable), naming each: the bash versions sent readelf's errors
+to /dev/null, so a truncated or corrupt binary was skipped, and a check that skips what it
+cannot judge passes. The files are read in parallel, one process per CPU.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +33,31 @@ from elftools.elf.gnuversions import GNUVerDefSection, GNUVerNeedSection
 from elftools.elf.sections import SymbolTableSection
 
 _MAGIC = b"\x7fELF"
+
+
+class Unreadable(Exception):
+    """Files that start with the ELF magic but cannot be read, as (path, reason)."""
+
+    def __init__(self, files: list[tuple[str, str]]):
+        super().__init__(", ".join(rel for rel, _ in files))
+        self.files = files
+
+    def report(self, given: str) -> str:
+        """What every check prints for them before failing."""
+        lines = [f"UNREADABLE ELF files in {given}/:", ""]
+        lines += [f"  {rel}: {reason}" for rel, reason in self.files]
+        lines += [
+            "",
+            "Each starts with the ELF magic but cannot be parsed, so nothing about it was",
+            "checked: a truncated copy, a corrupt build, or an ELF feature pyelftools does",
+            "not know. Passing it would pass what was never judged.",
+        ]
+        return "\n".join(lines)
+
+
+def reason(e: Exception) -> str:
+    """One line for why a file could not be read."""
+    return f"{type(e).__name__}: {e}".splitlines()[0]
 
 
 @dataclass
@@ -52,16 +80,15 @@ class Elf:
 
 
 def read(root: Path, rel: str, symbols: bool = False) -> Elf | None:
-    """One file, or None when it is not ELF."""
-    path = root / rel
+    """One file, or None when it is not ELF; Unreadable when it is and cannot be read."""
     try:
-        with open(path, "rb") as f:
+        with open(root / rel, "rb") as f:
             if f.read(4) != _MAGIC:
                 return None
             f.seek(0)
             return _read(ELFFile(f), rel, symbols)
-    except Exception:
-        return None
+    except Exception as e:
+        raise Unreadable([(rel, reason(e))]) from e
 
 
 def _read(elf: ELFFile, rel: str, symbols: bool) -> Elf:
@@ -122,21 +149,36 @@ def symlinks(root: Path) -> list[str]:
     return sorted(out)
 
 
-def _chunk(args: tuple[str, list[str], bool]) -> list[Elf]:
+def _chunk(args: tuple[str, list[str], bool]) -> tuple[list[Elf], list[tuple[str, str]]]:
     root, rels, symbols = args
-    return [e for rel in rels if (e := read(Path(root), rel, symbols)) is not None]
+    elfs, unreadable = [], []
+    for rel in rels:
+        try:
+            e = read(Path(root), rel, symbols)
+        except Unreadable as u:
+            unreadable += u.files
+            continue
+        if e is not None:
+            elfs.append(e)
+    return elfs, unreadable
 
 
 def scan(root: Path, symbols: bool = False, jobs: int | None = None) -> list[Elf]:
-    """Every ELF file under root, in byte order of its path."""
+    """Every ELF file under root, in byte order of its path. Unreadable, naming every one,
+    when any file that starts like ELF cannot be read."""
     rels = regular_files(root)
     jobs = jobs or os.cpu_count() or 1
     if jobs == 1 or len(rels) < 64:
-        return _chunk((str(root), rels, symbols))
-    size = 40
-    chunks = [(str(root), rels[i : i + size], symbols) for i in range(0, len(rels), size)]
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
-        return [e for part in pool.map(_chunk, chunks) for e in part]
+        parts = [_chunk((str(root), rels, symbols))]
+    else:
+        size = 40
+        chunks = [(str(root), rels[i : i + size], symbols) for i in range(0, len(rels), size)]
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            parts = list(pool.map(_chunk, chunks))
+    unreadable = [u for _, us in parts for u in us]
+    if unreadable:
+        raise Unreadable(unreadable)
+    return [e for elfs, _ in parts for e in elfs]
 
 
 def tree_or_exit(argv: list[str]) -> tuple[str, Path]:
@@ -146,6 +188,16 @@ def tree_or_exit(argv: list[str]) -> tuple[str, Path]:
         print(f"error: no such directory: {given}", file=sys.stderr)
         sys.exit(1)
     return given, Path(given)
+
+
+def judged(check: Callable[..., int], given: str, *args) -> int:
+    """check(*args), or 1 with Unreadable's report: how every check here fails on a file
+    it could not read rather than passing it."""
+    try:
+        return check(*args)
+    except Unreadable as u:
+        print(u.report(given))
+        return 1
 
 
 def head(items: list[str], n: int, prefix: str) -> list[str]:

@@ -58,7 +58,7 @@ def check(root: Path, given: str) -> int:
 
 def main(argv: list[str]) -> int:
     given, root = scan.tree_or_exit(argv)
-    return check(root, given)
+    return scan.judged(check, given, root, given)
 
 
 if __name__ == "__main__":
