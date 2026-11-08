@@ -17,8 +17,10 @@
 # .github/workflows/update-packages.yml calls this; that is the reason it is a script
 # rather than two lines of sed in the workflow.
 #
-# What this does *not* do is check the tarball against anything upstream signed. It
-# records what the canonical URL served at the moment of the bump — trust on first use.
+# For a package whose upstream signs its releases (SIG_URL in env.sh), the new tarball
+# must verify against packages/<pkg>/upstream-key.asc (tools/verify-signature.sh) before
+# the bump stands. Otherwise it records what the canonical URL served at the moment of
+# the bump — trust on first use.
 # The pin earns its keep afterwards: mirrors, the vendored sources image and every later
 # rebuild are all held to exactly those bytes. For the same reason only $URL is tried and
 # never $MIRRORS — a mirror serving something else is precisely what the checksum is for,
@@ -149,6 +151,15 @@ fi
 # code that will reject it in CI if it does not.
 if ! ./tools/fetch-sources.sh "$PKG" >/dev/null; then
     echo "error: $PKG does not verify after the bump" >&2
+    exit 1
+fi
+
+# The checksum just written is only what the URL served. Where upstream signs releases
+# (SIG_URL), those bytes must also verify against a key pinned in git, or the bump stops
+# here and no pull request is opened: a key nobody pinned is a person's decision
+# (tools/verify-signature.sh says how).
+if [ -n "$(env_get "$PKG" SIG_URL)" ] && ! ./tools/verify-signature.sh "$PKG"; then
+    echo "error: $PKG $NEW is not signed by a pinned key; not bumping" >&2
     exit 1
 fi
 

@@ -165,6 +165,13 @@ jobs:
         env:
           FRESH: *fresh-env
 
+      # Every pin whose upstream signs its releases, against the keys pinned in git: the
+      # checksum says the bytes have not changed since the bump, this that they were
+      # upstream's. prep.sh left the tarballs in downloads/; only the signatures are
+      # fetched.
+      - name: Check upstream signatures
+        run: ./tools/verify-signature.sh
+
       # The build matrix, as JSON.
       - name: List the packages the build matrix compiles
         id: packages
