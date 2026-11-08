@@ -1,0 +1,276 @@
+From 3617742efd7e2ec9f8b8a42775a282c0916670f9 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Sun, 8 Nov 2026 01:33:42 +0000
+Subject: [PATCH] [PATCH] PR modula2/120189: documented link command does not
+ work
+
+This is a tidyup for PR modula2/120189 to improve the description
+and include all source code in the Building a shared library section.
+
+gcc/ChangeLog:
+
+	PR modula2/120189
+	* doc/gm2.texi (Building a shared library): Rewrite the
+	description of the shared library and include complete code into
+	the example.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/120189
+	* gm2/examples/cppcallingm2/run/pass/README: New test.
+	* gm2/examples/cppcallingm2/run/pass/a.def: New test.
+	* gm2/examples/cppcallingm2/run/pass/a.mod: New test.
+	* gm2/examples/cppcallingm2/run/pass/b.def: New test.
+	* gm2/examples/cppcallingm2/run/pass/b.mod: New test.
+	* gm2/examples/cppcallingm2/run/pass/c.def: New test.
+	* gm2/examples/cppcallingm2/run/pass/c.mod: New test.
+	* gm2/examples/cppcallingm2/run/pass/test.cc: New test.
+
+(cherry picked from commit 2c7ad6008d3cfa9fbd052a6baf76e3e5249e12be)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/doc/gm2.texi                              | 72 +++++++++++++++++--
+ .../gm2/examples/cppcallingm2/run/pass/README |  1 +
+ .../gm2/examples/cppcallingm2/run/pass/a.def  |  3 +
+ .../gm2/examples/cppcallingm2/run/pass/a.mod  |  9 +++
+ .../gm2/examples/cppcallingm2/run/pass/b.def  |  3 +
+ .../gm2/examples/cppcallingm2/run/pass/b.mod  | 11 +++
+ .../gm2/examples/cppcallingm2/run/pass/c.def  |  3 +
+ .../gm2/examples/cppcallingm2/run/pass/c.mod  | 10 +++
+ .../examples/cppcallingm2/run/pass/test.cc    | 54 ++++++++++++++
+ 9 files changed, 162 insertions(+), 4 deletions(-)
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/README
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.def
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.mod
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.def
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.mod
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.def
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.mod
+ create mode 100644 gcc/testsuite/gm2/examples/cppcallingm2/run/pass/test.cc
+
+diff --git a/gcc/doc/gm2.texi b/gcc/doc/gm2.texi
+index e4a0e9635637..4e2721bd1cb8 100644
+--- a/gcc/doc/gm2.texi
++++ b/gcc/doc/gm2.texi
+@@ -2303,10 +2303,74 @@ intersect.
+ @section Building a shared library
+ 
+ This section describes building a tiny shared library implemented in
+-Modula-2 and built with @file{libtool}.  Suppose a project consists of
+-three definition modules and three implementation modules
+-@file{a.def}, @file{a.mod}, @file{b.def}, @file{b.mod} and
+-@file{c.mod}.  The first step is to compile the modules using position
++Modula-2 and built with @file{libtool}.  Consider a project consisting
++of three definition modules and three implementation modules
++@file{a.def}, @file{a.mod}, @file{b.def}, @file{b.mod}, @file{c.def}
++and @file{c.mod}.
++
++@example
++DEFINITION MODULE a ;
++
++END a.
++@end example
++
++@example
++IMPLEMENTATION MODULE a ;
++
++FROM libc IMPORT printf ;
++
++BEGIN
++   printf ("init: module a\n")
++FINALLY
++   printf ("finish: module a\n")
++END a.
++@end example
++
++Module @code{b} is almost identical, but it imports module @code{a}.
++
++@example
++DEFINITION MODULE b ;
++
++END b.
++@end example
++
++@example
++IMPLEMENTATION MODULE b ;
++
++IMPORT a ;
++FROM libc IMPORT printf ;
++
++
++BEGIN
++   printf ("init: module b\n")
++FINALLY
++   printf ("finish: module b\n")
++END b.
++@end example
++
++Likewise Module @code{c} is almost identical, but it imports from
++module @code{b}.
++
++@example
++DEFINITION MODULE c ;
++
++END c.
++@end example
++
++@example
++IMPLEMENTATION MODULE c ;
++
++IMPORT b ;
++FROM libc IMPORT printf ;
++
++BEGIN
++   printf ("init: module c\n")
++FINALLY
++   printf ("finish: module c\n")
++END c.
++@end example
++
++The first step is to compile the modules using position
+ independent code.  This can be achieved by the following three
+ commands:
+ 
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/README b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/README
+new file mode 100644
+index 000000000000..17cd40eedbc7
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/README
+@@ -0,0 +1 @@
++This source code appears in the documentation section Building a shared library.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.def b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.def
+new file mode 100644
+index 000000000000..0d634ac2d401
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.def
+@@ -0,0 +1,3 @@
++DEFINITION MODULE a ;
++
++END a.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.mod b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.mod
+new file mode 100644
+index 000000000000..d0fed0f65f69
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/a.mod
+@@ -0,0 +1,9 @@
++IMPLEMENTATION MODULE a ;
++
++FROM libc IMPORT printf ;
++
++BEGIN
++   printf ("init: module a\n")
++FINALLY
++   printf ("finish: module a\n")
++END a.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.def b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.def
+new file mode 100644
+index 000000000000..aff0fcc6478e
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.def
+@@ -0,0 +1,3 @@
++DEFINITION MODULE b ;
++
++END b.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.mod b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.mod
+new file mode 100644
+index 000000000000..8f99701b5e68
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/b.mod
+@@ -0,0 +1,11 @@
++IMPLEMENTATION MODULE b ;
++
++IMPORT a ;
++FROM libc IMPORT printf ;
++
++
++BEGIN
++   printf ("init: module b\n")
++FINALLY
++   printf ("finish: module b\n")
++END b.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.def b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.def
+new file mode 100644
+index 000000000000..2d84b6dcbb10
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.def
+@@ -0,0 +1,3 @@
++DEFINITION MODULE c ;
++
++END c.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.mod b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.mod
+new file mode 100644
+index 000000000000..4cdfdd9bec7b
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/c.mod
+@@ -0,0 +1,10 @@
++IMPLEMENTATION MODULE c ;
++
++IMPORT b ;
++FROM libc IMPORT printf ;
++
++BEGIN
++   printf ("init: module c\n")
++FINALLY
++   printf ("finish: module c\n")
++END c.
+diff --git a/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/test.cc b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/test.cc
+new file mode 100644
+index 000000000000..5f1fd2a76e4d
+--- /dev/null
++++ b/gcc/testsuite/gm2/examples/cppcallingm2/run/pass/test.cc
+@@ -0,0 +1,54 @@
++#include <stdio.h>
++#include <m2/m2iso/m2rts.h>
++
++#define USER_LIB NULL
++
++/* Add the runtime dependency for this file on modules a, b and c.  */
++
++void
++dep (void)
++{
++  m2iso_M2RTS_RequestDependant (__FILE__, USER_LIB, "c", USER_LIB);
++  m2iso_M2RTS_RequestDependant (__FILE__, USER_LIB, "b", USER_LIB);
++  m2iso_M2RTS_RequestDependant (__FILE__, USER_LIB, "a", USER_LIB);
++}
++
++void
++init (int, char *[], char *[])
++{
++  printf ("test.c:init\n");
++}
++
++void
++fini (int, char *[], char *[])
++{
++  printf ("test.c:fini\n");
++}
++
++void
++construct_scaffold (int argc, char *argv[], char *envp[])
++{
++  m2iso_M2RTS_RegisterModule (__FILE__, USER_LIB,
++                              init, fini, dep);
++  m2iso_M2RTS_ConstructModules (__FILE__, USER_LIB,
++                                DEFAULT_RUNTIME_MODULE_OVERRIDE,
++                                argc, argv, envp);
++}
++
++void
++deconstruct_scaffold (int argc, char *argv[], char *envp[])
++{
++  m2iso_M2RTS_DeconstructModules (__FILE__, USER_LIB,
++                                  argc, argv, envp);
++}
++
++int
++main (int argc, char *argv[], char *envp[])
++{
++  printf ("main starts\n");
++  construct_scaffold (argc, argv, envp);
++  printf ("main application goes here\n");
++  deconstruct_scaffold (argc, argv, envp);
++  printf ("main tidying up\n");
++  return 0;
++}

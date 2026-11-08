@@ -1,0 +1,62 @@
+From 35f0c4ed7921c241406a71bb9ad3808955b43848 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Sun, 8 Nov 2026 00:21:28 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 17 +++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/testsuite/ChangeLog | 11 +++++++++++
+ 3 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 128cacbdba98..a6735aa04450 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,20 @@
++2026-11-07  Kewen Lin  <linkewen@hygon.cn>
++
++	Backported from master:
++	2026-10-23  Kewen Lin  <linkewen@hygon.cn>
++		    Zhizheng Yang  <yangzhizheng@hygon.cn>
++		    Yushuai Xing  <xingyushuai@hygon.cn>
++
++	* config/i386/i386-options.cc (ix86_option_override_internal):
++	Handle ix86_veclibabi_type_hvml case.
++	* config/i386/i386-options.h (ix86_veclibabi_hvml): New declare.
++	* config/i386/i386-opts.h (enum ix86_veclibabi): Add
++	ix86_veclibabi_type_hvml into the ix86_veclibabi enum.
++	* config/i386/i386.cc (ix86_veclibabi_hvml): New function.
++	* config/i386/i386.opt: Add the hvml type.
++	* doc/invoke.texi: Document -mveclibabi=hvml and clarify the 64-bit
++	restriction for ACML and AOCL.
++
+ 2026-11-06  Richard Biener  <rguenther@suse.de>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 2bbfc376c270..a36a68e157b3 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261107
++20261108
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index df61e1f51210..9b910c9537f6 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,14 @@
++2026-11-07  Kewen Lin  <linkewen@hygon.cn>
++
++	Backported from master:
++	2026-10-23  Kewen Lin  <linkewen@hygon.cn>
++		    Zhizheng Yang  <yangzhizheng@hygon.cn>
++		    Yushuai Xing  <xingyushuai@hygon.cn>
++
++	* gcc.target/i386/vectorize-hvml-1.c: New test.
++	* gcc.target/i386/vectorize-hvml-2.c: Likewise.
++	* gcc.target/i386/vectorize-hvml-3.c: Likewise.
++
+ 2026-11-06  Richard Biener  <rguenther@suse.de>
+ 
+ 	Backported from master:
