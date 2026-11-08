@@ -60,6 +60,10 @@ before the timeout) is restarted on the snapshot it last came up on, and skips t
 one from then on. `kaetzli rollback` pins a machine to the snapshot before;
 `kaetzli start --snapshot latest` follows the newest again.
 
+On amd64, `kaetzli start --secure-boot` boots under UEFI Secure Boot (needs OVMF:
+`ovmf` on Debian and Ubuntu, `edk2-ovmf` on Fedora): the firmware boots only the kernel,
+command line and extensions that start chose. See [Secure Boot](docs/guides/secure-boot.md).
+
 From a checkout, `tools/vm.sh` does the same and more. Fetch the latest snapshot and start
 the default VM with Podman:
 

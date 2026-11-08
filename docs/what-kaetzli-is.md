@@ -134,9 +134,10 @@ with Secure Boot on (amd64), the firmware runs only that signed image, and the s
 a command line passed from outside, so the root hash cannot be swapped. `test/secureboot.py`
 boots the signed image with `init=/bin/bash` injected and checks that `/proc/cmdline` is
 the sealed one, and that an unsigned image is refused; a `/var` disk comes by credentials.
-Not covered yet: arm64 and extensions in this mode. Releases carry the UKI unsigned (`uki-<arch>.efi`) and the
-project holds no key: you sign it with yours, after verifying it (the tool makes a throwaway
-key unless given one).
+Releases carry the UKI unsigned (`uki-<arch>.efi`) and the project holds no key.
+`kaetzli start --secure-boot` needs none either: each start enrolls the digest of exactly
+the UKI it boots, extensions' tables sealed in, and nothing from `/var` merges. Not covered
+yet: arm64.
 
 ## Release and update model
 

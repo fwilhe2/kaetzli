@@ -252,3 +252,22 @@ func TestVirtFwVarsWritesTheSameStore(t *testing.T) {
 		t.Fatalf("virt-fw-vars cannot read our store: %v\n%s", err, out)
 	}
 }
+
+// db can hold image digests instead of certificates: the firmware then boots exactly
+// those unsigned images (the launcher enrolls the one UKI it boots).
+func TestDbCanHoldAnImageDigest(t *testing.T) {
+	k := testKeys(t)
+	digest := bytes.Repeat([]byte{0xab}, 32)
+	out, err := Enroll(template(t, authStore), k.pk, k.kek, SHA256List(digest, owner), owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := byName(t, out)["db"].Data
+	if GUID(d[:16]) != certSHA256 || int(binary.LittleEndian.Uint32(d[16:])) != len(d) ||
+		binary.LittleEndian.Uint32(d[24:]) != 48 || GUID(d[28:44]) != owner || !bytes.Equal(d[44:], digest) {
+		t.Fatalf("db is not one EFI_CERT_SHA256 list of the digest: % x", d)
+	}
+	if _, err := Enroll(template(t, authStore), k.pk, k.kek, SHA256List([]byte{1, 2}, owner), owner); err == nil {
+		t.Fatal("a digest that is not 32 bytes was enrolled")
+	}
+}
