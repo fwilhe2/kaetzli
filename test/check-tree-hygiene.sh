@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Fail an assembled image tree that has a path anyone may write, or a symlink to nothing:
+# Fail an assembled image tree that has a path anyone may write, a symlink to nothing, or
+# a script for an interpreter other than bash:
 #
 #     ./test/check-tree-hygiene.sh <tree>
 #
@@ -16,6 +17,13 @@
 # this runs in. A target under a filesystem that is mounted at boot or by the runtime —
 # dev, proc, sys, run, tmp, var, all shipped empty — cannot be judged here and is not:
 # /etc/resolv.conf into /run, a masked unit to /dev/null, /home into var/.
+#
+# Interpreted: constraint 5 (CLAUDE.md), bash is the image's one interpreter. By the #!
+# line of every file, executable or not, so a script named without an extension is seen
+# (iproute2's routel is python, OpenSSL's c_rehash perl), which interpreters.txt's
+# extensions cannot. sh and bash are allowed, directly or through env, and nft, whose -f
+# rulesets are configuration rather than a language. A make install that brings one is
+# fixed in that package's build.sh (drop_installed), with an absent line.
 set -euo pipefail
 
 tree="${1:?usage: $0 <tree>}"
@@ -73,5 +81,28 @@ if [ "${#dangling[@]}" -gt 0 ]; then
     status=1
 fi
 
-[ "$status" = 0 ] && echo "$tree: nothing world-writable, no dangling symlinks"
+# The interpreter is the #! line's first word, or after env the first that is not an
+# option; judged by its name, wherever it lives.
+# shellcheck disable=SC2016 # an awk program, in awk's own $ syntax
+interpreted=$(cd "$tree" && find . -xdev -type f -exec env LC_ALL=C awk '
+    FNR == 1 {
+        if (substr($0, 1, 2) == "#!") {
+            line = substr($0, 3); sub(/^[ \t]+/, "", line)
+            n = split(line, w, /[ \t]+/); i = w[1]
+            if (i ~ /(^|\/)env$/) { k = 2; while (k <= n && w[k] ~ /^-/) k++; i = w[k] }
+            b = i; sub(/.*\//, "", b)
+            if (b != "sh" && b != "bash" && b != "nft") {
+                f = FILENAME; sub(/^\.\//, "", f); print f ": #!" line
+            }
+        }
+        nextfile
+    }' {} +)
+if [ -n "$interpreted" ]; then
+    echo "error: scripts for an interpreter the image does not ship, in $tree (bash is the" >&2
+    echo "       one interpreter, CLAUDE.md constraint 5; drop them where they are installed):" >&2
+    printf '%s\n' "$interpreted" | sed 's/^/  /' >&2
+    status=1
+fi
+
+[ "$status" = 0 ] && echo "$tree: nothing world-writable, no dangling symlinks, no other interpreter's scripts"
 exit "$status"

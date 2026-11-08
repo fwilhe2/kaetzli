@@ -309,7 +309,15 @@ ln -s ../lib/dir/libx.so.1 "$hyg/usr/bin/through-dir"
 ln -s /run/systemd/resolve/stub-resolv.conf "$hyg/etc/resolv.conf"
 ln -s /dev/null "$hyg/etc/masked.service"
 ln -s var/home "$hyg/home"
-expect pass "tree-hygiene: a tree with only resolvable links and a sticky /tmp passes" "" \
+# Every #! the image may have: the shell under either path, through env (with -S), and
+# nftables' rulesets, which are configuration rather than a language.
+printf '#!/bin/sh\n'                  > "$hyg/usr/bin/a-sh"
+printf '#!/usr/bin/bash -e\n'         > "$hyg/usr/bin/a-bash"
+printf '#!/usr/bin/env bash\n'        > "$hyg/usr/bin/an-env-bash"
+printf '#! /usr/bin/env -S bash -e\n' > "$hyg/usr/bin/an-env-s-bash"
+printf '#!/usr/sbin/nft -f\n'         > "$hyg/etc/rules.nft"
+chmod 755 "$hyg"/usr/bin/a-* "$hyg"/usr/bin/an-*
+expect pass "tree-hygiene: a tree with only resolvable links, a sticky /tmp and bash scripts passes" "" \
     ./test/check-tree-hygiene.sh "$hyg"
 
 cp -a "$hyg" "$work/hygiene-file"
@@ -330,6 +338,24 @@ ln -s b "$work/hygiene-loop/usr/bin/a"
 ln -s a "$work/hygiene-loop/usr/bin/b"
 expect fail "tree-hygiene: a symlink loop is reported" "usr/bin/a" \
     ./test/check-tree-hygiene.sh "$work/hygiene-loop"
+# Another interpreter, by content: named without an extension (iproute2's routel is
+# python, OpenSSL's c_rehash perl), so test/image-files/interpreters.txt cannot see it.
+while read -r name shebang; do
+    cp -a "$hyg" "$work/hygiene-$name"
+    printf '%s\nprint(1)\n' "$shebang" > "$work/hygiene-$name/usr/bin/$name"
+    chmod 755 "$work/hygiene-$name/usr/bin/$name"
+    expect fail "tree-hygiene: a '$shebang' script is reported" "usr/bin/$name" \
+        ./test/check-tree-hygiene.sh "$work/hygiene-$name"
+done <<'EOF'
+routel   #!/usr/bin/python3
+c_rehash #!/usr/bin/env perl
+EOF
+# Not executable is no excuse: it is still a script for an interpreter nobody ships.
+cp -a "$hyg" "$work/hygiene-noexec"
+mkdir -p "$work/hygiene-noexec/usr/share/x"
+printf '#!/usr/bin/env -S lua\n' > "$work/hygiene-noexec/usr/share/x/helper"
+expect fail "tree-hygiene: a non-executable script for another interpreter is reported" \
+    usr/share/x/helper ./test/check-tree-hygiene.sh "$work/hygiene-noexec"
 
 # ---------------------------------------------------------------------------------
 # check-doc-links.sh: a relative link to a file that is not there, beside every kind of

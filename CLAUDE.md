@@ -126,8 +126,8 @@ policy checks are done).
 - **Never in an image.** Assembly-time Python runs in the assembly container on files, imports
   nothing into the tree, is stdlib only (no venv there) and lives beside its caller
   (`image/sbom.py`), not in `kaetzli`; `python/tests/` loads it by path, `python.yml` lints it.
-  `test/image-files/interpreters.txt` fails a `.py` in the tree; a python binary needs its own
-  `absent` line.
+  `test/image-files/interpreters.txt` fails a `.py` in the tree, `check-tree-hygiene.sh` any
+  `#!` but sh, bash or nft; a python binary needs its own `absent` line.
 - **Tests first** (pytest in `python/tests/`, seen red then green). `python.yml` also runs
   `ruff check`, `ruff format --check` and a lock recompile. Inject collaborators (`gh` runner,
   HTTP fetch, grype binary) so tests need no network.
@@ -165,7 +165,7 @@ policy checks are done).
 ./test/kernel-config-diff.py <old> <new> [src]  # what a kernel build turned on/off
 ./test/check-licenses.py
 ./test/check-image-files.sh               # assembled images vs test/image-files/
-./test/check-tree-hygiene.sh <tree>       # nothing world-writable, no dangling symlink
+./test/check-tree-hygiene.sh <tree>       # nothing world-writable, no dangling symlink, no #! but sh/bash/nft
 ./test/check-sbom.py                      # SPDX 2.3, provenance, describes the image
 ./test/check-doc-links.sh
 ./test/selftest.sh                        # the tree checks fail on broken fixtures, pass on a good one
