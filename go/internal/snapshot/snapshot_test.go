@@ -160,3 +160,29 @@ func TestANameThatIsNotASnapshotsIsRefused(t *testing.T) {
 		t.Fatal("fetched ../x")
 	}
 }
+
+// What --secure-boot signs is checked again at each start, not only when it was fetched:
+// the signature would otherwise cover whatever the cache holds by then.
+func TestVerifyChecksCachedFilesAgainstSHA256SUMSAgain(t *testing.T) {
+	srv := serve(t, name, withSums(assets), "")
+	dir, err := New(srv.URL).Fetch(t.TempDir(), name, "amd64", io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(dir, "amd64", "kaetzli.efi", "extensions/podman.dm-verity"); err != nil {
+		t.Fatalf("an untouched snapshot: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "extensions", "podman.dm-verity"), []byte("0 8 verity other\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(dir, "amd64", "kaetzli.efi", "extensions/podman.dm-verity"); err == nil ||
+		!strings.Contains(err.Error(), "extensions/podman.dm-verity") {
+		t.Fatalf("a changed table: got %v, want an error naming it", err)
+	}
+	if err := Verify(dir, "amd64", "extensions/debug.dm-verity"); err == nil || !strings.Contains(err.Error(), "SHA256SUMS") {
+		t.Fatalf("a file SHA256SUMS does not list: got %v", err)
+	}
+	if err := Verify(t.TempDir(), "amd64", "kaetzli.efi"); err == nil {
+		t.Fatal("a directory without SHA256SUMS verified")
+	}
+}

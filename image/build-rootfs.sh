@@ -616,6 +616,33 @@ UNIT
     mkdir -p usr/lib/systemd/system/local-fs.target.wants
     ln -sfn ../var.mount usr/lib/systemd/system/local-fs.target.wants/var.mount
 
+    # Under Secure Boot nothing from /var merges as an extension: an empty read-only tmpfs
+    # over /var/lib/extensions and /var/lib/confexts before systemd-sysext and
+    # systemd-confext run. /var is a writable disk nothing verifies, and an image or
+    # directory there merges without dm-verity, so a change to that disk would run code
+    # the signed UKI and the root's verity never vouched for (docs/guides/secure-boot.md).
+    # Without Secure Boot the condition is false and /var extensions merge as before
+    # (docs/guides/sysext.md). Here, as var.mount, not in image/files: preset-all
+    # removes /etc's .wants links to anything the presets do not enable.
+    for pair in extensions:sysext confexts:confext; do
+        dir=${pair%%:*} tool=${pair##*:}
+        cat > "usr/lib/systemd/system/var-lib-$dir.mount" <<UNIT
+[Unit]
+Description=No unverified ${tool}s from /var under Secure Boot
+Documentation=https://github.com/fwilhe2/kaetzli/blob/main/docs/guides/secure-boot.md
+ConditionSecurity=uefi-secureboot
+Before=systemd-$tool.service
+
+[Mount]
+What=tmpfs
+Where=/var/lib/$dir
+Type=tmpfs
+Options=ro,nosuid,nodev,noexec,mode=0755
+UNIT
+        mkdir -p "usr/lib/systemd/system/systemd-$tool.service.wants"
+        ln -sfn "../var-lib-$dir.mount" "usr/lib/systemd/system/systemd-$tool.service.wants/var-lib-$dir.mount"
+    done
+
     # Anything under the mount point would be invisible; tmpfiles makes what is needed.
     find var -mindepth 1 -delete
 

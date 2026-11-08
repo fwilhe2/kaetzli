@@ -225,3 +225,46 @@ func Cached(cache, arch string) []string {
 	sort.Sort(sort.Reverse(sort.StringSlice(out)))
 	return out
 }
+
+// Verify checks files of a cached snapshot (paths in dir, as Wanted lays them out) against
+// the SHA256SUMS Fetch kept beside them. Fetch checked them once; what --secure-boot signs
+// is checked again before each start, so the signature covers what the snapshot holds,
+// not whatever the cache holds by then.
+func Verify(dir, arch string, files ...string) error {
+	data, err := os.ReadFile(filepath.Join(dir, "SHA256SUMS"))
+	if err != nil {
+		return fmt.Errorf("%s has no SHA256SUMS to check against: %w", dir, err)
+	}
+	sums, err := Sums(data)
+	if err != nil {
+		return err
+	}
+	wanted, err := Wanted(sums, arch)
+	if err != nil {
+		return err
+	}
+	asset := map[string]string{}
+	for a, local := range wanted {
+		asset[local] = a
+	}
+	for _, f := range files {
+		a, ok := asset[f]
+		if !ok {
+			return fmt.Errorf("%s: SHA256SUMS lists nothing it would be", f)
+		}
+		file, err := os.Open(filepath.Join(dir, f))
+		if err != nil {
+			return err
+		}
+		h := sha256.New()
+		_, err = io.Copy(h, file)
+		file.Close()
+		if err != nil {
+			return err
+		}
+		if hex.EncodeToString(h.Sum(nil)) != sums[a] {
+			return fmt.Errorf("%s does not match SHA256SUMS (%s): the cached snapshot changed since it was fetched", f, a)
+		}
+	}
+	return nil
+}

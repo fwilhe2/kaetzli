@@ -394,7 +394,7 @@ func cmdStart(args []string) {
 		p := ports{SSH: freePort(), Console: freePort(), QMP: freePort(), Image: img}
 		m := machine(name, c, img, p)
 		if c.SecureBoot {
-			sb, err := prepareSecureBoot(dir, img, m)
+			sb, err := prepareSecureBoot(dir, img, m, c.Image == "")
 			if err != nil {
 				die("--secure-boot: %v", err)
 			}

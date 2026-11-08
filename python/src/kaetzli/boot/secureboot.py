@@ -15,8 +15,10 @@ Boot on:
             the stub ignores it, so systemd starts, and the login goes through on the
             credential fw_cfg carried. Then: the kernel said "Secure boot enabled",
             /proc/cmdline is the UKI's (the root hash from rootfs.cmdline, no init=), the
-            ssh key credential arrived, and /var is the disk the credentials named
-            (fstab.extra), with the machine ID kept beside it (system.machine_id).
+            ssh key credential arrived, /var is the disk the credentials named
+            (fstab.extra), with the machine ID kept beside it (system.machine_id), and
+            /var/lib/extensions and /var/lib/confexts are covered by an empty read-only
+            tmpfs, so nothing on that unverified disk merges.
   unsigned  output/kaetzli.efi, the same UKI before signing: the firmware has to refuse
             it, so Linux never starts.
   control   The signed UKI again, with the firmware's default variables (Secure Boot
@@ -75,6 +77,8 @@ def main(argv: list[str]) -> int:
             g.send(
                 f"echo {BEGIN[:6]}'{BEGIN[6:]}'; cat /proc/cmdline; "
                 f"ls /run/credentials/@system/; findmnt -no SOURCE /var; cat /etc/machine-id; "
+                "for d in extensions confexts; do "
+                'echo "SB-VARLIB $d $(findmnt -no FSTYPE,OPTIONS /var/lib/$d)"; done; '
                 f"echo {MARKER[:6]}'{MARKER[6:]}'"
             )
             if not g.wait(MARKER, 60):
@@ -92,6 +96,15 @@ def main(argv: list[str]) -> int:
             machine_id = Path(f"{var_disk}.machine-id").read_text().strip()
             if machine_id not in tail:
                 g.fail(f"the machine ID is not the disk's {machine_id} (system.machine_id)")
+            for d in ("extensions", "confexts"):
+                line = next((x for x in tail.splitlines() if x.startswith(f"SB-VARLIB {d} ")), "")
+                fstype, _, opts = line.removeprefix(f"SB-VARLIB {d} ").partition(" ")
+                if fstype != "tmpfs" or "ro" not in opts.split(","):
+                    g.fail(
+                        f"/var/lib/{d} is not covered by a read-only tmpfs under Secure Boot "
+                        f"(findmnt: {line or 'nothing'}): an extension on /var would merge "
+                        f"unverified (var-lib-{d}.mount)"
+                    )
             g.stop()
         print(
             ">> signed: Secure Boot on, the UKI's command line, credentials by fw_cfg, "
