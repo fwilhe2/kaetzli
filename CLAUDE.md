@@ -184,7 +184,7 @@ policy checks are done).
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
-./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot; unsigned refused (tools/sign-uki.sh first)
+./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot, /var by credentials; unsigned refused (tools/sign-uki.sh first)
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)

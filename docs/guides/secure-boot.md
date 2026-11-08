@@ -1,8 +1,9 @@
 # Secure Boot
 
-**Status: implemented for amd64 under qemu (OVMF).** Not yet: arm64, release assets signed
-with a published key, a persistent `/var` or system extensions in this mode, and VMMs that
-boot without firmware (Firecracker, Virtualization.framework).
+**Status: implemented for amd64 under qemu (OVMF), with a persistent `/var`; you sign the
+UKI.** Not yet: signing on fetch in the launcher and `tools/vm.sh`, system extensions in
+this mode, arm64, and VMMs that boot without firmware (Firecracker,
+Virtualization.framework).
 
 ## Why
 
@@ -47,7 +48,12 @@ SECUREBOOT=output/secureboot ./tools/boot-qemu.py
   thrown away: it proves the mechanism, not who built the image.
 - `kaetzli.qemu` with `SECUREBOOT=<dir>` boots that on q35 with SMM, a copy of the
   variables per boot, and the credentials (`login.noauth`, the ssh key) over fw_cfg,
-  since the command line is sealed.
+  since the command line is sealed. A `VAR_DISK` goes the same way: `fstab.extra` (the
+  mount `systemd.mount-extra=` would make, written to `<disk>.fstab`) and
+  `system.machine_id` (`<disk>.machine-id`), so `/var` and the machine ID persist.
+- What Secure Boot seals is the kernel, the command line and through it the root: what
+  the image *is*. Credentials come with the VMM's invocation, as the disks do, and are
+  not sealed; who may log in, and which disk is `/var`, is the caller's to say.
 
 ## Who signs: you
 
@@ -61,18 +67,18 @@ reproducible. Verify, then sign with your key: that key is the only secret, and 
 
 `test/secureboot.py` (CI's boot job, amd64): the signed UKI boots although the harness
 passes `init=/bin/bash`, the kernel reports Secure Boot on, `/proc/cmdline` carries the
-image's root hash and not the injected argument, and the credentials arrived; then the
+image's root hash and not the injected argument, the credentials arrived, and `/var` is
+the attached disk with its machine ID; then the
 unsigned UKI under the same firmware never starts Linux; and, as the control, the signed
 UKI with Secure Boot off (`ovmf-vars-off.fd`) does take the injected `init=` and gives a
 shell, so the sealed command line of the first boot is Secure Boot's doing.
 
 ## Not yet
 
-- **`/var` disk and extensions.** Both are arguments on the command line the UKI seals
-  (`systemd.mount-extra=`, the extensions' `dm-mod.create=` tables), so `SECUREBOOT`
-  refuses them. Next: a `/var` found by label from the UKI's own command line, and
-  extensions with signed verity root hashes, checked against the firmware's db through
-  the kernel's platform keyring.
+- **Extensions.** Their `dm-mod.create=` tables are arguments on the command line the UKI
+  seals, so `SECUREBOOT` refuses them. Next: extensions with signed verity root hashes,
+  checked against the firmware's db through the kernel's platform keyring, so the user's
+  key signs them as it signs the UKI.
 - **Signing on fetch.** The launcher and `tools/vm.sh` should make a key per user, sign the
   UKI they fetched and verified, and enroll that key in each machine's variables, so Secure
   Boot needs no step of yours.

@@ -58,10 +58,33 @@ def test_credentials_go_by_fw_cfg_since_the_command_line_is_sealed(sb, tmp_path)
     assert f"name=opt/io.systemd.credentials/ssh.authorized_keys.root,file={pub}" in fw
 
 
+def test_a_var_disk_goes_by_credentials_not_the_sealed_command_line(sb, tmp_path):
+    disk = tmp_path / "vm" / "var.img"
+    argv = machine(sb, var_disk=str(disk)).argv()
+    assert f"id=var,file={disk},format=raw,if=none" in after(argv, "-drive")
+    fw = after(argv, "-fw_cfg")
+    fstab = Path(f"{disk}.fstab")
+    assert f"name=opt/io.systemd.credentials/fstab.extra,file={fstab}" in fw
+    assert fstab.read_text() == "/dev/vdb /var ext4 x-systemd.makefs,x-systemd.growfs 0 0\n"
+    mid = Path(f"{disk}.machine-id")
+    assert f"name=opt/io.systemd.credentials/system.machine_id,file={mid}" in fw
+    assert len(mid.read_text()) == 32
+    # nothing for /var on the command line the stub ignores: Secure Boot off would mount it twice
+    append = after(argv, "-append")[0]
+    assert "/var" not in append and "machine_id" not in append
+
+
+def test_the_var_disk_keeps_its_machine_id_across_boots(sb, tmp_path):
+    disk = tmp_path / "var.img"
+    machine(sb, var_disk=str(disk)).argv()
+    first = Path(f"{disk}.machine-id").read_text()
+    machine(sb, var_disk=str(disk)).argv()
+    assert Path(f"{disk}.machine-id").read_text() == first
+
+
 @pytest.mark.parametrize(
     ("kw", "says"),
     [
-        ({"var_disk": "/tmp/var.img"}, "VAR_DISK"),
         ({"sysexts": ["podman"]}, "SYSEXTS"),
         ({"profile": "microvm"}, "QEMU_PROFILE"),
     ],
