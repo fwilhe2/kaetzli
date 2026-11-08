@@ -11,6 +11,7 @@ VERSION="16.2.0"
 PACKAGE="gcc-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://ftp.fau.de/gnu/gcc/${PACKAGE}/${TARBALL}"
+SIG_URL="${URL}.sig"
 MIRRORS="https://ftp.gnu.org/gnu/gcc/${PACKAGE}/${TARBALL}"
 SHA256="e6738e29597f733270731aa90600f37ffdc045079dfc27ec7e8192cc81085c3e"
 # Only libgcc and libstdc++ ship, and both carry the runtime library exception.

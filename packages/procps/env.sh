@@ -11,6 +11,7 @@ VERSION="4.0.7"
 PACKAGE="procps-ng-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://downloads.sourceforge.net/project/procps-ng/Production/${TARBALL}"
+SIG_URL="${URL}.asc"
 SHA256="9d2021f47a4501c667862c9942a92d1953694b21d11bcd1702e83eb594e3d67d"
 # The programs are GPL-2.0-or-later and libproc2 is LGPL-2.1-or-later, which ps and watch
 # share; top alone still carries the older "Library General Public License" text, version

@@ -26,6 +26,7 @@ VERSION="10.6p2"
 PACKAGE="openssh-${VERSION}"
 TARBALL="$PACKAGE.tar.gz"
 URL="https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/${TARBALL}"
+SIG_URL="${URL}.asc"
 SHA256="9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b"
 # Read off the tarball's LICENCE, which enumerates them rather than naming one: the
 # OpenSSH licence proper for Tatu Ylonen's original code (1 and 2), ssh-keyscan's own

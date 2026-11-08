@@ -15,6 +15,7 @@ VERSION="20250605"
 PACKAGE="iputils-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://github.com/iputils/iputils/releases/download/${VERSION}/${TARBALL}"
+SIG_URL="${URL}.asc"
 SHA256="6f213700dbf96b5cc4499ca70cb15ecd69c09f405b06785bb4a1a10b572b6276"
 # ping and clockdiff descend from the 4.3BSD original; arping and tracepath are Alexey
 # Kuznetsov's and are GPL. See LICENSE, which lists it per program.

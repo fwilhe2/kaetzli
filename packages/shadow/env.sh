@@ -7,6 +7,7 @@ VERSION="4.20.3"
 PACKAGE="shadow-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://github.com/shadow-maint/shadow/releases/download/${VERSION}/${TARBALL}"
+SIG_URL="${URL}.asc"
 SHA256="623be9429f64fa2165bfc5957c6a642ec309c5cf23c0d53855c99f7591922297"
 LICENSE="BSD-3-Clause"
 # Two NVD products for one upstream: most advisories are shadow_project's, the newest
