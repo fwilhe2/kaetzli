@@ -28,8 +28,17 @@ jobs:
           [ -z "$unformatted" ] || { echo "gofmt would change: $unformatted" >&2; exit 1; }
           go vet ./...
 
+      # sbverify (sbsigntools) checks internal/authenticode's signatures independently;
+      # required here, so that test cannot skip.
+      - name: Install sbverify
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sbsigntool
+
       - name: Tests
         working-directory: go
+        env:
+          KAETZLI_REQUIRE_SBVERIFY: "1"
         run: go test ./...
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
