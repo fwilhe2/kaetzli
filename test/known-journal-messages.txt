@@ -6,3 +6,11 @@
 # to make a test pass: an error is fixed in the package or the image that
 # logs it, and an entry here needs an argument that it is harmless. Delete the line once
 # the message is gone.
+
+# The runner's CPU, not the image: on a host with Intel AMX, KVM's CPUID offers the tile
+# data state (XSAVE component 18) but no tile palette (leaf 0x1d says none), so the
+# kernel's cross-check computes 0 bytes against the CPU's 8192 and says so. It ignores the
+# result for this component (arch/x86/kernel/fpu/xstate.c, check_xstate_against_struct:
+# `case XFEATURE_XTILE_DATA: check_xtile_data_against_struct(sz); return true;`), so
+# XSAVE stays on and nothing is disabled: a message, on some runners only.
+kernel: XFEATURE_XTILE_DATA: calculated size is 0 bytes, cpu state [0-9]+ bytes$

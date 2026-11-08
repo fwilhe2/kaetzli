@@ -23,6 +23,7 @@ SYSCTL> fs/aio-max-nr=1048576
 SYSCTL> kernel/panic=10
 SYSTEMD-SYSCTL-DONE
 SYSTEMD-FWCFG:[delivered]
+SYSTEMD-HOSTNAME:[kaetzli-fwcfg]
 
       /\_/\      root@kaetzli
      ( o.o )     Host: q

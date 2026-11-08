@@ -16,6 +16,10 @@
   "ERRS> Jan 01 kaetzli foo[12]: something broke\nERRS> Jan 01 kaetzli bar[13]: so did this\nSYSTEMD-ERRS:[2]\n"
  ],
  [
+  "kernel/hostname",
+  "SYSTEMD-HOSTNAME:[kaetzli-fwcfg]\n"
+ ],
+ [
   "/proc/sys",
   "SYSCTL> kernel/kptr_restrict=1\nSYSCTL> kernel/dmesg_restrict=1\nSYSCTL> kernel/unprivileged_bpf_disabled=1\nSYSCTL> kernel/yama/ptrace_scope=1\nSYSCTL> dev/tty/legacy_tiocsti=0\nSYSCTL> fs/protected_regular=2\nSYSCTL> fs/protected_fifos=2\nSYSCTL> fs/inotify/max_user_instances=8192\nSYSCTL> vm/max_map_count=262144\nSYSCTL> fs/aio-max-nr=1048576\nSYSCTL> kernel/panic=10\nSYSTEMD-SYSCTL-DONE\n"
  ],
