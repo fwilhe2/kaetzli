@@ -142,7 +142,19 @@ require_stopped() {
     fi
     rm -f "$DIR/qemu.pid"
     rm -rf "$RUN"
-    mkdir -p -m 700 "$(dirname "$RUN")"; mkdir -p -m 700 "$RUN"
+    private_dir "$(dirname "$RUN")"
+    private_dir "$RUN"
+}
+
+# private_dir <dir> — make it, and make sure it is ours alone. Without XDG_RUNTIME_DIR the
+# parent is /tmp/kaetzli-<uid>, a name anyone can create first, and `mkdir -p` accepts
+# theirs in silence; the console (login without a password) and QMP sockets go inside.
+private_dir() {
+    mkdir -p -m 700 "$1"
+    [ ! -L "$1" ] && [ -O "$1" ] ||
+        die "$1 is not a directory of yours (a symlink, or made by someone else); remove it"
+    [ -z "$(find "$1" -maxdepth 0 -perm -g+w -o -maxdepth 0 -perm -o+w)" ] ||
+        die "$1 is writable by others; chmod 700 it or remove it"
 }
 
 size_bytes() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1"; }
