@@ -19,6 +19,8 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Build dependencies](proposals/extension-dependencies.md): compile packages against
   other packages built in this repository.
 - [Image variants](proposals/image-variants.md): select package sets at assembly time.
+- [Cloud VPS](proposals/cloud-vps.md): kaetzli as the system a VPS provider boots; which
+  providers fit, and the disk image that is missing.
 - [macOS container host](proposals/container-host.md): use the image as a Podman VM.
 - [Releases](proposals/release.md): rolling, expiring snapshots as GitHub releases; no supported versions.
 - [Always latest](proposals/always-latest.md): moving machines and Kubernetes nodes to
