@@ -1,6 +1,6 @@
 # Read by bash for a *login* shell only, before ~/.bash_profile — which on this image
-# means the serial getty's login and nothing else. There is no /etc/bashrc: a non-login
-# interactive shell reads ~/.bashrc, and the image ships no home directory content.
+# means the serial getty's login and ssh. A non-login interactive shell reads /etc/bashrc
+# (bash is built with SYS_BASHRC), then ~/.bashrc; the image ships no home directory content.
 #
 # Without this file a login gets bash's compiled-in fallbacks, which is what the console
 # has been showing all along: the prompt `-bash-5.3#` is bash's `\s-\v\$`, set because
@@ -16,6 +16,11 @@ export PATH
 PS1='[\u@\h \W]\$ '
 
 umask 022
+
+# A login shell does not read the bashrc; interactive conveniences (aliases) live there.
+case $- in
+*i*) [ -r /etc/bashrc ] && . /etc/bashrc ;;
+esac
 
 # The reason this file has to exist at all: systemd installs its shell drop-ins as
 # symlinks in /etc/profile.d (and systemd-tmpfiles recreates them at every boot from

@@ -89,6 +89,13 @@ SYSCTLS = [
     "fs/aio-max-nr=1048576",
     "kernel/panic=10",
 ]
+# /etc/profile sources /etc/bashrc for the login shell; bash reads it itself (SYS_BASHRC)
+# for a non-login interactive one. Neither marker may be in the typed command.
+ALIAS_CHECK = (
+    "echo SYSTEMD'-ALIAS-LOGIN':[$(alias ll 2>&1)]; "
+    "echo SYSTEMD'-ALIAS-NONLOGIN':[$(bash -ic 'alias ll' 2>&1)]"
+)
+
 SYSCTL_CHECK = (
     "for k in "
     + " ".join(s.split("=", 1)[0] for s in SYSCTLS)
@@ -300,6 +307,17 @@ def check(guest: Guest, fwcfg: bool) -> None:
         _indented(errs)
         guest.fail(f"the journal has error messages (above) that {KNOWN_JOURNAL} does not accept")
     _out(">> systemd OK: no errors in the journal")
+
+    guest.send(ALIAS_CHECK)
+    for kind, label in (("LOGIN", "a login shell"), ("NONLOGIN", "a non-login interactive shell")):
+        if not guest.wait(rf"SYSTEMD-ALIAS-{kind}:\[([^]]*)\]", 30):
+            guest.fail(f"could not read the aliases back from {label}")
+        if "ls -lh" not in guest.group():
+            guest.fail(
+                f"{label} has no `ll` alias (got: [{guest.group()}]) — image/files/etc/bashrc, "
+                "read via /etc/profile and bash's SYS_BASHRC (packages/bash/build.sh)"
+            )
+    _out(">> systemd OK: /etc/bashrc aliases load in login and non-login shells")
 
     guest.mark()
     guest.send(SYSCTL_CHECK)

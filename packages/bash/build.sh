@@ -1,4 +1,6 @@
-./configure --prefix=/usr
+# Non-login interactive shells read /etc/bashrc (upstream's default is no system bashrc).
+# Appended to CFLAGS, which build-package.sh has set: configure keeps what it is given.
+./configure --prefix=/usr CFLAGS="$CFLAGS -DSYS_BASHRC='\"/etc/bashrc\"'"
 make
 make install DESTDIR=$ROOTFS
 
