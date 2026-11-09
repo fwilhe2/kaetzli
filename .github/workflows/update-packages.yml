@@ -122,6 +122,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # For tools/snapshot-changes.py, the toolchain versions a snapshot bump moves.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: matrix.update.package == 'debian-snapshot'
+        with:
+          python-version-file: python/.python-version
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
       - name: Open pull request
         env:
           GH_TOKEN: ${{ github.token }}
@@ -176,9 +184,16 @@ jobs:
           # to add.
           if [ "$PKG" = debian-snapshot ]; then
             ./tools/bump-snapshot.sh "$LATEST"
+            # Which compilers and coupled libraries moved, so the commit says what a red
+            # build or a size change may be blamed on. snapshot.debian.org is slow and
+            # sometimes down; that is not a reason to hold back the bump.
+            CHANGES=$(./tools/snapshot-changes.py "$CURRENT" "$LATEST") \
+              || CHANGES="(snapshot.debian.org did not answer; \`./tools/snapshot-changes.py $CURRENT $LATEST\` lists them)"
             TITLE="Update the Debian snapshot to $LATEST"
             COMMIT_BODY=$(cat <<EOF
           Debian snapshot \`$CURRENT\` -> \`$LATEST\`.
+
+          $CHANGES
 
           Tag: $URL
           EOF
@@ -250,6 +265,8 @@ jobs:
           Debian snapshot \`$CURRENT\` -> \`$LATEST\`, in \`builder/Containerfile\` and
           \`image/Containerfile\` together — the date and the digest it resolves to, written
           by \`tools/bump-snapshot.sh\`.
+
+          $CHANGES
 
           Tag: $URL
 

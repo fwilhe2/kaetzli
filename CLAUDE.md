@@ -151,6 +151,7 @@ policy checks are done).
 ./tools/pin-upstream-key.sh <pkg> [url]  # add the key that signed the pinned release (a reviewed commit)
 ./tools/check-updates.py [pkg...]   # upstream releases since the pinned VERSION/VENDOR_VERSION/patch series
 ./tools/check-snapshot.py           # is the pinned Debian snapshot still current?
+./tools/snapshot-changes.py OLD NEW # toolchain versions two snapshots differ in (the bump's commit body)
 ./tools/bump-snapshot.sh            # move builder + assembler to the newest dated sid snapshot
 ./tools/check-patches.sh [--version V] [pkg...]  # patches apply to the tarball (seconds, no build)
 ./tools/sync-patches.sh [--list] <pkg>  # patches/upstream/ = upstream's series (bash53-NNN) or release branch (glibc)

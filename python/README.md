@@ -25,8 +25,8 @@ src/kaetzli/header_skew.py
                      tools/header-skew.py: the builder's -dev headers against our
                      libraries
 src/kaetzli/updates/ the update check: upstream (what upstream released), release_notes,
-                     check (check-updates), snapshot (check-snapshot), versort (GNU
-                     sort -V) and http
+                     check (check-updates), snapshot (check-snapshot),
+                     snapshot_changes (snapshot-changes), versort (GNU sort -V) and http
 src/kaetzli/automerge.py
                      tools/auto-merge.py: merging the green update pull requests
 src/kaetzli/qemu/    the qemu harness, test/qemu-lib.sh in Python: machine (the command

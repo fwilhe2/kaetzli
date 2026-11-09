@@ -69,6 +69,9 @@ class Http:
     def get(self, url: str) -> str:
         return _request(url).decode("utf-8", errors="replace")
 
+    def get_bytes(self, url: str) -> bytes:
+        return _request(url)
+
     def github(self, url: str) -> str:
         """GitHub's API: a token lifts the anonymous limit of 60 requests an hour."""
         headers = {"Accept": "application/vnd.github+json"}
