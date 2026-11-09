@@ -1,6 +1,7 @@
 """What tools/lib.sh's fetch, gh_api and the tarball check did with curl: a GET that
-follows redirects, retries twice and fails on an HTTP error; the same against GitHub's
-API with a token when there is one; and a HEAD that says whether a URL is there.
+follows redirects, retries a 5xx, 429 or network error four times (backing off 1, 2, 4,
+8 s) and fails on an HTTP error; the same against GitHub's API with a token when there is
+one; and a HEAD that says whether a URL is there.
 """
 
 from __future__ import annotations
@@ -35,9 +36,9 @@ _opener = urllib.request.build_opener(_KeepHead)
 
 def _request(url: str, method: str = "GET", headers: dict | None = None) -> bytes:
     last: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(5):
         if attempt:
-            time.sleep(2)
+            time.sleep(2 ** (attempt - 1))
         req = urllib.request.Request(
             url, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})}
         )

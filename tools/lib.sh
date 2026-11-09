@@ -67,13 +67,17 @@ env_get() (
 )
 
 # Downloading a tarball: follow redirects, fail on HTTP errors, and retry the 5xx a mirror
-# serves while it syncs.
+# serves while it syncs. No --retry-delay, so curl backs off exponentially (1, 2, 4 … 32 s,
+# about a minute in all): GitHub's release downloads answer 500 for longer than a fixed
+# 2 s × 5 waited out. Not --retry-max-time, which counts from the first attempt and would
+# leave a large tarball that fails late with no retry at all.
 CURL_DOWNLOAD=(curl --location --fail --silent --show-error
-               --retry 5 --retry-all-errors --retry-delay 2)
+               --retry 6 --retry-all-errors)
 
-# fetch <curl args>... — an API or index request: short, retried, bounded.
+# fetch <curl args>... — an API or index request: short, retried (5xx, 429, timeouts;
+# not a 404, which is an answer), backing off 1, 2, 4, 8 s, bounded.
 fetch() {
-    curl -fsSL --max-time 60 --retry 2 --retry-delay 2 "$@"
+    curl -fsSL --max-time 60 --retry 4 "$@"
 }
 
 # gh_api <url> — fetch with a GitHub token when there is one (GH_TOKEN, GITHUB_TOKEN or

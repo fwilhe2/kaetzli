@@ -27,6 +27,8 @@ mkdir -p downloads
 # per attempt, six attempts per URL: an unreachable savannah once cost 27 minutes before
 # the mirror was tried. Twenty seconds is far more than any live server needs.
 CURL=("${CURL_DOWNLOAD[@]}" --continue-at - --connect-timeout 20)
+# Before a mirror: two retries, two seconds apart (curl takes the last --retry given).
+CURL_QUICK=("${CURL[@]}" --retry 2 --retry-delay 2)
 
 # Run in a subshell (see the loop below), so one package's env.sh cannot leak into the
 # next — an unset list kept by hand here used to be what prevented that.
@@ -72,9 +74,16 @@ fetch_file() {
     # Neither is recoverable in place.
     [ -f "$target" ] && { echo "  $pkg: $tarball fails its checksum, refetching"; rm -f "$target"; }
 
-    local url
-    for url in "$primary" $mirrors; do
-        try_url "$pkg" "$target" "$sha" "$url" && return 0
+    # A URL with another one after it gets a short retry, so a dead primary hands over
+    # to its mirror in seconds; only the last waits out an outage with CURL's backoff.
+    # shellcheck disable=SC2206 # MIRRORS is a space-separated list
+    local url urls=("$primary" $mirrors) i
+    for i in "${!urls[@]}"; do
+        if [ "$i" -lt $(( ${#urls[@]} - 1 )) ]; then
+            QUICK=1 try_url "$pkg" "$target" "$sha" "${urls[$i]}" && return 0
+        else
+            try_url "$pkg" "$target" "$sha" "${urls[$i]}" && return 0
+        fi
     done
 
     # Last, and only now, because it costs an API request: see debian_snapshot_url.
@@ -89,7 +98,11 @@ fetch_file() {
 try_url() {
     local pkg=$1 target=$2 sha=$3 url=$4
     echo "  $pkg: fetching $url"
-    "${CURL[@]}" -o "$target" "$url" || return 1
+    if [ -n "${QUICK:-}" ]; then
+        "${CURL_QUICK[@]}" -o "$target" "$url" || return 1
+    else
+        "${CURL[@]}" -o "$target" "$url" || return 1
+    fi
     verify "$target" "$sha" && return 0
     # Not a transport problem: this URL serves the wrong bytes, and retrying it or
     # resuming onto it cannot help. Say so loudly and move to the next source.

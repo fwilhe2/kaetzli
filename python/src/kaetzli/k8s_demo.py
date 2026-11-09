@@ -101,7 +101,7 @@ FLANNEL_VERSION = "v0.28.10"
 FLANNEL_SHA256 = "393bdbce53eb50c8eb97dd513b218518b7d6e7985dc7b889be956e112a711084"
 
 CURL_DOWNLOAD = ["curl", "--location", "--fail", "--silent", "--show-error",
-                 "--retry", "5", "--retry-all-errors", "--retry-delay", "2"]  # fmt: skip
+                 "--retry", "6", "--retry-all-errors"]  # fmt: skip
 
 
 class Failed(Exception):
