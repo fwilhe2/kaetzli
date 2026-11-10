@@ -1,0 +1,34 @@
+From ecdc7e47496c8e5e74d249765fa7d72b78415a81 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Torbj=C3=B6rn=20SVENSSON?= <torbjorn.svensson@foss.st.com>
+Date: Tue, 10 Nov 2026 07:46:38 +0100
+Subject: [PATCH] testsuite: Require a C99 runtime for fold-round-1.c
+ [PR124262]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Skip fold-round-1.c on targets without a C99 runtime, where the
+expected rounding optimizations may not be available.
+
+gcc/testsuite/ChangeLog:
+
+	PR testsuite/124262
+	* gcc.dg/fold-round-1.c: Require c99_runtime.
+
+Signed-off-by: Torbjörn SVENSSON <torbjorn.svensson@foss.st.com>
+(cherry picked from commit 20774e7edc91dafe0283f2eb33ea7752f0638e81)
+---
+ gcc/testsuite/gcc.dg/fold-round-1.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/testsuite/gcc.dg/fold-round-1.c b/gcc/testsuite/gcc.dg/fold-round-1.c
+index 0d7f95429ac3..343eb084797c 100644
+--- a/gcc/testsuite/gcc.dg/fold-round-1.c
++++ b/gcc/testsuite/gcc.dg/fold-round-1.c
+@@ -1,5 +1,6 @@
+ /* { dg-do compile } */
+ /* { dg-options "-Ofast" } */
++/* { dg-require-effective-target c99_runtime } */
+ 
+ extern void link_error (void);
+ 
