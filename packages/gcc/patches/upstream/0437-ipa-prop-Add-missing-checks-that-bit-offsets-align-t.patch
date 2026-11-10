@@ -1,0 +1,86 @@
+From 13e56ff4cd7b5e954f6d9af06476715b2bc3d4a4 Mon Sep 17 00:00:00 2001
+From: Martin Jambor <mjambor@suse.cz>
+Date: Mon, 26 Oct 2026 13:18:24 +0100
+Subject: [PATCH] ipa-prop: Add missing checks that bit offsets align to byte
+ boundary (PR127967)
+
+PR 127967 revealed that there are two places in ipa-prop where it is
+asked if a load will result in a known constant after IPA-CP but it
+did not check that the requested offset is at a byte boundary and so
+could return a constant that sits at a different place within an
+aggregate (at the byte boundary).  This patch simply adds the two
+checks and a bounds check to ipcp_get_aggregate_const (in the other
+case that is already performed when obtaining the offset).
+
+gcc/ChangeLog:
+
+2026-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/127967
+	* ipa-prop.cc (ipcp_modif_dom_walker::before_dom_children): Add a
+	check that bit_offset aligns to byte boundary.
+	(ipcp_get_aggregate_const): Likewise and also add bounds checks.
+
+gcc/testsuite/ChangeLog:
+
+2026-10-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/127967
+	* gcc.dg/ipa/pr127967.c: New test.
+
+(cherry picked from commit 9d198f575353e706de7fd8049e406ba7630ba33b)
+---
+ gcc/ipa-prop.cc                     |  9 +++++++--
+ gcc/testsuite/gcc.dg/ipa/pr127967.c | 16 ++++++++++++++++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/ipa/pr127967.c
+
+diff --git a/gcc/ipa-prop.cc b/gcc/ipa-prop.cc
+index 4c60c903a381..d163186eded2 100644
+--- a/gcc/ipa-prop.cc
++++ b/gcc/ipa-prop.cc
+@@ -6407,7 +6407,8 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
+ 	continue;
+ 
+       if (!ipa_load_from_parm_agg (m_fbi, m_descriptors, stmt, rhs, &index,
+-				   &bit_offset, &size, &by_ref))
++				   &bit_offset, &size, &by_ref)
++	  || (bit_offset % BITS_PER_UNIT) != 0)
+ 	continue;
+       unsigned unit_offset = bit_offset / BITS_PER_UNIT;
+       ipa_argagg_value_list avl (m_ts);
+@@ -6476,7 +6477,11 @@ ipcp_get_aggregate_const (struct function *func, tree parm, bool by_ref,
+   cgraph_node *node = cgraph_node::get (func->decl);
+   ipcp_transformation *ts = ipcp_get_transformation_summary (node);
+ 
+-  if (!ts || !ts->m_agg_values)
++  if (!ts
++      || !ts->m_agg_values
++      || bit_offset < 0
++      || (bit_offset % BITS_PER_UNIT) != 0
++      || (HOST_WIDE_INT) (bit_offset / BITS_PER_UNIT) > UINT_MAX)
+     return NULL_TREE;
+ 
+   int index = ts->get_param_index (func->decl, parm);
+diff --git a/gcc/testsuite/gcc.dg/ipa/pr127967.c b/gcc/testsuite/gcc.dg/ipa/pr127967.c
+new file mode 100644
+index 000000000000..f1cd02b51999
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/ipa/pr127967.c
+@@ -0,0 +1,16 @@
++/* { dg-do run } */
++/* { dg-require-effective-target le } */
++/* { dg-require-effective-target int32plus } */
++/* { dg-options "-O3"  } */
++
++struct S { unsigned p : 4, q : 8; };
++
++__attribute__((noinline)) static int f(struct S s) { return s.q; }
++
++int main() {
++  union { unsigned char b[4]; struct S s; } u = {{16}};
++  int r =  f(u.s);
++  if (r != 1)
++    __builtin_abort ();
++  return 0;
++}

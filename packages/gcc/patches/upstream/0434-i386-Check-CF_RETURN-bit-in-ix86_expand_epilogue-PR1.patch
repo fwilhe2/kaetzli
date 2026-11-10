@@ -1,0 +1,92 @@
+From c390aec393fd1c8c457f6d8eef1f495ebf61dd56 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Tue, 3 Nov 2026 18:08:16 +0100
+Subject: [PATCH] i386: Check CF_RETURN bit in ix86_expand_epilogue [PR128409]
+
+flag_cf_protection is a bitmask, so a nonzero value does not imply
+that shadow stack is enabled: it may hold only CF_BRANCH, or the
+CF_SET and CF_CHECK bookkeeping bits.  Test the CF_RETURN bit when
+deciding to use an indirect jump for EH return, and when passing
+set_cfa to pro_epilogue_adjust_stack.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128409
+
+gcc/ChangeLog:
+
+	* config/i386/i386.cc (ix86_expand_epilogue): Check
+	flag_cf_protection & CF_RETURN instead of flag_cf_protection.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128409-1.c: New test.
+	* gcc.target/i386/pr128409-2.c: Ditto.
+
+(cherry picked from commit ea93a47f579607698186dbced583ad1729f4ccb8)
+---
+ gcc/config/i386/i386.cc                    |  4 ++--
+ gcc/testsuite/gcc.target/i386/pr128409-1.c | 12 ++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128409-2.c | 12 ++++++++++++
+ 3 files changed, 26 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128409-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128409-2.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index fc17c070243d..d0cc7fcc8a8d 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -10548,7 +10548,7 @@ ix86_expand_epilogue (int style)
+ 
+ 	      pro_epilogue_adjust_stack (stack_pointer_rtx, sa,
+ 					 const0_rtx, style,
+-					 flag_cf_protection);
++					 flag_cf_protection & CF_RETURN);
+ 	    }
+ 	  else
+ 	    {
+@@ -10740,7 +10740,7 @@ ix86_expand_epilogue (int style)
+       /* In case of return from EH a simple return cannot be used
+ 	 as a return address will be compared with a shadow stack
+ 	 return address.  Use indirect jump instead.  */
+-      if (style == 2 && flag_cf_protection)
++      if (style == 2 && (flag_cf_protection & CF_RETURN))
+ 	{
+ 	  /* Register used in indirect jump must be in word_mode.  But
+ 	     Pmode may not be the same as word_mode for x32.  */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128409-1.c b/gcc/testsuite/gcc.target/i386/pr128409-1.c
+new file mode 100644
+index 000000000000..f28f98e1c500
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128409-1.c
+@@ -0,0 +1,12 @@
++/* PR target/128409 */
++/* { dg-do compile { target *-*-linux* } } */
++/* { dg-options "-O2 -fcf-protection=branch -march=x86-64" } */
++
++void
++foo (long offset, void *handler)
++{
++  __builtin_eh_return (offset, handler);
++}
++
++/* { dg-final { scan-assembler-not "\tjmp\[ \t\]+\\*%\[er\]cx" } } */
++/* { dg-final { scan-assembler "\tret" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128409-2.c b/gcc/testsuite/gcc.target/i386/pr128409-2.c
+new file mode 100644
+index 000000000000..ec234f4bcab1
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128409-2.c
+@@ -0,0 +1,12 @@
++/* PR target/128409 */
++/* { dg-do compile { target *-*-linux* } } */
++/* { dg-options "-O2 -fcf-protection=return -march=x86-64" } */
++
++void
++foo (long offset, void *handler)
++{
++  __builtin_eh_return (offset, handler);
++}
++
++/* { dg-final { scan-assembler-not "\tret" } } */
++/* { dg-final { scan-assembler "\tjmp\[ \t\]+\\*%\[er\]cx" } } */

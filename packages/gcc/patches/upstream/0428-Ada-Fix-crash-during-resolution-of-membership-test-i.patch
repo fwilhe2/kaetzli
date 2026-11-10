@@ -1,0 +1,27 @@
+From 1a8ad4ab97d048c30106e2f007c0c280635ce2e1 Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Wed, 23 Sep 2026 11:12:20 +0200
+Subject: [PATCH] Ada: Fix crash during resolution of membership test in
+ generic unit
+
+This just adds a missing guard.
+
+gcc/ada/
+	* sem_res.adb (Resolve_Membership_Op): Add guard for generic type
+	to the test on the RM size.
+---
+ gcc/ada/sem_res.adb | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/ada/sem_res.adb b/gcc/ada/sem_res.adb
+index d11e18a099dc..fc0764e49767 100644
+--- a/gcc/ada/sem_res.adb
++++ b/gcc/ada/sem_res.adb
+@@ -10304,6 +10304,7 @@ package body Sem_Res is
+         and then (Is_Overloaded (R)
+                    or else
+                      (not Is_Universal_Numeric_Type (Etype (R))
++                       and then not Is_Generic_Type (Etype (R))
+                        and then
+                          (not Is_Integer_Type (Etype (R))
+                            or else
