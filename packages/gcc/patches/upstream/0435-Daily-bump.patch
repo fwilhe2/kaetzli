@@ -1,0 +1,221 @@
+From 92e24f4454d96a53baeee7533ccdabeb8edada9b Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Mon, 9 Nov 2026 00:21:32 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 62 ++++++++++++++++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/ada/ChangeLog       | 12 +++++++
+ gcc/m2/ChangeLog        | 21 ++++++++++++
+ gcc/testsuite/ChangeLog | 74 +++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 170 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index a6735aa04450..dae291eff2e2 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,65 @@
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-03  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128409
++	* config/i386/i386.cc (ix86_expand_epilogue): Check
++	flag_cf_protection & CF_RETURN instead of flag_cf_protection.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-03  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128373
++	* config/i386/i386-c.cc (ix86_target_macros):
++	Define __CET__ only when CF_BRANCH or CF_RETURN is set.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128360
++	* config/i386/i386-features.cc
++	(rest_of_insert_endbr_and_patchable_area): Emit ENDBR for
++	functions with cf_check attribute even when they are only
++	called directly.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	* config/i386/pconfigintrin.h (_pconfig_u32):
++	Change the value of __PCONFIG_KEY_PROGRAM to 0x00.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128283
++	* config/i386/sgxintrin.h (__encls_bc, __encls_bcd, __encls_c)
++	(__encls_edbgrd, __encls_generic, __enclu_bc, __enclu_bcd)
++	(__enclu_eenter, __enclu_eexit, __enclu_generic, __enclv_bc)
++	(__enclv_cd, __enclv_generic): Add "memory" clobber.
++	Remove "\n\t" from asm template.
++	(__encls_edbgrd): Also add "cc" clobber.
++	* config/i386/pconfigintrin.h (__pconfig_b, __pconfig_generic):
++	Add "memory" clobber.  Remove "\n\t" from asm template.
++
++2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	Backported from master:
++	2026-05-05  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/120189
++	* doc/gm2.texi (Building a shared library): Rewrite the
++	description of the shared library and include complete code into
++	the example.
++
+ 2026-11-07  Kewen Lin  <linkewen@hygon.cn>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index a36a68e157b3..104e2a980ca7 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261108
++20261109
+diff --git a/gcc/ada/ChangeLog b/gcc/ada/ChangeLog
+index dc71499b7054..59546b6914b4 100644
+--- a/gcc/ada/ChangeLog
++++ b/gcc/ada/ChangeLog
+@@ -1,3 +1,15 @@
++2026-11-08  Andrea Boido  <andrea.boido@vector.com>
++
++	PR ada/128457
++	* sem_res.adb (Resolve_Membership_Op): Only perform the special
++	resolution if the left operand is of type universal_integer and
++	the right operand is of a smaller integer type.
++
++2026-11-08  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* sem_res.adb (Resolve_Membership_Op): Add guard for generic type
++	to the test on the RM size.
++
+ 2026-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	* exp_ch6.adb (Expand_Ctrl_Function_Call): Do not return early for
+diff --git a/gcc/m2/ChangeLog b/gcc/m2/ChangeLog
+index a13d9bac0351..a1639d6d24d4 100644
+--- a/gcc/m2/ChangeLog
++++ b/gcc/m2/ChangeLog
+@@ -1,3 +1,24 @@
++2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	Backported from master:
++	2026-06-03  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/125512
++	* gm2-compiler/P3Build.bnf (SubDesignator): Rewrite to
++	include spell checking.
++
++2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	Backported from master:
++	2026-06-02  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/125544
++	* gm2-libs-iso/Storage.def (REALLOCATE): Updated comment
++	describing new behavior.
++	* gm2-libs-iso/Storage.mod (REALLOCATE): Check addr
++	and call ALLOCATE if NIL else call lowerReallocate.
++	(lowerReallocate): New procedure.
++
+ 2026-08-07  Release Manager
+ 
+ 	* GCC 16.2.0 released.
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 9b910c9537f6..ce4d1d0203e7 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,77 @@
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-03  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128409
++	* gcc.target/i386/pr128409-1.c: New test.
++	* gcc.target/i386/pr128409-2.c: Ditto.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-03  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128373
++	* gcc.target/i386/pr128373-1.c: New test.
++	* gcc.target/i386/pr128373-2.c: Ditto.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128360
++	* gcc.target/i386/pr128360-1.c: New test.
++	* gcc.target/i386/pr128360-2.c: Ditto.
++	* gcc.target/i386/pr128360-3.c: Ditto.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	* gcc.target/i386/pconfig-1.c (PCONFIG_KEY_PROGRAM):
++	Change to 0x00.
++
++2026-11-08  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-02  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128283
++	* gcc.target/i386/pr128283-1.c: New test.
++	* gcc.target/i386/pr128283-2.c: Ditto.
++
++2026-11-08  Andrea Boido  <andrea.boido@vector.com>
++
++	* gnat.dg/membership_real1.adb: New test.
++
++2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	Backported from master:
++	2026-06-03  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/125512
++	* gm2.dg/spell/iso/fail/badmodule.mod: New test.
++	* gm2.dg/spell/iso/fail/badrecord.mod: New test.
++	* gm2.dg/spell/iso/fail/color.def: New test.
++
++2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	Backported from master:
++	2026-05-05  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/120189
++	* gm2/examples/cppcallingm2/run/pass/README: New test.
++	* gm2/examples/cppcallingm2/run/pass/a.def: New test.
++	* gm2/examples/cppcallingm2/run/pass/a.mod: New test.
++	* gm2/examples/cppcallingm2/run/pass/b.def: New test.
++	* gm2/examples/cppcallingm2/run/pass/b.mod: New test.
++	* gm2/examples/cppcallingm2/run/pass/c.def: New test.
++	* gm2/examples/cppcallingm2/run/pass/c.mod: New test.
++	* gm2/examples/cppcallingm2/run/pass/test.cc: New test.
++
+ 2026-11-07  Kewen Lin  <linkewen@hygon.cn>
+ 
+ 	Backported from master:

@@ -1,0 +1,56 @@
+From ec84dc401e0323f5be5891dbb7ca7bb5c0b85ab8 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Mon, 2 Nov 2026 23:05:28 +0100
+Subject: [PATCH] i386: Fix the leaf number of PCONFIG MKTME_KEY_PROGRAM
+
+The SDM selects the MKTME_KEY_PROGRAM leaf function by loading EAX
+with 0.  The value 1 is the identifier of its target (TME-MK), not the
+leaf number, and PCONFIG raises #GP(0) for any leaf other than 0.
+
+_pconfig_u32 used 1 for __PCONFIG_KEY_PROGRAM, so the real leaf 0 never
+took the __pconfig_b path, which declares that only RAX is modified,
+while the invalid constant leaf 1 did.  Use 0 and fix pconfig-1.c, which
+used the wrong value as well.
+
+gcc/ChangeLog:
+
+	* config/i386/pconfigintrin.h (_pconfig_u32):
+	Change the value of __PCONFIG_KEY_PROGRAM to 0x00.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pconfig-1.c (PCONFIG_KEY_PROGRAM):
+	Change to 0x00.
+
+(cherry picked from commit ee7a7a07aeb139e3c8d99c2d8b48e71bd39269b8)
+---
+ gcc/config/i386/pconfigintrin.h           | 2 +-
+ gcc/testsuite/gcc.target/i386/pconfig-1.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/config/i386/pconfigintrin.h b/gcc/config/i386/pconfigintrin.h
+index 33ef551660df..37d4c572dfb5 100644
+--- a/gcc/config/i386/pconfigintrin.h
++++ b/gcc/config/i386/pconfigintrin.h
+@@ -52,7 +52,7 @@ _pconfig_u32 (const unsigned int __L, size_t __D[])
+ {
+   enum __pconfig_type
+   {
+-    __PCONFIG_KEY_PROGRAM = 0x01,
++    __PCONFIG_KEY_PROGRAM = 0x00,
+   };
+ 
+   unsigned int __R = 0;
+diff --git a/gcc/testsuite/gcc.target/i386/pconfig-1.c b/gcc/testsuite/gcc.target/i386/pconfig-1.c
+index 40b4c0c12720..8ba4689da3a8 100644
+--- a/gcc/testsuite/gcc.target/i386/pconfig-1.c
++++ b/gcc/testsuite/gcc.target/i386/pconfig-1.c
+@@ -6,7 +6,7 @@
+ 
+ extern unsigned int leaf;
+ 
+-#define PCONFIG_KEY_PROGRAM 0x01
++#define PCONFIG_KEY_PROGRAM 0x00
+ 
+ int test ()
+ {

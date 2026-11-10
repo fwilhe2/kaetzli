@@ -1,0 +1,236 @@
+From 0dc852fcc1ab62de19b4f9ceae763f60ce9a54d8 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Mon, 2 Nov 2026 22:05:48 +0100
+Subject: [PATCH] i386: Add "memory" clobber to SGX and PCONFIG intrinsics
+ [PR128283]
+
+The ENCLS, ENCLU, ENCLV and PCONFIG inline asm wrappers pass pointers
+to buffers in general registers, but do not declare that the
+instructions access memory.  As a result, DSE can remove stores that
+initialize the input structures and FRE can fold loads from the output
+buffers.  Add "memory" to the clobber list of all of them.
+
+Also add the missing "cc" clobber to __encls_edbgrd, since EDBGRD
+modifies the status flags, and remove the superfluous "\n\t" from the
+end of the asm templates.
+
+	PR target/128283
+
+gcc/ChangeLog:
+
+	* config/i386/sgxintrin.h (__encls_bc, __encls_bcd, __encls_c)
+	(__encls_edbgrd, __encls_generic, __enclu_bc, __enclu_bcd)
+	(__enclu_eenter, __enclu_eexit, __enclu_generic, __enclv_bc)
+	(__enclv_cd, __enclv_generic): Add "memory" clobber.
+	Remove "\n\t" from asm template.
+	(__encls_edbgrd): Also add "cc" clobber.
+	* config/i386/pconfigintrin.h (__pconfig_b, __pconfig_generic):
+	Add "memory" clobber.  Remove "\n\t" from asm template.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128283-1.c: New test.
+	* gcc.target/i386/pr128283-2.c: Ditto.
+
+(cherry picked from commit 79cd72f94d73ccc5095a9291c10a32b9965d0f77)
+---
+ gcc/config/i386/pconfigintrin.h            |  8 ++--
+ gcc/config/i386/sgxintrin.h                | 53 +++++++++++-----------
+ gcc/testsuite/gcc.target/i386/pr128283-1.c | 18 ++++++++
+ gcc/testsuite/gcc.target/i386/pr128283-2.c | 24 ++++++++++
+ 4 files changed, 73 insertions(+), 30 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128283-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128283-2.c
+
+diff --git a/gcc/config/i386/pconfigintrin.h b/gcc/config/i386/pconfigintrin.h
+index e3ff36e62b5e..33ef551660df 100644
+--- a/gcc/config/i386/pconfigintrin.h
++++ b/gcc/config/i386/pconfigintrin.h
+@@ -35,16 +35,16 @@
+ #endif /* __PCONFIG__ */
+ 
+ #define __pconfig_b(leaf, b, retval)			\
+-  __asm__ __volatile__ ("pconfig\n\t"			\
++  __asm__ __volatile__ ("pconfig"			\
+ 	: "=a" (retval)					\
+ 	: "a" (leaf), "b" (b)				\
+-	: "cc")
++	: "cc", "memory")
+ 
+ #define __pconfig_generic(leaf, b, c, d, retval)	\
+-  __asm__ __volatile__ ("pconfig\n\t"			\
++  __asm__ __volatile__ ("pconfig"			\
+ 	: "=a" (retval), "=b" (b), "=c" (c), "=d" (d)	\
+ 	: "a" (leaf), "b" (b), "c" (c), "d" (d)		\
+-	: "cc")
++	: "cc", "memory")
+ 
+ extern __inline unsigned int
+ __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+diff --git a/gcc/config/i386/sgxintrin.h b/gcc/config/i386/sgxintrin.h
+index 62dc461de724..8f25eeb51c3c 100644
+--- a/gcc/config/i386/sgxintrin.h
++++ b/gcc/config/i386/sgxintrin.h
+@@ -31,81 +31,82 @@
+ #endif /* __SGX__ */
+ 
+ #define __encls_bc(leaf, b, c, retval)	    	 	\
+-  __asm__ __volatile__ ("encls\n\t"		     	\
++  __asm__ __volatile__ ("encls"		     	 	\
+ 	   : "=a" (retval)			     	\
+ 	   : "a" (leaf), "b" (b), "c" (c)		\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __encls_bcd(leaf, b, c, d, retval)	     	\
+-  __asm__ __volatile__("encls\n\t"		     	\
++  __asm__ __volatile__("encls"		     	 	\
+ 	   : "=a" (retval)			     	\
+ 	   : "a" (leaf), "b" (b), "c" (c), "d" (d)	\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __encls_c(leaf, c, retval)		     	\
+-  __asm__ __volatile__("encls\n\t"		     	\
++  __asm__ __volatile__("encls"		     	 	\
+ 	   : "=a" (retval)			     	\
+ 	   : "a" (leaf), "c" (c)			\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __encls_edbgrd(leaf, b, c, retval)	     	\
+-  __asm__ __volatile__("encls\n\t"		     	\
++  __asm__ __volatile__("encls"		     	 	\
+ 	   : "=a" (retval), "=b" (b)		     	\
+-	   : "a" (leaf), "c" (c))
++	   : "a" (leaf), "c" (c)			\
++	   : "cc", "memory")
+ 
+ #define __encls_generic(leaf, b, c, d, retval)   	\
+-  __asm__ __volatile__("encls\n\t"		     	\
++  __asm__ __volatile__("encls"		     	 	\
+ 	   : "=a" (retval), "=b" (b), "=c" (c), "=d" (d)\
+ 	   : "a" (leaf), "b" (b), "c" (c), "d" (d)	\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclu_bc(leaf, b, c, retval)			\
+-  __asm__ __volatile__("enclu\n\t"			\
++  __asm__ __volatile__("enclu"			 	\
+ 	   : "=a" (retval)				\
+ 	   : "a" (leaf), "b" (b), "c" (c)		\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclu_bcd(leaf, b, c, d, retval)		\
+-  __asm__ __volatile__("enclu\n\t"			\
++  __asm__ __volatile__("enclu"			 	\
+ 	   : "=a" (retval)				\
+ 	   : "a" (leaf), "b" (b), "c" (c), "d" (d)	\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclu_eenter(leaf, b, c, retval)		\
+-  __asm__  __volatile__("enclu\n\t"			\
++  __asm__ __volatile__("enclu"			 	\
+ 	   : "=a" (retval), "=c" (c)			\
+ 	   : "a" (leaf), "b" (b), "c" (c)		\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclu_eexit(leaf, b, c, retval)		\
+-  __asm__  __volatile__("enclu\n\t"			\
++  __asm__ __volatile__("enclu"			 	\
+ 	   : "=a" (retval), "=c" (c)			\
+ 	   : "a" (leaf), "b" (b)			\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclu_generic(leaf, b, c, d, retval)		\
+-  __asm__ __volatile__("enclu\n\t"			\
++  __asm__ __volatile__("enclu"			 	\
+ 	   : "=a" (retval), "=b" (b), "=c" (c), "=d" (d)\
+ 	   : "a" (leaf), "b" (b), "c" (c), "d" (d)	\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclv_bc(leaf, b, c, retval)			\
+-  __asm__ __volatile__("enclv\n\t"			\
++  __asm__ __volatile__("enclv"			 	\
+ 	   : "=a" (retval)				\
+ 	   : "a" (leaf), "b" (b), "c" (c)		\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclv_cd(leaf, c, d, retval)			\
+-  __asm__ __volatile__("enclv\n\t"			\
++  __asm__ __volatile__("enclv"			 	\
+ 	   : "=a" (retval)				\
+ 	   : "a" (leaf), "c" (c), "d" (d)		\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ #define __enclv_generic(leaf, b, c, d, retval)		\
+-  __asm__ __volatile__("enclv\n\t"			\
++  __asm__ __volatile__("enclv"			 	\
+ 	   : "=a" (retval), "=b" (b), "=c" (c), "=d" (d)\
+ 	   : "a" (leaf), "b" (b), "c" (c), "d" (d)	\
+-	   : "cc")
++	   : "cc", "memory")
+ 
+ extern __inline unsigned int
+ __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+diff --git a/gcc/testsuite/gcc.target/i386/pr128283-1.c b/gcc/testsuite/gcc.target/i386/pr128283-1.c
+new file mode 100644
+index 000000000000..2f0a8b29a2cd
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128283-1.c
+@@ -0,0 +1,18 @@
++/* PR target/128283 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -msgx -fdump-tree-optimized" } */
++
++#include <immintrin.h>
++#include <stdint.h>
++
++uint64_t
++derive_sgx_key (uint64_t *req_aligned)
++{
++  uint64_t key[2] __attribute__((aligned(16))) = {0, 0};
++  size_t d[3] = {(size_t)req_aligned, (size_t)key, 0};
++
++  _enclu_u32(1 /* EGETKEY */, d);
++  return key[0];
++}
++
++/* { dg-final { scan-tree-dump " = key\\\[0\\\];" "optimized" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128283-2.c b/gcc/testsuite/gcc.target/i386/pr128283-2.c
+new file mode 100644
+index 000000000000..65f1b5c182bb
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128283-2.c
+@@ -0,0 +1,24 @@
++/* PR target/128283 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -mpconfig -fdump-tree-optimized" } */
++
++#include <immintrin.h>
++#include <stdint.h>
++
++struct mktme_kp
++{
++  uint16_t keyid;
++  uint32_t ctrl;
++  uint8_t pad[186];
++} __attribute__((aligned(256)));
++
++unsigned int
++program_mktme (uint16_t kid)
++{
++  struct mktme_kp kp = { .keyid = kid, .ctrl = 1 };
++  size_t d[3] = { (size_t) &kp, 0, 0 };
++
++  return _pconfig_u32 (0 /* MKTME_KEY_PROGRAM */, d);
++}
++
++/* { dg-final { scan-tree-dump "kp.ctrl = 1;" "optimized" } } */

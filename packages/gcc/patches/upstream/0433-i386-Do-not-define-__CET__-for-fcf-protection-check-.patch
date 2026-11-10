@@ -1,0 +1,80 @@
+From b95ea943aa8cc4e753e94bff6efa32ab25db87bb Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Tue, 3 Nov 2026 13:13:34 +0100
+Subject: [PATCH] i386: Do not define __CET__ for -fcf-protection=check
+ [PR128373]
+
+-fcf-protection=check is ignored at compile time, but it sets
+flag_cf_protection to CF_CHECK | CF_SET, so ix86_target_macros defined
+__CET__=8 even though neither IBT nor SHSTK is enabled.  Assembly files
+including <cet.h> then emitted a GNU_PROPERTY_X86_FEATURE_1_AND note
+with a zero value.
+
+Define __CET__ only when CF_BRANCH or CF_RETURN is set, and expose
+only those bits in its value.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128373
+
+gcc/ChangeLog:
+
+	* config/i386/i386-c.cc (ix86_target_macros):
+	Define __CET__ only when CF_BRANCH or CF_RETURN is set.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128373-1.c: New test.
+	* gcc.target/i386/pr128373-2.c: Ditto.
+
+(cherry picked from commit 8855f0622a8491b40deb79d29fcd8739c9287562)
+---
+ gcc/config/i386/i386-c.cc                  | 5 +++--
+ gcc/testsuite/gcc.target/i386/pr128373-1.c | 7 +++++++
+ gcc/testsuite/gcc.target/i386/pr128373-2.c | 7 +++++++
+ 3 files changed, 17 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128373-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128373-2.c
+
+diff --git a/gcc/config/i386/i386-c.cc b/gcc/config/i386/i386-c.cc
+index a2749ae6b142..6bde9276482c 100644
+--- a/gcc/config/i386/i386-c.cc
++++ b/gcc/config/i386/i386-c.cc
+@@ -973,8 +973,9 @@ ix86_target_macros (void)
+   cpp_define (parse_in, "__SEG_FS");
+   cpp_define (parse_in, "__SEG_GS");
+ 
+-  if (flag_cf_protection != CF_NONE)
+-    cpp_define_formatted (parse_in, "__CET__=%d", flag_cf_protection & ~CF_SET);
++  if (flag_cf_protection & (CF_BRANCH | CF_RETURN))
++    cpp_define_formatted (parse_in, "__CET__=%d",
++			  flag_cf_protection & (CF_BRANCH | CF_RETURN));
+ }
+ 
+ 
+diff --git a/gcc/testsuite/gcc.target/i386/pr128373-1.c b/gcc/testsuite/gcc.target/i386/pr128373-1.c
+new file mode 100644
+index 000000000000..c409a5e5d37a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128373-1.c
+@@ -0,0 +1,7 @@
++/* PR target/128373 */
++/* { dg-do preprocess { target *-*-linux* } } */
++/* { dg-options "-fcf-protection=check -march=x86-64" } */
++
++#ifdef __CET__
++# error "__CET__ must not be defined with -fcf-protection=check"
++#endif
+diff --git a/gcc/testsuite/gcc.target/i386/pr128373-2.c b/gcc/testsuite/gcc.target/i386/pr128373-2.c
+new file mode 100644
+index 000000000000..2a6a07aa0b46
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128373-2.c
+@@ -0,0 +1,7 @@
++/* PR target/128373 */
++/* { dg-do preprocess { target *-*-linux* } } */
++/* { dg-options "-fcf-protection=full -fcf-protection=check -march=x86-64" } */
++
++#if __CET__ != 3
++# error "__CET__ must be 3 with -fcf-protection=full"
++#endif

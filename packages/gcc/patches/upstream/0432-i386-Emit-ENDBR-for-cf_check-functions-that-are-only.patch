@@ -1,0 +1,160 @@
+From 5db2d73d79814bf5d2657da284b0913cd55025d7 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Mon, 2 Nov 2026 22:50:30 +0100
+Subject: [PATCH] i386: Emit ENDBR for cf_check functions that are only called
+ directly
+
+The cf_check attribute documents that ENDBR is placed at function
+entry, but rest_of_insert_endbr_and_patchable_area skips ENDBR for
+functions where only_called_directly_p is true.  Honor cf_check
+unconditionally; nocf_check still takes precedence.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128360
+
+gcc/ChangeLog:
+
+	* config/i386/i386-features.cc
+	(rest_of_insert_endbr_and_patchable_area): Emit ENDBR for
+	functions with cf_check attribute even when they are only
+	called directly.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128360-1.c: New test.
+	* gcc.target/i386/pr128360-2.c: Ditto.
+	* gcc.target/i386/pr128360-3.c: Ditto.
+
+(cherry picked from commit f2de25778e41d2a6451c798e58e0a6bb5af70765)
+---
+ gcc/config/i386/i386-features.cc           | 17 +++++++--------
+ gcc/testsuite/gcc.target/i386/pr128360-1.c | 25 ++++++++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128360-2.c | 25 ++++++++++++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128360-3.c | 25 ++++++++++++++++++++++
+ 4 files changed, 83 insertions(+), 9 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128360-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128360-2.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128360-3.c
+
+diff --git a/gcc/config/i386/i386-features.cc b/gcc/config/i386/i386-features.cc
+index af0724a1e687..d662a495069c 100644
+--- a/gcc/config/i386/i386-features.cc
++++ b/gcc/config/i386/i386-features.cc
+@@ -3013,15 +3013,14 @@ rest_of_insert_endbr_and_patchable_area (bool need_endbr,
+ 	 EB.  */
+       if (!lookup_attribute ("nocf_check",
+ 			     TYPE_ATTRIBUTES (TREE_TYPE (cfun->decl)))
+-	  && (!flag_manual_endbr
+-	      || lookup_attribute ("cf_check",
+-				   DECL_ATTRIBUTES (cfun->decl)))
+-	  && (!cgraph_node::get (cfun->decl)->only_called_directly_p ()
+-	      || ix86_cmodel == CM_LARGE
+-	      || ix86_cmodel == CM_LARGE_PIC
+-	      || flag_force_indirect_call
+-	      || (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+-		  && DECL_DLLIMPORT_P (cfun->decl))))
++	  && (lookup_attribute ("cf_check", DECL_ATTRIBUTES (cfun->decl))
++	      || (!flag_manual_endbr
++		  && (!cgraph_node::get (cfun->decl)->only_called_directly_p ()
++		      || ix86_cmodel == CM_LARGE
++		      || ix86_cmodel == CM_LARGE_PIC
++		      || flag_force_indirect_call
++		      || (TARGET_DLLIMPORT_DECL_ATTRIBUTES
++			  && DECL_DLLIMPORT_P (cfun->decl))))))
+ 	{
+ 	  if (crtl->profile && flag_fentry)
+ 	    {
+diff --git a/gcc/testsuite/gcc.target/i386/pr128360-1.c b/gcc/testsuite/gcc.target/i386/pr128360-1.c
+new file mode 100644
+index 000000000000..9cd51ac6a825
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128360-1.c
+@@ -0,0 +1,25 @@
++/* PR target/128360 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -fcf-protection=branch -mmanual-endbr -march=x86-64" } */
++
++static __attribute__((cf_check, noinline, noclone)) int
++static_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 1;
++}
++
++extern __attribute__((cf_check, noinline, noclone)) int
++extern_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 2;
++}
++
++int
++caller (int x)
++{
++  return static_cf_target (x) + extern_cf_target (x);
++}
++
++/* { dg-final { scan-assembler-times "endbr(32|64)" 2 } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128360-2.c b/gcc/testsuite/gcc.target/i386/pr128360-2.c
+new file mode 100644
+index 000000000000..1f78f098ab8a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128360-2.c
+@@ -0,0 +1,25 @@
++/* PR target/128360 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -fcf-protection=branch -march=x86-64" } */
++
++static __attribute__((cf_check, noinline, noclone)) int
++static_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 1;
++}
++
++extern __attribute__((cf_check, noinline, noclone)) int
++extern_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 2;
++}
++
++int
++caller (int x)
++{
++  return static_cf_target (x) + extern_cf_target (x);
++}
++
++/* { dg-final { scan-assembler-times "endbr(32|64)" 3 } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128360-3.c b/gcc/testsuite/gcc.target/i386/pr128360-3.c
+new file mode 100644
+index 000000000000..97f52ce16bbb
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128360-3.c
+@@ -0,0 +1,25 @@
++/* PR target/128360 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -fcf-protection=branch -march=x86-64" } */
++
++static __attribute__((noinline, noclone)) int
++static_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 1;
++}
++
++extern __attribute__((noinline, noclone)) int
++extern_cf_target (int x)
++{
++  __asm__ volatile ("" : "+r" (x));
++  return x + 2;
++}
++
++int
++caller (int x)
++{
++  return static_cf_target (x) + extern_cf_target (x);
++}
++
++/* { dg-final { scan-assembler-times "endbr(32|64)" 2 } } */

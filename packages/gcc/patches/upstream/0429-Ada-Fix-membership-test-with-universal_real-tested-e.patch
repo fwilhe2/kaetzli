@@ -1,0 +1,104 @@
+From a7e13b9224f0b6bc7d0b51b9b7bd3f5478c2abd1 Mon Sep 17 00:00:00 2001
+From: Andrea Boido <andrea.boido@vector.com>
+Date: Thu, 5 Nov 2026 13:36:22 +0000
+Subject: [PATCH] Ada: Fix membership test with universal_real tested
+ expression
+
+This changes the special resolution of membership tests whose tested
+expression is of a universal numeric type, which skips the rounding to
+the tested type required by RM 4.9(38) for universal_real.  The special
+resolution is now restricted to universal_integer, since the range check
+failure it avoids cannot occur for real types in practice.
+
+gcc/ada/
+	PR ada/128457
+	* sem_res.adb (Resolve_Membership_Op): Only perform the special
+	resolution if the left operand is of type universal_integer and
+	the right operand is of a smaller integer type.
+
+gcc/testsuite/
+	* gnat.dg/membership_real1.adb: New test.
+---
+ gcc/ada/sem_res.adb                        | 23 +++++++++--------
+ gcc/testsuite/gnat.dg/membership_real1.adb | 29 ++++++++++++++++++++++
+ 2 files changed, 41 insertions(+), 11 deletions(-)
+ create mode 100644 gcc/testsuite/gnat.dg/membership_real1.adb
+
+diff --git a/gcc/ada/sem_res.adb b/gcc/ada/sem_res.adb
+index fc0764e49767..d7a7e072bca9 100644
+--- a/gcc/ada/sem_res.adb
++++ b/gcc/ada/sem_res.adb
+@@ -10278,9 +10278,9 @@ package body Sem_Res is
+       then
+          T := Etype (R);
+ 
+-      --  If the left operand is of a universal numeric type and the right
++      --  If the left operand is of type universal_integer and the right
+       --  operand is not, we do not resolve the operands to the tested type
+-      --  but to the universal type instead. If not conforming to the letter,
++      --  but to universal_integer instead. If not conforming to the letter,
+       --  it's conforming to the spirit of the specification of membership
+       --  tests, which are typically used to guard a specific operation and
+       --  ought not to fail a check in doing so. Without this, in the case of
+@@ -10299,16 +10299,17 @@ package body Sem_Res is
+       --  does not cover all the values of all the supported integer types,
+       --  for example the large values of Long_Long_Long_Unsigned.
+ 
++      --  This is not done for universal_real, whose conversion to the tested
++      --  type may round the value (RM 4.9(38)). The above issue cannot occur
++      --  for real types in practice: floating-point base types are wide, and
++      --  universal_real values are almost always static.
++
+       elsif not Is_Overloaded (L)
+-        and then Is_Universal_Numeric_Type (Etype (L))
+-        and then (Is_Overloaded (R)
+-                   or else
+-                     (not Is_Universal_Numeric_Type (Etype (R))
+-                       and then not Is_Generic_Type (Etype (R))
+-                       and then
+-                         (not Is_Integer_Type (Etype (R))
+-                           or else
+-                          RM_Size (Etype (R)) < RM_Size (Universal_Integer))))
++        and then Etype (L) = Universal_Integer
++        and then not Is_Overloaded (R)
++        and then Is_Integer_Type (Etype (R))
++        and then not Is_Generic_Type (Etype (R))
++        and then RM_Size (Etype (R)) < RM_Size (Universal_Integer)
+       then
+          T := Etype (L);
+ 
+diff --git a/gcc/testsuite/gnat.dg/membership_real1.adb b/gcc/testsuite/gnat.dg/membership_real1.adb
+new file mode 100644
+index 000000000000..de0b0db4def9
+--- /dev/null
++++ b/gcc/testsuite/gnat.dg/membership_real1.adb
+@@ -0,0 +1,29 @@
++-- { dg-do run }
++
++procedure Membership_Real1 is
++
++   type Fix is delta 0.25 range -8.0 .. 8.0;
++
++   X : constant := 0.1;
++   Y : constant := 0.3;
++
++   F : Float := X;
++   G : Fix := 0.25;
++
++begin
++   if not (X in F .. 1.0) then
++      raise Program_Error;
++   end if;
++
++   if not (0.1 in F .. 1.0) then
++      raise Program_Error;
++   end if;
++
++   if X not in F .. 1.0 then
++      raise Program_Error;
++   end if;
++
++   if not (Y in -1.0 .. G) then
++      raise Program_Error;
++   end if;
++end;
