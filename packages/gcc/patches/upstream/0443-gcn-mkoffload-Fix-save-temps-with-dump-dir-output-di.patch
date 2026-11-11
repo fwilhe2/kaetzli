@@ -1,0 +1,43 @@
+From c5eb6b0a968d1d03c8133f3e44456b59004d58a4 Mon Sep 17 00:00:00 2001
+From: Tobias Burnus <tburnus@baylibre.com>
+Date: Wed, 11 Nov 2026 19:42:40 +0100
+Subject: [PATCH] gcn/mkoffload: Fix -save-temps with dump-dir/output dir other
+ than CWD
+
+When compiling for offloading with -save-temps, the device-side object
+file is created in the --dumpdir directory (defaulting to the output
+directory of the binary).  This object file is included in a host-side
+C file using #embed.
+
+Before this commit, the object file name was used for #embed as is -
+such that the dumpdir directory name appeared in the #embed file name,
+which failed as the host C file was already in that directory (except
+for CWD or for an absolute pathname).
+
+Solution: Use lbasename on the file name for the #embed file name.
+
+Co-authored-by: Jeremy Robinson <jrobinson@baylibre.com>
+
+gcc/ChangeLog:
+
+	* config/gcn/mkoffload.cc (process_obj): Use lbasename on the
+	gcn_o_name file name.
+
+(cherry picked from commit 14f32fc0393f10aa9bfe16baaf1fce5414933cdb)
+---
+ gcc/config/gcn/mkoffload.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/config/gcn/mkoffload.cc b/gcc/config/gcn/mkoffload.cc
+index 71e11f0f307b..b5085fe1ddfb 100644
+--- a/gcc/config/gcn/mkoffload.cc
++++ b/gcc/config/gcn/mkoffload.cc
+@@ -740,7 +740,7 @@ process_obj (const char *fname_in, FILE *cfile, uint32_t omp_requires)
+   fprintf (cfile,
+ 	   "static unsigned char gcn_code[] = {\n"
+ 	   "#embed \"%s\" if_empty (error_file_is_empty)\n"
+-	   "};\n\n", fname_in);
++	   "};\n\n", lbasename (fname_in));
+ 
+   fprintf (cfile,
+ 	   "static const struct gcn_image {\n"

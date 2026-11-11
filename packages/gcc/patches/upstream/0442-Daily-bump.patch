@@ -1,0 +1,46 @@
+From 2cc1be9c9bf78ba01ee37fa09d9906060685cb56 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Wed, 11 Nov 2026 00:21:30 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/DATESTAMP           | 2 +-
+ gcc/testsuite/ChangeLog | 8 ++++++++
+ libcpp/po/ChangeLog     | 4 ++++
+ 3 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 125eb60dfc03..362936c5e737 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261110
++20261111
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 27c276640c62..296e2e8cf8fd 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,11 @@
++2026-11-10  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	Backported from master:
++	2026-11-10  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
++
++	PR testsuite/124262
++	* gcc.dg/fold-round-1.c: Require c99_runtime.
++
+ 2026-11-09  Martin Jambor  <mjambor@suse.cz>
+ 
+ 	Backported from master:
+diff --git a/libcpp/po/ChangeLog b/libcpp/po/ChangeLog
+index 66b3d798e06a..112e17186a28 100644
+--- a/libcpp/po/ChangeLog
++++ b/libcpp/po/ChangeLog
+@@ -1,3 +1,7 @@
++2026-11-10  Joseph Myers  <josmyers@redhat.com>
++
++	* lv.po: New file.
++
+ 2026-08-07  Release Manager
+ 
+ 	* GCC 16.2.0 released.
