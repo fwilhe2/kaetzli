@@ -1,0 +1,199 @@
+From c0260aebc3e5ca7fb8e90b0ab6fba4d0e98bc4b7 Mon Sep 17 00:00:00 2001
+From: David Faust <david.faust@oss.qualcomm.com>
+Date: Tue, 10 Nov 2026 12:40:57 -0800
+Subject: [PATCH] bpf: fix memmove backward loops with remainders [PR128440]
+
+The backwards move loops emitted when expanding memmove were wrong if
+the loop had any remainder resulting in the wrong bytes being copied.
+For backwards loops the order of handling the alignment-sized chunks and
+remainder needs to be reversed.
+
+Add a new dedicated function emit_move_loop_back to handle the backwards
+move loops, and use it when appropriate.
+
+This patch also removes some unneeded code to update the remainder in
+emit_move_loop, as was pointed out in the PR.
+
+	PR target/128440
+
+gcc/
+
+	* config/bpf/bpf.cc (emit_move_loop): Remove buggy negative
+	increment remainder handling.  Remove dead remainder updates.
+	(emit_move_loop_backwards): New function.
+	(bpf_expand_cpymem): Use it here instead of emit_move_loop with
+	negative increment.
+
+gcc/testsuite/
+
+	* gcc.target/bpf/memmove-5.c: New test.
+	* gcc.target/bpf/memmove-6.c: New test.
+	* gcc.target/bpf/memmove-7.c: New test.
+
+Suggested-by: <mateuszb@poczta.onet.pl>
+Signed-off-by: David Faust <david.faust@oss.qualcomm.com>
+(cherry picked from commit abb5fe17e1bb22f10cafc90f322577b0bcb41bb4)
+---
+ gcc/config/bpf/bpf.cc                    | 43 +++++++++++++++++++++---
+ gcc/testsuite/gcc.target/bpf/memmove-5.c | 23 +++++++++++++
+ gcc/testsuite/gcc.target/bpf/memmove-6.c | 21 ++++++++++++
+ gcc/testsuite/gcc.target/bpf/memmove-7.c | 19 +++++++++++
+ 4 files changed, 101 insertions(+), 5 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/bpf/memmove-5.c
+ create mode 100644 gcc/testsuite/gcc.target/bpf/memmove-6.c
+ create mode 100644 gcc/testsuite/gcc.target/bpf/memmove-7.c
+
+diff --git a/gcc/config/bpf/bpf.cc b/gcc/config/bpf/bpf.cc
+index e92136567b5a..c1de0fdf37bb 100644
+--- a/gcc/config/bpf/bpf.cc
++++ b/gcc/config/bpf/bpf.cc
+@@ -1366,15 +1366,13 @@ emit_move_loop (rtx src, rtx dst, machine_mode mode, int offset, int inc,
+     {
+       emit_insn (gen_rtx_SET (adjust_address (dst, SImode, offset),
+ 			      adjust_address (src, SImode, offset)));
+-      offset += (inc < 0 ? -4 : 4);
+-      remainder -= 4;
++      offset += 4;
+     }
+   if (remainder & 2)
+     {
+       emit_insn (gen_rtx_SET (adjust_address (dst, HImode, offset),
+ 			      adjust_address (src, HImode, offset)));
+-      offset += (inc < 0 ? -2 : 2);
+-      remainder -= 2;
++      offset += 2;
+     }
+   if (remainder & 1)
+     {
+@@ -1383,6 +1381,41 @@ emit_move_loop (rtx src, rtx dst, machine_mode mode, int offset, int inc,
+     }
+ }
+ 
++/* As above, but use a backwards loop.  For memmove when the source and
++   destination overlap with source higher than dest.  */
++
++static void
++emit_move_loop_back (rtx src, rtx dst, machine_mode mode, int offset, int inc,
++		     unsigned iters, unsigned remainder)
++{
++  /* First handle trailing bytes.  */
++  if (remainder & 1)
++    {
++      offset -= 1;
++      emit_insn (gen_rtx_SET (adjust_address (dst, QImode, offset),
++			      adjust_address (src, QImode, offset)));
++    }
++  if (remainder & 2)
++    {
++      offset -= 2;
++      emit_insn (gen_rtx_SET (adjust_address (dst, HImode, offset),
++			      adjust_address (src, HImode, offset)));
++    }
++  if (remainder & 4)
++    {
++      offset -= 4;
++      emit_insn (gen_rtx_SET (adjust_address (dst, SImode, offset),
++			      adjust_address (src, SImode, offset)));
++    }
++  /* Copy in chunks as large as the alignment permits.  */
++  for (unsigned int i = 0; i < iters; i++)
++    {
++      offset -= inc;
++      emit_insn (gen_rtx_SET (adjust_address (dst, mode, offset),
++			      adjust_address (src, mode, offset)));
++    }
++}
++
+ /* Expand cpymem/movmem, as from __builtin_memcpy/memmove.
+    OPERANDS are the same as the cpymem/movmem patterns.
+    IS_MOVE is true if this is a memmove, false for memcpy.
+@@ -1455,7 +1488,7 @@ bpf_expand_cpymem (rtx *operands, bool is_move)
+ 			       true, fwd_label, profile_probability::even ());
+ 
+       /* Emit the "backwards" unrolled loop.  */
+-      emit_move_loop (src, dst, mode, (size_bytes - inc), -inc, iters, remainder);
++      emit_move_loop_back (src, dst, mode, size_bytes, inc, iters, remainder);
+       emit_jump_insn (gen_jump (done_label));
+       emit_barrier ();
+ 
+diff --git a/gcc/testsuite/gcc.target/bpf/memmove-5.c b/gcc/testsuite/gcc.target/bpf/memmove-5.c
+new file mode 100644
+index 000000000000..65823b20a906
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/bpf/memmove-5.c
+@@ -0,0 +1,23 @@
++/* Check that the backward memmove loop moves the correct bytes for increments
++   larger than 1.  PR target/128440.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -masm=normal" } */
++
++long  lbuf[4];
++
++void
++g (void) {
++  __builtin_memmove (&lbuf[1], &lbuf[0], 13);
++}
++
++/* { dg-final { scan-assembler-times {ldxb[^\r\n]+\[%r[0-9]\+12\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxw[^\r\n]+\[%r[0-9]\+8\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxdw[^\r\n]+\[%r[0-9]\+0\]} 2 } } */
++/* { dg-final { scan-assembler-times {stxb[^\r\n]+\[%r[0-9]\+12\]} 2 } } */
++/* { dg-final { scan-assembler-times {stxw[^\r\n]+\[%r[0-9]\+8\]} 2 } } */
++/* { dg-final { scan-assembler-times {stxdw[^\r\n]+\[%r[0-9]\+0\]} 2 } } */
++
++/* No other offsets should be used.  */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+[2-79]+\]} } } */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+1\]} } } */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\-} } } */
+diff --git a/gcc/testsuite/gcc.target/bpf/memmove-6.c b/gcc/testsuite/gcc.target/bpf/memmove-6.c
+new file mode 100644
+index 000000000000..51b3dfe1ac8f
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/bpf/memmove-6.c
+@@ -0,0 +1,21 @@
++/* Check that the backward memmove loop moves the correct bytes for increments
++   larger than 1.  PR target/128440.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -masm=normal" } */
++
++int ibuf[4];
++
++void
++g (void) {
++  __builtin_memmove (&ibuf[1], &ibuf[0], 11);
++}
++
++/* { dg-final { scan-assembler-times {ldxb[^\r\n]+\[%r[0-9]\+10\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxh[^\r\n]+\[%r[0-9]\+8\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxw[^\r\n]+\[%r[0-9]\+4\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxw[^\r\n]+\[%r[0-9]\+0\]} 2 } } */
++
++/* No other offsets should be used.  */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+[235679]+\]} } } */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+1\]} } } */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\-} } } */
+diff --git a/gcc/testsuite/gcc.target/bpf/memmove-7.c b/gcc/testsuite/gcc.target/bpf/memmove-7.c
+new file mode 100644
+index 000000000000..159f0ca240d5
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/bpf/memmove-7.c
+@@ -0,0 +1,19 @@
++/* Check that the backward memmove loop moves the correct bytes for increments
++   larger than 1.  PR target/128440.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -masm=normal" } */
++
++short sbuf[10];
++
++void
++g (void) {
++  __builtin_memmove (&sbuf[1], &sbuf[0], 5);
++}
++
++/* { dg-final { scan-assembler-times {ldxb[^\r\n]+\[%r[0-9]\+4\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxh[^\r\n]+\[%r[0-9]\+2\]} 2 } } */
++/* { dg-final { scan-assembler-times {ldxh[^\r\n]+\[%r[0-9]\+0\]} 2 } } */
++
++/* No other offsets should be used.  */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\+[1356-9]+\]} } } */
++/* { dg-final { scan-assembler-not {\[%r[0-9]\-} } } */
