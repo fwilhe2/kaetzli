@@ -1,0 +1,65 @@
+From 3c632b99e2192ac7cd65a95a1cb049cc48ea350e Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Thu, 12 Nov 2026 00:21:19 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 21 +++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/testsuite/ChangeLog | 10 ++++++++++
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 3c5ef4080122..4b5e6db7db98 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,24 @@
++2026-11-11  David Faust  <david.faust@oss.qualcomm.com>
++
++	Backported from master:
++	2026-11-10  David Faust  <david.faust@oss.qualcomm.com>
++
++	PR target/128440
++	* config/bpf/bpf.cc (emit_move_loop): Remove buggy negative
++	increment remainder handling.  Remove dead remainder updates.
++	(emit_move_loop_backwards): New function.
++	(bpf_expand_cpymem): Use it here instead of emit_move_loop with
++	negative increment.
++
++2026-11-11  Tobias Burnus  <tburnus@baylibre.com>
++
++	Backported from master:
++	2026-11-11  Tobias Burnus  <tburnus@baylibre.com>
++		    Jeremy Robinson  <jrobinson@baylibre.com>
++
++	* config/gcn/mkoffload.cc (process_obj): Use lbasename on the
++	gcn_o_name file name.
++
+ 2026-11-09  Martin Jambor  <mjambor@suse.cz>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 362936c5e737..f668010427bd 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261111
++20261112
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 296e2e8cf8fd..b8d098d3dc1b 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,13 @@
++2026-11-11  David Faust  <david.faust@oss.qualcomm.com>
++
++	Backported from master:
++	2026-11-10  David Faust  <david.faust@oss.qualcomm.com>
++
++	PR target/128440
++	* gcc.target/bpf/memmove-5.c: New test.
++	* gcc.target/bpf/memmove-6.c: New test.
++	* gcc.target/bpf/memmove-7.c: New test.
++
+ 2026-11-10  Torbjörn SVENSSON  <torbjorn.svensson@foss.st.com>
+ 
+ 	Backported from master:
