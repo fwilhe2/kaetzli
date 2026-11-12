@@ -1,0 +1,81 @@
+From 79435875ebad22469c79ded9ff0089e82c20f0b1 Mon Sep 17 00:00:00 2001
+From: Harald Anlauf <anlauf@gmx.de>
+Date: Tue, 20 Oct 2026 20:29:19 +0200
+Subject: [PATCH] fortran: Prevent gfc_copy_expr() truncating strings
+ containing NUL [PR127892]
+
+gfc_copy_expr() would create a truncated copy of the internal
+representation of a string when it contained a NUL character.  This can
+occur while simplifying TRANSFER when the physical representation of its
+result is longer than that of SOURCE, and MOLD is of type CHARACTER.
+This lead to an invalid read reported by valgrind.
+
+	PR fortran/127892
+
+gcc/fortran/ChangeLog:
+
+	* expr.cc (gfc_copy_expr): Ensure that the result representation
+	length is the same as that of the source.
+	* gfortran.h (gfc_char_to_widechar): Adjust prototype.
+	* scanner.cc (gfc_char_to_widechar): Add optional argument for
+	the result representation length, instead of deriving it from the
+	string argument.
+
+(cherry picked from commit 7099a54b01a0cd04247fe88e3545916ab5ee0d22)
+---
+ gcc/fortran/expr.cc    | 3 ++-
+ gcc/fortran/gfortran.h | 2 +-
+ gcc/fortran/scanner.cc | 6 ++++--
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/gcc/fortran/expr.cc b/gcc/fortran/expr.cc
+index 13389bbc6c0b..b0e6054aea8d 100644
+--- a/gcc/fortran/expr.cc
++++ b/gcc/fortran/expr.cc
+@@ -349,7 +349,8 @@ gfc_copy_expr (gfc_expr *p)
+ 	  if (p->representation.string
+ 	      && p->ts.kind == gfc_default_character_kind)
+ 	    q->value.character.string
+-	      = gfc_char_to_widechar (q->representation.string);
++	      = gfc_char_to_widechar (q->representation.string,
++				      p->representation.length);
+ 	  else
+ 	    {
+ 	      s = gfc_get_wide_string (p->value.character.length + 1);
+diff --git a/gcc/fortran/gfortran.h b/gcc/fortran/gfortran.h
+index 6f387c684768..903455e95a36 100644
+--- a/gcc/fortran/gfortran.h
++++ b/gcc/fortran/gfortran.h
+@@ -3526,7 +3526,7 @@ size_t gfc_wide_strlen (const gfc_char_t *);
+ int gfc_wide_strncasecmp (const gfc_char_t *, const char *, size_t);
+ gfc_char_t *gfc_wide_memset (gfc_char_t *, gfc_char_t, size_t);
+ char *gfc_widechar_to_char (const gfc_char_t *, int);
+-gfc_char_t *gfc_char_to_widechar (const char *);
++gfc_char_t *gfc_char_to_widechar (const char *, gfc_charlen_t = -1);
+ 
+ #define gfc_get_wide_string(n) XCNEWVEC (gfc_char_t, n)
+ 
+diff --git a/gcc/fortran/scanner.cc b/gcc/fortran/scanner.cc
+index ccd44a145d55..9b77e5590654 100644
+--- a/gcc/fortran/scanner.cc
++++ b/gcc/fortran/scanner.cc
+@@ -203,7 +203,7 @@ gfc_widechar_to_char (const gfc_char_t *s, int length)
+ }
+ 
+ gfc_char_t *
+-gfc_char_to_widechar (const char *s)
++gfc_char_to_widechar (const char *s, gfc_charlen_t length)
+ {
+   size_t len, i;
+   gfc_char_t *res;
+@@ -211,7 +211,9 @@ gfc_char_to_widechar (const char *s)
+   if (s == NULL)
+     return NULL;
+ 
+-  len = strlen (s);
++  /* Passing a negative length is used to indicate that length should be
++     calculated using strlen().  */
++  len = (length >= 0 ? (size_t) length : strlen (s));
+   res = gfc_get_wide_string (len + 1);
+ 
+   for (i = 0; i < len; i++)
