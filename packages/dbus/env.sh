@@ -1,9 +1,9 @@
-VERSION="1.16.2"
+VERSION="1.16.4"
 PACKAGE="dbus-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://dbus.freedesktop.org/releases/dbus/${TARBALL}"
 SIG_URL="${URL}.asc"
-SHA256="0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2"
+SHA256="d08b05526c2cb7966a5fb79210d6112b1aca3d135f315c1b302e14b4b0297dac"
 LICENSE="AFL-2.1 OR GPL-2.0-or-later"
 CPE="cpe:2.3:a:freedesktop:dbus:${VERSION}:*:*:*:*:*:*:*"
 # dbus numbers its development releases with an odd minor (1.15.x, 1.17.x) and files
