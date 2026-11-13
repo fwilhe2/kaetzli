@@ -149,12 +149,13 @@ def main(argv: list[str]) -> int:
                     "the signed boot's sealed command line is not Secure Boot's doing"
                 )
             # bash is PID 1, so nothing mounted /sys or efivarfs: what systemd would. It
-            # read /etc/bashrc (interactive), whose grep alias colours the match.
+            # read /etc/bashrc (interactive), whose grep alias colours the match; `command`
+            # skips it (an unalias on the same line would not: bash expands aliases as it
+            # reads the line, before running any of it).
             g.mark()
             g.send(
-                "unalias -a; "
                 "mount -t sysfs sysfs /sys; mount -t efivarfs efivarfs /sys/firmware/efi/efivars; "
-                f"fetch --no-color | grep 'Secure Boot:'; echo {MARKER[:6]}'{MARKER[6:]}'"
+                f"fetch --no-color | command grep 'Secure Boot:'; echo {MARKER[:6]}'{MARKER[6:]}'"
             )
             if not g.wait(MARKER, 30):
                 g.fail("no answer from the shell")
