@@ -302,6 +302,11 @@ compile, install); CI's `build` matrix is generated from `packages/`. Shared mac
   everywhere the first is. With **`VENDOR_VERSION`** it has its own version (tcpdump's libpcap,
   linux-tools' libtraceevent): checked as `<pkg>/<VENDOR_NAME>` from `VENDOR_UPSTREAM_*`, bumped
   with `--vendor`; otherwise it follows `VERSION`.
+- **`GO_MODULES=1`**: a Go tarball with `go.sum` but no `vendor/` (cni-plugins). Fetch puts
+  every module `go.sum` names into `downloads/go-modules/<PACKAGE>/` (proxy layout, each
+  checked against its `h1:`; in the sources image, checked by `kaetzli.source`); extraction
+  runs `go mod vendor` offline with that as `GOPROXY=file://`. Nothing extra to pin: the
+  tarball's SHA256 pins `go.sum`.
 - **`LOCAL_SOURCE=1`**: source is `packages/<pkg>/src/` (`packages/fetch`), no
   `TARBALL`/`URL`/`SHA256`, mounted **read-only** — compile to `DESTDIR` or `/tmp`. The CI cache
   key hashes `src/`. fetch-sources, prep, image-tags and check-updates skip it.

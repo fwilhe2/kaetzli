@@ -174,6 +174,82 @@ def test_verify_names_patches_the_commit_lacks(tmp_path):
     assert problems == ["a: patches/a differ from the commit's packages/a/patches"]
 
 
+# --- Go modules (GO_MODULES=1): go.sum, from the verified tarball, pins every file ------
+
+GOMOD = Path(__file__).parent / "fixtures" / "go-modules"
+ERRORS = "go-modules/g-1/github.com/pkg/errors/@v/v0.9.1"
+
+
+def test_go_hash_is_gos_h1_for_a_zip_and_a_go_mod():
+    sums = dict(
+        (f"{mod} {ver}", h) for mod, ver, h in (ln.split() for ln in (GOMOD / "go.sum").open())
+    )
+    v = GOMOD / "proxy/github.com/pkg/errors/@v"
+    assert source.go_hash(v / "v0.9.1.zip") == sums["github.com/pkg/errors v0.9.1"]
+    assert source.go_hash(v / "v0.9.1.mod") == sums["github.com/pkg/errors v0.9.1/go.mod"]
+
+
+def test_fetch_sources_go_hash_agrees_with_go():
+    # The bash one that admits each file into downloads/ (tools/fetch-sources.sh).
+    script = (repo.ROOT / "tools/fetch-sources.sh").read_text()
+    funcs = script[script.index("go_escape()") : script.index("verify()")]
+    v = GOMOD / "proxy/github.com/pkg/errors/@v"
+    out = subprocess.run(
+        ["bash", "-c", f'{funcs}\ngo_hash "$1"; go_hash "$2"; go_escape "$3"', "_",
+         v / "v0.9.1.zip", v / "v0.9.1.mod", "github.com/BurntSushi/toml"],
+        capture_output=True, text=True, check=True,
+    ).stdout.split()  # fmt: skip
+    assert out == [
+        "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+        "h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=",
+        "github.com/!burnt!sushi/toml",
+    ]
+
+
+def go_tree(tmp_path: Path) -> tuple[Path, Path]:
+    """A checkout with one GO_MODULES package, g, and a sources image that is all its."""
+    t = tree(tmp_path, patches=False)
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w:gz") as tar:
+        data = (GOMOD / "go.sum").read_bytes()
+        info = tarfile.TarInfo("plugins-1/go.sum")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+    tarball = raw.getvalue()
+    (t / "packages/g").mkdir()
+    (t / "packages/g/env.sh").write_text(
+        f'VERSION=1\nPACKAGE="g-$VERSION"\nTARBALL="$PACKAGE.tar.gz"\nSHA256={sha(tarball)}\n'
+        "GO_MODULES=1\n"
+    )
+    s = sources_dir(tmp_path, patch=None)
+    shutil.rmtree(s / "patches")
+    (s / "g-1.tar.gz").write_bytes(tarball)
+    shutil.copytree(GOMOD / "proxy", s / "go-modules/g-1")
+    return t, s
+
+
+def test_verify_passes_go_modules_that_are_go_sums(tmp_path):
+    assert source.verify(*go_tree(tmp_path)) == []
+
+
+def test_verify_names_a_go_module_that_is_not_go_sums(tmp_path):
+    t, s = go_tree(tmp_path)
+    (s / f"{ERRORS}.zip").write_bytes(b"other")
+    assert source.verify(t, s) == [f"g: {ERRORS}.zip does not match go.sum"]
+
+
+def test_verify_names_a_missing_go_module(tmp_path):
+    t, s = go_tree(tmp_path)
+    (s / f"{ERRORS}.mod").unlink()
+    assert source.verify(t, s) == [f"g: {ERRORS}.mod is not in the sources image"]
+
+
+def test_verify_names_a_file_go_sum_does_not(tmp_path):
+    t, s = go_tree(tmp_path)
+    (s / f"{ERRORS}.info").write_text("{}")
+    assert source.verify(t, s) == [f"g: {ERRORS}.info is not in go.sum"]
+
+
 # --- the whole run, against a throwaway git repository ----------------------------------
 
 

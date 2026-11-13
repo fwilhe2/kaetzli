@@ -201,6 +201,13 @@ seed_downloads() {
     podman cp "$ctr:/sources/." "$seed/"
     podman rm "$ctr" >/dev/null
     rm -rf "$seed/patches"
+    # Go modules by directory: fetch-sources.sh keeps a file only where go.sum's hash
+    # matches, and fetches the rest.
+    if [ -d "$seed/go-modules" ]; then
+        mkdir -p downloads/go-modules
+        cp -rn "$seed/go-modules/." downloads/go-modules/
+        rm -rf "$seed/go-modules"
+    fi
     declare -A by_sha=()
     while read -r sha path; do by_sha[$sha]=$path; done \
         < <(find "$seed" -type f -print0 | xargs -0 -r sha256sum)
@@ -241,6 +248,11 @@ else
               cp "downloads/$TARBALL" "$stage/sources/$TARBALL"
               if [ -n "${VENDOR_TARBALL:-}" ]; then
                   cp "downloads/$VENDOR_TARBALL" "$stage/sources/$VENDOR_TARBALL"
+              fi
+              # GO_MODULES=1: its modules, as fetch-sources.sh left them (exactly go.sum's).
+              if [ -n "${GO_MODULES:-}" ]; then
+                  mkdir -p "$stage/sources/go-modules"
+                  cp -r "downloads/go-modules/$PACKAGE" "$stage/sources/go-modules/$PACKAGE"
               fi
               # The patches too, as /sources/patches/<pkg>/, so the image alone is every
               # byte of source a build compiles. A build reads them from the checkout, which

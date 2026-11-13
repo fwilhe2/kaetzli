@@ -51,6 +51,9 @@ case "${1:-}" in
                          if [ -n "${VENDOR_TARBALL:-}" ]; then
                              printf '%s %s %s\n' "$PKG" "$VENDOR_TARBALL" "$VENDOR_SHA256"
                          fi
+                         # Its Go modules: the tarball's go.sum pins them, the flag says
+                         # they are in the image.
+                         [ -z "${GO_MODULES:-}" ] || printf '%s go-modules\n' "$PKG"
                          # The patches it carries (tools/prep.sh copies them in). Nothing
                          # for a package without any, so this leaves every other tag alone.
                          digest=$(patches_digest "$PKG")

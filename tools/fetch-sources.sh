@@ -51,6 +51,83 @@ fetch_one() {
     if [ -n "${VENDOR_TARBALL:-}" ]; then
         fetch_file "$pkg" "$VENDOR_TARBALL" "$VENDOR_URL" "${VENDOR_SHA256:-}" "" || return 1
     fi
+
+    if [ -n "${GO_MODULES:-}" ]; then
+        fetch_go_modules "$pkg" "downloads/$TARBALL" "downloads/go-modules/$PACKAGE" || return 1
+    fi
+}
+
+# fetch_go_modules <pkg> <tarball> <dir> — GO_MODULES=1: a Go program whose tarball has
+# go.mod and go.sum but no vendor/ (cni-plugins from 1.10.0). Every module its go.sum
+# names, from the module proxy into <dir>, laid out as a proxy is (<module>/@v/<version>.zip
+# and .mod), which build.sh turns into vendor/ with `go mod vendor` and GOPROXY=file://.
+#
+# Nothing to pin beyond the tarball: go.sum is in it, and holds a hash of every file here.
+# Each is checked against it on the way in, as a tarball against its SHA256, so a
+# directory left by an earlier run or the sources image is reused only where it matches.
+# Go checks them again when it vendors.
+GOPROXY_URL="${GOPROXY_URL:-https://proxy.golang.org}"
+fetch_go_modules() {
+    local pkg=$1 tarball=$2 dir=$3 sums mod ver hash file url want=() fetched=0 bad=0
+    sums=$(tar -xOf "$tarball" --wildcards --no-wildcards-match-slash '*/go.sum') || {
+        echo "error: $pkg sets GO_MODULES but $tarball has no go.sum at its top" >&2
+        return 1
+    }
+    local cfg
+    cfg=$(mktemp)
+    while read -r mod ver hash; do
+        # The proxy's case-encoding: an upper-case letter is ! and the lower-case one.
+        file="$dir/$(go_escape "$mod")/@v/$(go_escape "${ver%/go.mod}")"
+        if [ "${ver%/go.mod}" != "$ver" ]; then file+=.mod; else file+=.zip; fi
+        want+=("$file $hash")
+        [ -f "$file" ] && [ "$(go_hash "$file")" = "$hash" ] && continue
+        rm -f "$file"
+        url="$GOPROXY_URL/${file#"$dir"/}"
+        printf 'url = "%s"\noutput = "%s"\n' "$url" "$file" >> "$cfg"
+        fetched=$((fetched + 1))
+    done <<< "$sums"
+    if [ "$fetched" -gt 0 ]; then
+        echo "  $pkg: fetching $fetched of ${#want[@]} Go modules from $GOPROXY_URL"
+        "${CURL_DOWNLOAD[@]}" --parallel --parallel-max 8 --create-dirs --config "$cfg" || {
+            rm -f "$cfg"; echo "error: could not fetch the Go modules of $pkg" >&2; return 1; }
+    fi
+    rm -f "$cfg"
+    local entry
+    for entry in "${want[@]}"; do
+        file=${entry% *} hash=${entry##* }
+        [ "$(go_hash "$file")" = "$hash" ] && continue
+        echo "  $pkg: GO.SUM MISMATCH for $file" >&2
+        echo "         expected $hash" >&2
+        echo "         got      $(go_hash "$file")" >&2
+        rm -f "$file"
+        bad=$((bad + 1))
+    done
+    [ "$bad" -eq 0 ] || return 1
+    # What go.sum no longer names (an earlier version's), so the directory is exactly the set.
+    find "$dir" -type f | LC_ALL=C sort | comm -23 - <(printf '%s\n' "${want[@]%% *}" | LC_ALL=C sort) \
+        | xargs -r rm -f
+    find "$dir" -type d -empty -delete
+    echo "  $pkg: ${#want[@]} Go modules present and verified against go.sum"
+}
+
+# go_escape <path-or-version> — the module proxy's spelling of a module path or version.
+# shellcheck disable=SC2001 # \L, which ${var//} has no equivalent of
+go_escape() { sed 's/[A-Z]/!\L&/g' <<< "$1"; }
+
+# go_hash <file> — go.sum's h1: hash of a module zip or go.mod (golang.org/x/mod's
+# dirhash.Hash1): SHA-256 of the lines "<sha256>  <name>", names sorted bytewise, where a
+# zip's names are its entries (module@version/...) and a go.mod's is "go.mod".
+# shellcheck disable=SC2001
+go_hash() {
+    local f=$1 tmp
+    case "$f" in
+        *.mod) printf '%s  go.mod\n' "$(sha256sum < "$f" | cut -d' ' -f1)" ;;
+        *.zip)
+            tmp=$(mktemp -d)
+            unzip -q "$f" -d "$tmp" 2>/dev/null || { rm -rf "$tmp"; echo invalid; return 0; }
+            (cd "$tmp" && find . -type f -printf '%P\0' | LC_ALL=C sort -z | xargs -0 -r sha256sum)
+            rm -rf "$tmp" ;;
+    esac | sha256sum | cut -d' ' -f1 | { read -r hex; printf "%b" "$(sed 's/../\\x&/g' <<< "$hex")" | base64 | sed 's/^/h1:/'; }
 }
 
 # fetch_file <pkg> <tarball> <url> <sha256> <mirrors>

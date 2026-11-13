@@ -42,6 +42,7 @@ import tarfile
 import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -180,6 +181,76 @@ def pins(tree: Path) -> list[Pin]:
     return [Pin(*line.split("\t")) for line in out.splitlines()]
 
 
+def go_module_packages(tree: Path) -> list[tuple[str, str, str]]:
+    """(pkg, PACKAGE, TARBALL) for each GO_MODULES=1 package: its modules are in the
+    sources image as go-modules/<PACKAGE>/, laid out as the module proxy serves them."""
+    out = _bash(
+        tree,
+        """for p in $(all_packages); do
+             ( load_env "$p"
+               [ -z "${GO_MODULES:-}" ] ||
+                   printf '%s\\t%s\\t%s\\n' "$p" "$PACKAGE" "$TARBALL" )
+           done""",
+    )
+    return [tuple(line.split("\t")) for line in out.splitlines()]  # type: ignore[misc]
+
+
+def go_escape(s: str) -> str:
+    """The module proxy's case-encoding: an upper-case letter is ! and its lower case."""
+    return "".join(f"!{c.lower()}" if c.isupper() else c for c in s)
+
+
+def go_hash(f: Path) -> str:
+    """go.sum's h1: hash (golang.org/x/mod's dirhash.Hash1) of a module zip or go.mod:
+    SHA-256 over "<sha256>  <name>" lines, names sorted bytewise."""
+    if f.suffix == ".mod":
+        files = [("go.mod", f.read_bytes())]
+    else:
+        try:
+            with zipfile.ZipFile(f) as z:
+                files = [(i.filename, z.read(i)) for i in z.infolist() if not i.is_dir()]
+        except zipfile.BadZipFile:
+            return "not a zip"
+    summary = "".join(
+        f"{hashlib.sha256(data).hexdigest()}  {name}\n"
+        for name, data in sorted(files, key=lambda x: x[0].encode())
+    )
+    return "h1:" + base64.b64encode(hashlib.sha256(summary.encode()).digest()).decode()
+
+
+def _go_sum(tarball: Path) -> str:
+    with tarfile.open(tarball) as t:
+        for m in t.getmembers():
+            if m.isfile() and m.name.count("/") == 1 and m.name.endswith("/go.sum"):
+                return t.extractfile(m).read().decode()  # type: ignore[union-attr]
+    return ""
+
+
+def _verify_go_modules(pkg: str, package: str, tarball: str, sources: Path) -> list[str]:
+    """go-modules/<package>/ against the go.sum in its (already checked) tarball: every
+    file it names, matching, and nothing else."""
+    root = sources / "go-modules" / package
+    want: dict[str, str] = {}
+    for line in _go_sum(sources / tarball).splitlines():
+        mod, ver, h = line.split()
+        ext = ".mod" if ver.endswith("/go.mod") else ".zip"
+        ver = ver.removesuffix("/go.mod")
+        want[f"{go_escape(mod)}/@v/{go_escape(ver)}{ext}"] = h
+    problems = []
+    for rel, h in sorted(want.items()):
+        f = root / rel
+        if not f.is_file():
+            problems.append(f"{pkg}: go-modules/{package}/{rel} is not in the sources image")
+        elif go_hash(f) != h:
+            problems.append(f"{pkg}: go-modules/{package}/{rel} does not match go.sum")
+    if root.is_dir():
+        for f in sorted(root.rglob("*")):
+            rel = f.relative_to(root).as_posix()
+            if f.is_file() and rel not in want:
+                problems.append(f"{pkg}: go-modules/{package}/{rel} is not in go.sum")
+    return problems
+
+
 def sources_ref(tree: Path) -> str:
     """The sources image the commit names: its own tools/image-tags.sh."""
     return subprocess.run(
@@ -215,6 +286,11 @@ def verify(tree: Path, sources: Path) -> list[str]:
         ours, theirs = tree / "packages" / pkg / "patches", sources / "patches" / pkg
         if ours.is_dir() != theirs.is_dir() or (ours.is_dir() and not _same_tree(ours, theirs)):
             problems.append(f"{pkg}: patches/{pkg} differ from the commit's packages/{pkg}/patches")
+    bad = {p.split(":")[0] for p in problems}
+    for pkg, package, tarball in go_module_packages(tree):
+        if pkg in bad:
+            continue  # its go.sum is in a tarball already found wanting
+        problems += _verify_go_modules(pkg, package, tarball, sources)
     return problems
 
 
@@ -258,12 +334,15 @@ The complete corresponding source of the Kaetzli images built from commit
       Every upstream tarball the build compiled, from the sources image
       {ref}
       and sources/patches/<pkg>/, the patches as they were applied. Every tarball here
-      matches the SHA-256 pinned in packages/<pkg>/env.sh.
+      matches the SHA-256 pinned in packages/<pkg>/env.sh. sources/go-modules/<package>/
+      are the Go modules of a package whose tarball has no vendor/ (GO_MODULES=1), each
+      matching the go.sum in that tarball.
 
   SHA256SUMS
       Every file above.
 
-To rebuild: unpack the repository, copy sources/*.tar.* into its downloads/ and run
+To rebuild: unpack the repository, copy sources/*.tar.* and sources/go-modules/ into its
+downloads/ and run
 ./tools/build-image.sh (README.md says what the host needs). The compilers are Debian's,
 from the snapshot builder/Containerfile pins.
 
