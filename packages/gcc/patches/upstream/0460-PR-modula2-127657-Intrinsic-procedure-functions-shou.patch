@@ -1,0 +1,130 @@
+From b4315752b59233f15855b0c5e16014ff76e14ef8 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 21:39:57 +0000
+Subject: [PATCH] PR modula2/127657: Intrinsic procedure functions should
+ filter spelling hints based on context
+
+This patch adds context filtering to both parameters of the intrinsic
+procedure function VAL.  It will filter the first on type and the second
+on constants, expressions and variables.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127657
+	* gm2-compiler/M2Quads.mod (BuildValFunction): Add filtering
+	spell check for unknown symbols.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/127657
+	* gm2.dg/spell/iso/fail/valspell.mod: New test.
+	* gm2.dg/spell/iso/fail/valspell2.mod: New test.
+	* gm2.dg/spell/iso/fail/valspell3.mod: New test.
+
+(cherry picked from commit 4b5848cf526e24b21d9bef6f25fc9e6f56775a0a)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-compiler/M2Quads.mod                  | 10 +++++++++-
+ gcc/testsuite/gm2.dg/spell/iso/fail/valspell.mod | 16 ++++++++++++++++
+ .../gm2.dg/spell/iso/fail/valspell2.mod          | 16 ++++++++++++++++
+ .../gm2.dg/spell/iso/fail/valspell3.mod          | 16 ++++++++++++++++
+ 4 files changed, 57 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/valspell.mod
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/valspell2.mod
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/valspell3.mod
+
+diff --git a/gcc/m2/gm2-compiler/M2Quads.mod b/gcc/m2/gm2-compiler/M2Quads.mod
+index 498f1b4c3199..79a3a8b7a934 100644
+--- a/gcc/m2/gm2-compiler/M2Quads.mod
++++ b/gcc/m2/gm2-compiler/M2Quads.mod
+@@ -9585,7 +9585,7 @@ BEGIN
+          (* It is sensible not to try and recover when we dont know the return type.  *)
+          MetaErrorT1 (typetok,
+                       'undeclared type found in builtin procedure function' +
+-                      ' {%AkVAL} {%1ad} {%1&s}', Type) ;
++                      ' {%AkVAL} {%1ad} {%1&Ts}', Type) ;
+          (* Non recoverable error.  *)
+          UnknownReported (Type)
+       ELSIF ConstExprError (ProcSym, Exp, exptok, ConstExpr)
+@@ -9595,6 +9595,14 @@ BEGIN
+          ReturnVar := MakeTemporary (combinedtok, AreConstant (IsConst (Exp))) ;
+          PutVar (ReturnVar, Type) ;
+          PushTFtok (ReturnVar, Type, combinedtok)
++      ELSIF IsUnknown (Exp)
++      THEN
++         (* Spellcheck.  *)
++         MetaErrorT1 (exptok,
++                      'undeclared variable or constant expression found in builtin procedure function' +
++                      ' {%AkVAL} {%1ad} {%1&VCs}', Exp) ;
++         (* Non recoverable error.  *)
++         UnknownReported (Exp)
+       ELSIF (IsSet (Type) OR IsEnumeration (Type) OR IsSubrange (Type) OR
+              IsType (Type) OR IsPointer (Type) OR IsProcType (Type)) AND
+              (IsVar (Exp) OR IsConst (Exp) OR IsProcedure (Exp))
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/valspell.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell.mod
+new file mode 100644
+index 000000000000..6a2a905b21d6
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell.mod
+@@ -0,0 +1,16 @@
++
++(* { dg-do compile } *)
++(* { dg-options "-g -c" } *)
++
++MODULE valspell ;
++
++CONST
++   CARDINAl = 1 ;
++VAR
++   c: CARDINAL ;
++   i: INTEGER ;
++BEGIN
++   i := 1 ;
++   c := VAL (CARDIN, i)
++   (* { dg-error "undeclared type found in builtin procedure function VAL 'CARDIN', did you mean CARDINAL" "CARDIN" { target *-*-* } 14 } *)
++END valspell.
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/valspell2.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell2.mod
+new file mode 100644
+index 000000000000..3a1ef707178a
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell2.mod
+@@ -0,0 +1,16 @@
++
++(* { dg-do compile } *)
++(* { dg-options "-g -c" } *)
++
++MODULE valspell2 ;
++
++TYPE
++   i1 = CHAR ;
++VAR
++   c: CARDINAL ;
++   i9: INTEGER ;
++BEGIN
++   i9 := 1 ;
++   c := VAL (CARDINAL, ii)
++   (* { dg-error "undeclared variable or constant expression found in builtin procedure function VAL 'ii', did you mean i9" "ii" { target *-*-* } 14 } *)
++END valspell2.
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/valspell3.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell3.mod
+new file mode 100644
+index 000000000000..68232c31b55e
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/valspell3.mod
+@@ -0,0 +1,16 @@
++
++(* { dg-do compile } *)
++(* { dg-options "-g -c" } *)
++
++MODULE valspell3 ;
++
++TYPE
++   i1 = CHAR ;
++VAR
++   c: CARDINAL ;
++   i9: INTEGER ;
++BEGIN
++   i9 := 1 ;
++   c := VAL (CARDINAL, i0)
++   (* { dg-error "undeclared variable or constant expression found in builtin procedure function VAL 'i0', did you mean i9" "i0" { target *-*-* } 14 } *)
++END valspell3.

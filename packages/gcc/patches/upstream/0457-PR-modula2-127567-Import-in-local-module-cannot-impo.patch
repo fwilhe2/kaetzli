@@ -1,0 +1,205 @@
+From 0e7047f939dd756a49873afdce9bc01f6bc57453 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 09:52:49 +0000
+Subject: [PATCH] PR modula2/127567: Import in local module cannot import an
+ external module
+
+This patch allows a local import to import an external library
+module providing it was imported by the main module.  See
+tinygoodimport.mod for clarity.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127567
+	* gm2-compiler/P1SymBuild.mod (BuildImportInnerModule): Call
+	PutImported if sym is a defimp or module.
+	* gm2-compiler/SymbolConversion.def (Gcc2Mod): Correct parameter
+	name.
+	* gm2-compiler/SymbolConversion.mod (Gcc2Mod): Ditto.
+	* gm2-compiler/SymbolTable.mod (IsExternalModule): New procedure
+	function.
+	(AddSymToModuleScope): Only generate an error if the symbol is
+	not an external module.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/127567
+	* gm2/imports/fail/tinybadimport.mod: New test.
+	* gm2/imports/run/pass/tinygoodimport.mod: New test.
+
+(cherry picked from commit 2ce11ed2a2f4eeae68a5cb059307be8153448d8d)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-compiler/P1SymBuild.mod            | 14 +++++++++++---
+ gcc/m2/gm2-compiler/SymbolConversion.def      |  2 +-
+ gcc/m2/gm2-compiler/SymbolConversion.mod      |  4 ++--
+ gcc/m2/gm2-compiler/SymbolTable.mod           | 19 ++++++++++++++++---
+ .../gm2/imports/fail/tinybadimport.mod        | 12 ++++++++++++
+ .../gm2/imports/run/pass/tinygoodimport.mod   | 14 ++++++++++++++
+ 6 files changed, 56 insertions(+), 9 deletions(-)
+ create mode 100644 gcc/testsuite/gm2/imports/fail/tinybadimport.mod
+ create mode 100644 gcc/testsuite/gm2/imports/run/pass/tinygoodimport.mod
+
+diff --git a/gcc/m2/gm2-compiler/P1SymBuild.mod b/gcc/m2/gm2-compiler/P1SymBuild.mod
+index 9316472c86b5..4a9daeeee736 100644
+--- a/gcc/m2/gm2-compiler/P1SymBuild.mod
++++ b/gcc/m2/gm2-compiler/P1SymBuild.mod
+@@ -58,7 +58,7 @@ FROM SymbolTable IMPORT NulSym,
+                         PutMode,
+                         PutFieldEnumeration, PutSubrange, PutVar,
+                         IsDefImp, IsModule, IsInnerModule, IsType,
+-                        GetCurrentModule,
++                        GetCurrentModule, GetCurrentModuleScope,
+                         AddSymToModuleScope,
+                         AddNameToImportList,
+                         GetSym, RequestSym, IsUnknown, RenameSym,
+@@ -609,19 +609,27 @@ END CheckExplicitExported ;
+ PROCEDURE BuildImportInnerModule ;
+ VAR
+    Sym, ModSym,
++   OuterMod,
+    i, n       : CARDINAL ;
+ BEGIN
+    PopT (n) ;       (* n   = # of the Ident List *)
+    IF OperandT (n+1) = ImportTok
+    THEN
+-      (* Ident List contains list of objects *)
++      OuterMod := GetScope (GetCurrentModuleScope ()) ;
++      (* Ident List contains list of objects.  *)
+       i := 1 ;
+       WHILE i<=n DO
+          AddNameToImportList (OperandTok (i), OperandT (i)) ;
++         Assert (OuterMod # NulSym) ;
++         ModSym := GetLocalSym (OuterMod, OperandT (i)) ;
++         IF (ModSym # NulSym) AND (IsDefImp (ModSym) OR IsModule (ModSym))
++         THEN
++            PutImported (ModSym)
++         END ;
+          INC (i)
+       END
+    ELSE
+-      (* Ident List contains list of objects *)
++      (* Ident List contains list of objects.  *)
+       ModSym := LookupOuterModule (OperandTok(n+1),
+                                    OperandT(n+1)) ;
+       i := 1 ;
+diff --git a/gcc/m2/gm2-compiler/SymbolConversion.def b/gcc/m2/gm2-compiler/SymbolConversion.def
+index 1aedb64ea59d..b8e355ac753a 100644
+--- a/gcc/m2/gm2-compiler/SymbolConversion.def
++++ b/gcc/m2/gm2-compiler/SymbolConversion.def
+@@ -44,7 +44,7 @@ PROCEDURE Mod2Gcc (sym: CARDINAL) : tree ;
+    Gcc2Mod - given a gcc tree return the modula-2 symbol.
+ *)
+ 
+-PROCEDURE Gcc2Mod (tree: tree) : CARDINAL ;
++PROCEDURE Gcc2Mod (gcctree: tree) : CARDINAL ;
+ 
+ 
+ (*
+diff --git a/gcc/m2/gm2-compiler/SymbolConversion.mod b/gcc/m2/gm2-compiler/SymbolConversion.mod
+index f4e0c6f0b004..4c7aa07f83ec 100644
+--- a/gcc/m2/gm2-compiler/SymbolConversion.mod
++++ b/gcc/m2/gm2-compiler/SymbolConversion.mod
+@@ -123,14 +123,14 @@ END Mod2Gcc ;
+    Gcc2Mod - given a gcc tree return the modula-2 symbol.
+ *)
+ 
+-PROCEDURE Gcc2Mod (tree: tree) : CARDINAL ;
++PROCEDURE Gcc2Mod (gcctree: tree) : CARDINAL ;
+ VAR
+    high, i: CARDINAL ;
+ BEGIN
+    i := 1 ;
+    high := HighIndice (mod2gcc) ;
+    WHILE i <= high DO
+-      IF GetIndice (mod2gcc, i) = tree
++      IF GetIndice (mod2gcc, i) = gcctree
+       THEN
+          RETURN i
+       END ;
+diff --git a/gcc/m2/gm2-compiler/SymbolTable.mod b/gcc/m2/gm2-compiler/SymbolTable.mod
+index 7a0f4c249e0a..b2cb514b8643 100644
+--- a/gcc/m2/gm2-compiler/SymbolTable.mod
++++ b/gcc/m2/gm2-compiler/SymbolTable.mod
+@@ -2073,19 +2073,22 @@ BEGIN
+       DefImpSym   : IF GetSymKey(DefImp.LocalSymbols, GetSymName(Sym))=NulKey
+                     THEN
+                        PutSymKey(DefImp.LocalSymbols, GetSymName(Sym), Sym)
+-                    ELSE
++                    ELSIF NOT IsExternalModule (Sym)
++                    THEN
+                        MetaError1 ('{%kIMPORT} name clash with symbol {%1Ead} symbol already declared ', Sym)
+                     END |
+       ModuleSym   : IF GetSymKey(Module.LocalSymbols, GetSymName(Sym))=NulKey
+                     THEN
+                        PutSymKey(Module.LocalSymbols, GetSymName(Sym), Sym)
+-                    ELSE
++                    ELSIF NOT IsExternalModule (Sym)
++                    THEN
+                        MetaError1 ('{%kIMPORT} name clash with symbol {%1Ead} symbol already declared ', Sym)
+                     END |
+       ProcedureSym: IF GetSymKey(Procedure.LocalSymbols, GetSymName(Sym))=NulKey
+                     THEN
+                        PutSymKey(Procedure.LocalSymbols, GetSymName(Sym), Sym)
+-                    ELSE
++                    ELSIF NOT IsExternalModule (Sym)
++                    THEN
+                        MetaError1 ('{%kIMPORT} name clash with symbol {%1Ead} symbol already declared ', Sym)
+                     END
+ 
+@@ -8075,6 +8078,16 @@ BEGIN
+ END IsModule ;
+ 
+ 
++(*
++   IsExternalModule - return TRUE if sym is an external program module or defimp module.
++*)
++
++PROCEDURE IsExternalModule (sym: CARDINAL) : BOOLEAN ;
++BEGIN
++   RETURN IsDefImp (sym)
++END IsExternalModule ;
++
++
+ (*
+    IsInnerModule - returns true if the symbol, Sym, is an inner module.
+ *)
+diff --git a/gcc/testsuite/gm2/imports/fail/tinybadimport.mod b/gcc/testsuite/gm2/imports/fail/tinybadimport.mod
+new file mode 100644
+index 000000000000..d4f2a0d733a0
+--- /dev/null
++++ b/gcc/testsuite/gm2/imports/fail/tinybadimport.mod
+@@ -0,0 +1,12 @@
++MODULE tinybadimport ;
++
++   MODULE inner ;
++   IMPORT ASCII ;
++   VAR
++      foo: CHAR ;
++   BEGIN
++      foo := ASCII.nul ;
++   END inner ;
++
++BEGIN
++END tinybadimport.
+diff --git a/gcc/testsuite/gm2/imports/run/pass/tinygoodimport.mod b/gcc/testsuite/gm2/imports/run/pass/tinygoodimport.mod
+new file mode 100644
+index 000000000000..bce5fdc474b1
+--- /dev/null
++++ b/gcc/testsuite/gm2/imports/run/pass/tinygoodimport.mod
+@@ -0,0 +1,14 @@
++MODULE tinygoodimport ;
++
++IMPORT ASCII ;
++
++   MODULE inner ;
++   IMPORT ASCII ;
++   VAR
++      foo: CHAR ;
++   BEGIN
++      foo := ASCII.nul
++   END inner ;
++
++BEGIN
++END tinygoodimport.

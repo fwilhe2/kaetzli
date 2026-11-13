@@ -1,0 +1,66 @@
+From 2611af6380343caf340a7b32d4e99b38c7a47367 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 08:24:21 +0000
+Subject: [PATCH] PR modula2/127469: ICE when compiling code containing
+ aggregate record using an array field
+
+This patch checks for a NulSym type during WalkConvert PCSymBuild
+and ignores it.  The NulSym type presented to BuildConstructor in
+M2Quads generates an error message at the typename or '{' if the
+typename is absent.  It would be good to spell check the typename
+at some future point.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127469
+	* gm2-compiler/M2Quads.mod (BuildConstructor): Check for
+	tok UnknownTokenNo and if not equal generate an error message
+	at tok stating the type is unknown.
+	* gm2-compiler/PCSymBuild.mod (WalkConvert): Check totype for
+	NulSym and if so return FALSE.
+
+(cherry picked from commit d7a7947b89556aa3269d3b288ca7326584ae292f)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-compiler/M2Quads.mod    | 10 ++++++++--
+ gcc/m2/gm2-compiler/PCSymBuild.mod |  5 ++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/gcc/m2/gm2-compiler/M2Quads.mod b/gcc/m2/gm2-compiler/M2Quads.mod
+index dd8eb95ffe7c..8e92e52f7c0f 100644
+--- a/gcc/m2/gm2-compiler/M2Quads.mod
++++ b/gcc/m2/gm2-compiler/M2Quads.mod
+@@ -12671,8 +12671,14 @@ BEGIN
+    PushValue (constValue) ;
+    IF type = NulSym
+    THEN
+-      MetaErrorT0 (tokcbrpos,
+-                   '{%E}constructor requires a type before the opening %{')
++      IF tok = UnknownTokenNo
++      THEN
++         MetaErrorT0 (tokcbrpos,
++                      '{%E}constructor requires a type before the opening %{')
++      ELSE
++         MetaErrorT0 (tok,
++                      '{%E}the constructor type before the opening %{ is unknown')
++      END
+    ELSE
+       ChangeToConstructor (tok, type) ;
+       PutConstructorFrom (constValue, type) ;
+diff --git a/gcc/m2/gm2-compiler/PCSymBuild.mod b/gcc/m2/gm2-compiler/PCSymBuild.mod
+index b514ba2b5316..0597a5481809 100644
+--- a/gcc/m2/gm2-compiler/PCSymBuild.mod
++++ b/gcc/m2/gm2-compiler/PCSymBuild.mod
+@@ -1839,7 +1839,10 @@ BEGIN
+       RETURN( FALSE )
+    ELSE
+       WITH e^.econvert DO
+-         IF isTypeResolved(totype)
++         IF totype = NulSym
++         THEN
++            RETURN( FALSE )
++         ELSIF isTypeResolved(totype)
+          THEN
+             assignType(e, totype) ;
+             RETURN( TRUE )

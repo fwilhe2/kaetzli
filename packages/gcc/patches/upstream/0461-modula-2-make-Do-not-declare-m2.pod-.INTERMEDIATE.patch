@@ -1,0 +1,51 @@
+From e037c21e6841a28ebdbec1cd3b5a5eeedbe8616c Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 22:21:52 +0000
+Subject: [PATCH] modula-2, make: Do not declare m2.pod .INTERMEDIATE
+
+It appears that make 3.81 has a latent bug that is triggered by a combination
+of modula2 build recipe entries that appear to be correct.  In particular
+marking the m2.pod file as .INTERMEDIATE produces a situation which a clean
+build of the compiler works, as does any non-parallel rebuild.  However any
+parallel rebuild results in make spinning with a single process at 100%.
+
+Other similar recipes in Fortran and D appear to work as expected, there is
+some subtle difference in the m2 case.
+
+The solution that works to allow a rebuild with j > 1 is to remove the
+.INTERMEDIATE marking on the m2.pod (and to make it explictly deleted on
+clean).
+
+gcc/m2/ChangeLog:
+
+	* Make-lang.in: Do not make m2.pod as .INTERMEDIATE but delete it
+	explicitly in clean targets.
+
+(cherry picked from commit 93bcb5098e398d2df50c125a11978ac435680ebd)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/Make-lang.in | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/gcc/m2/Make-lang.in b/gcc/m2/Make-lang.in
+index d7c46ec1a190..e4f37a155b9f 100644
+--- a/gcc/m2/Make-lang.in
++++ b/gcc/m2/Make-lang.in
+@@ -189,8 +189,6 @@ m2.install-pdf: $(M2_PDFFILES)
+ 	  $(INSTALL_DATA) "$$d$$p" "$(DESTDIR)$(pdfdir)/gcc/$$f"; \
+ 	done
+ 
+-.INTERMEDIATE: m2.pod
+-
+ m2.pod: $(TEXISRC) | $(objdir)/m2/images/gnu.eps $(TEXILIBSRC)
+ 	-$(TEXI2POD) -I $(objdir)/m2 -D m2 < $< > $@
+ 
+@@ -412,6 +410,7 @@ endif
+ 
+ m2.mostlyclean:
+ 	-rm -f m2/*.o
++	-rm -f m2.pod
+ 
+ m2.clean:
+ 	-rm -f m2/*.o

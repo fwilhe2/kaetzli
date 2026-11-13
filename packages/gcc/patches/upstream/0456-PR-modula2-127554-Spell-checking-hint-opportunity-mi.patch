@@ -1,0 +1,458 @@
+From 7584ae64d22bdd32aeb91d68445065bec0c809ff Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 09:08:38 +0000
+Subject: [PATCH] PR modula2/127554: Spell checking hint opportunity missed
+ when building a contant aggregate
+
+This patch introduces spell checking to the PCBuild pass (aggregate
+constant construction pass).  It also adds the type name spell checking.
+It also adds some missing production statements when the FORWARD keyword
+is encountered during PCBuild.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127554
+	* gm2-compiler/M2MetaError.mod (SpellHint): Allow error symbols to
+	be spell checked.
+	* gm2-compiler/M2Quads.mod (BuildConstructor): Generate a spelling
+	hint error message if the name is set and an error is seen.
+	(PopTntok): New procedure.
+	* gm2-compiler/PCBuild.bnf (CreateQualident): New procedure.
+	(PushQualident): Reimplement.
+	* gm2-compiler/PCSymBuild.mod (PCStartBuildDefModule): Push
+	module to spelling stack.
+	(PCStartBuildImpModule): Ditto.
+	(PCStartBuildInnerModule): Ditto.
+	(PCEndBuildDefModule): Pop top of spell stack.
+	(PCEndBuildImpModule): Ditto.
+	(PCEndBuildProgModule): Ditto.
+	(PCEndBuildInnerModule): Ditto.
+	(PCEndBuildProcedure): Ditto.
+	(PCBuildProcedureHeading): Ditto.
+	(PCEndBuildForward): Reimplement.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/127554
+	* gm2.dg/spell/iso/fail/constaggregate.mod: New test.
+
+(cherry picked from commit 56de4652dbfc3a79ee4946f0274aba115bd83ccb)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-compiler/M2MetaError.mod           |   2 +-
+ gcc/m2/gm2-compiler/M2Quads.mod               |  31 +++-
+ gcc/m2/gm2-compiler/PCBuild.bnf               | 150 ++++++++++--------
+ gcc/m2/gm2-compiler/PCSymBuild.mod            |  33 ++--
+ .../gm2.dg/spell/iso/fail/constaggregate.mod  |  19 +++
+ 5 files changed, 157 insertions(+), 78 deletions(-)
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/constaggregate.mod
+
+diff --git a/gcc/m2/gm2-compiler/M2MetaError.mod b/gcc/m2/gm2-compiler/M2MetaError.mod
+index f5b5b5f13eb3..b270f7ca64aa 100644
+--- a/gcc/m2/gm2-compiler/M2MetaError.mod
++++ b/gcc/m2/gm2-compiler/M2MetaError.mod
+@@ -1964,7 +1964,7 @@ BEGIN
+       IF eb.filterDef AND IsDefImp (sym[bol])
+       THEN
+          JoinSentances (eb, GetDefModuleSpellHint (sym[bol]))
+-      ELSIF IsUnknown (sym[bol])
++      ELSIF IsUnknown (sym[bol]) OR IsError (sym[bol])
+       THEN
+          JoinSentances (eb, GetSpellHint (sym[bol]))
+       END
+diff --git a/gcc/m2/gm2-compiler/M2Quads.mod b/gcc/m2/gm2-compiler/M2Quads.mod
+index 8e92e52f7c0f..498f1b4c3199 100644
+--- a/gcc/m2/gm2-compiler/M2Quads.mod
++++ b/gcc/m2/gm2-compiler/M2Quads.mod
+@@ -12661,10 +12661,12 @@ END SilentBuildConstructor ;
+ PROCEDURE BuildConstructor (tokcbrpos: CARDINAL) ;
+ VAR
+    tok       : CARDINAL ;
++   name      : Name ;
++   errsym,
+    constValue,
+    type      : CARDINAL ;
+ BEGIN
+-   PopTtok (type, tok) ;
++   PopTntok (type, name, tok) ;
+    constValue := MakeTemporary (tok, ImmediateValue) ;
+    PutVar (constValue, type) ;
+    PutConstructor (constValue) ;
+@@ -12676,8 +12678,10 @@ BEGIN
+          MetaErrorT0 (tokcbrpos,
+                       '{%E}constructor requires a type before the opening %{')
+       ELSE
+-         MetaErrorT0 (tok,
+-                      '{%E}the constructor type before the opening %{ is unknown')
++         (* Spellcheck.  *)
++         errsym := MakeError (tok, name) ;
++         MetaErrorT1 (tok, 'constructor type {%1Ea} is undefined {%1&s}', errsym) ;
++         UnknownReported (errsym)
+       END
+    ELSE
+       ChangeToConstructor (tok, type) ;
+@@ -15957,6 +15961,27 @@ BEGIN
+ END PushTFntok ;
+ 
+ 
++(*
++   PopTntok - Pop a True/number/tok from the True/False stack.
++              True and False are assumed to contain Symbols.
++              The number is word sized.
++*)
++
++PROCEDURE PopTntok (VAR True, n: WORD; VAR tokno: CARDINAL) ;
++VAR
++   f: BoolFrame ;
++BEGIN
++   f := PopAddress (BoolStack) ;
++   WITH f^ DO
++      True := TrueExit ;
++      n := name ;
++      tokno := tokenno ;
++      Assert (NOT BooleanOp)
++   END ;
++   DISPOSE (f)
++END PopTntok ;
++
++
+ (*
+    PopTFn - Pop a True and False number from the True/False stack.
+             True and False are assumed to contain Symbols or Ident etc.
+diff --git a/gcc/m2/gm2-compiler/PCBuild.bnf b/gcc/m2/gm2-compiler/PCBuild.bnf
+index f7b5715f1825..1fbee0750f7d 100644
+--- a/gcc/m2/gm2-compiler/PCBuild.bnf
++++ b/gcc/m2/gm2-compiler/PCBuild.bnf
+@@ -47,7 +47,7 @@ IMPLEMENTATION MODULE PCBuild ;
+ FROM M2LexBuf IMPORT currentstring, currenttoken, GetToken, InsertToken,
+                      InsertTokenAndRewind, GetTokenNo, MakeVirtualTok ;
+ 
+-FROM M2MetaError IMPORT MetaErrorStringT0 ;
++FROM M2MetaError IMPORT MetaErrorStringT0, MetaErrorT1 ;
+ FROM NameKey IMPORT NulName, Name, makekey ;
+ FROM DynamicStrings IMPORT String, InitString, KillString, Mark, ConCat, ConCatChar ;
+ FROM M2Printf IMPORT printf0 ;
+@@ -120,7 +120,7 @@ FROM SymbolTable IMPORT MakeGnuAsm, PutGnuAsmVolatile, PutGnuAsm, PutGnuAsmInput
+                         IsRecord, IsProcType,
+                         GetCurrentModule, IsInnerModule, IsImported,
+                         RequestSym,
+-                        GetSym, GetLocalSym ;
++                        GetSym, GetLocalSym, MakeError, UnknownReported ;
+ 
+ FROM M2Batch IMPORT IsModuleKnown ;
+ 
+@@ -475,6 +475,78 @@ BEGIN
+    END
+ END CheckModuleQualident ;
+ 
++
++(*
++   CreateQualident - push the qualident symbol building it
++                     component at a time.
++*)
++
++PROCEDURE CreateQualident (stopset0: SetOfStop0;
++                	   stopset1: SetOfStop1;
++			   stopset2: SetOfStop2) ;
++VAR
++   name    : Name ;
++   sym,
++   init,
++   ip1     : CARDINAL ;
++   tok,
++   tokstart: CARDINAL ;
++BEGIN
++   PopTtok (name, tokstart) ;
++   tok := tokstart ;
++   init := GetSym (name) ;
++   IF init=NulSym
++   THEN
++      PushTFntok (NulSym, NulSym, name, tok)
++   ELSE
++      WHILE IsDefImp (init) OR IsModule (init) DO
++         IF currenttoken # periodtok
++         THEN
++            ErrorArrayAt ("expecting '.' after module in the construction of a qualident", tok) ;
++            IF tok#tokstart
++            THEN
++               tok := MakeVirtualTok (tokstart, tokstart, tok)
++            END ;
++            PushTtok (init, tok) ;
++            RETURN
++         ELSE
++            Expect (periodtok, stopset0, stopset1, stopset2 + SetOfStop2{identtok}) ;
++            StartScope (init) ;
++            Ident (stopset0, stopset1, stopset2) ;
++            PopTtok (name, tok) ;
++            ip1 := GetSym (name) ;
++            IF ip1 = NulSym
++            THEN
++               ErrorArrayAt ("unknown ident in the construction of a qualident", tok) ;
++               EndScope ;
++               IF tok#tokstart
++               THEN
++                  tok := MakeVirtualTok (tokstart, tokstart, tok)
++               END ;
++               PushTFntok (NulSym, NulSym, name, tok) ;
++               RETURN
++            ELSE
++               PutIncluded (ip1)
++            END ;
++            EndScope ;
++            CheckCanBeImported (init, ip1) ;
++            init := ip1
++         END
++      END ;
++      IF tok#tokstart
++      THEN
++         tok := MakeVirtualTok (tokstart, tokstart, tok)
++      END ;
++      IF IsProcedure (init) OR IsProcType (init)
++      THEN
++         PushTtok (init, tok)
++      ELSE
++         PushTFtok (init, GetType(init), tok)
++      END
++   END
++END CreateQualident ;
++
++
+ % module PCBuild end
+ BEGIN
+    BlockState := InitState ()
+@@ -1002,70 +1074,18 @@ Term := Factor { MulOperator Factor } =:
+ Factor := Number | string | SetOrDesignatorOrFunction |
+           "(" Expression ")" | "NOT" ( Factor | ConstAttribute ) =:
+ 
+-PushQualident :=                                                           % VAR name         : Name ;
+-                                                                                 init, ip1    : CARDINAL ;
+-                                                                                 tok, tokstart: CARDINAL ; %
+-                                                                           % PushAutoOn %
+-             Ident                                                         % IF IsAutoPushOn()
++PushQualident :=                                                           % PushAutoOn %
++                 Ident                                                     % IF IsAutoPushOn()
+                                                                              THEN
+-                                                                                PopTtok (name, tokstart) ;
+-                                                                                tok := tokstart ;
+-                                                                                init := GetSym (name) ;
+-                                                                                IF init=NulSym
+-                                                                                THEN
+-                                                                                   PushTFntok (NulSym, NulSym, name, tok)
+-                                                                                ELSE
+-                                                                                   WHILE IsDefImp (init) OR IsModule (init) DO
+-                                                                                      IF currenttoken # periodtok
+-                                                                                      THEN
+-                                                                                         ErrorArrayAt ("expecting '.' after module in the construction of a qualident", tok) ;
+-                                                                                         IF tok#tokstart
+-                                                                                         THEN
+-                                                                                            tok := MakeVirtualTok (tokstart, tokstart, tok)
+-                                                                                         END ;
+-                                                                                         PushTtok (init, tok) ;
+-                                                                                         PopAuto ;
+-                                                                                         RETURN
+-                                                                                      ELSE
+-                                                                                         Expect (periodtok, stopset0, stopset1, stopset2 + SetOfStop2{identtok}) ;
+-                                                                                         StartScope (init) ;
+-                                                                                         Ident (stopset0, stopset1, stopset2) ;
+-                                                                                         PopTtok (name, tok) ;
+-                                                                                         ip1 := GetSym (name) ;
+-                                                                                         IF ip1 = NulSym
+-                                                                                         THEN
+-                                                                                            ErrorArrayAt ("unknown ident in the construction of a qualident", tok) ;
+-                                                                                            EndScope ;
+-                                                                                            IF tok#tokstart
+-                                                                                            THEN
+-                                                                                               tok := MakeVirtualTok (tokstart, tokstart, tok)
+-                                                                                            END ;
+-                                                                                            PushTFntok (NulSym, NulSym, name, tok) ;
+-                                                                                            PopAuto ;
+-                                                                                            RETURN
+-                                                                                         ELSE
+-                                                                                            PutIncluded (ip1)
+-                                                                                         END ;
+-                                                                                         EndScope ;
+-                                                                                         CheckCanBeImported (init, ip1) ;
+-                                                                                         init := ip1
+-                                                                                      END
+-                                                                                   END ;
+-                                                                                   IF tok#tokstart
+-                                                                                   THEN
+-                                                                                      tok := MakeVirtualTok (tokstart, tokstart, tok)
+-                                                                                   END ;
+-                                                                                   IF IsProcedure (init) OR IsProcType (init)
+-                                                                                   THEN
+-                                                                                      PushTtok (init, tok)
+-                                                                                   ELSE
+-                                                                                      PushTFtok (init, GetType(init), tok)
+-                                                                                   END
+-                                                                                END
+-                                                                             ELSE %
+-             { "." Ident }                                                 % END %
+-                                                                           % PopAuto %
+-           =:
++                                                                                CreateQualident (stopset0, stopset1, stopset2)
++                                                                             ELSE
++									        (* Although this code is not executed the grammar is
++										   processed by pge to generate first and follow sets.  *)
++							                   %
++                       { "." Ident }
++                                                                           % END ;
++                                                                             PopAuto %
++               =:
+ 
+ ConstructorOrSimpleDes := Constructor |                                    % PopNothing %
+                                           SimpleDes [ ActualParameters ]
+diff --git a/gcc/m2/gm2-compiler/PCSymBuild.mod b/gcc/m2/gm2-compiler/PCSymBuild.mod
+index 0597a5481809..f54e83a4fc3a 100644
+--- a/gcc/m2/gm2-compiler/PCSymBuild.mod
++++ b/gcc/m2/gm2-compiler/PCSymBuild.mod
+@@ -99,6 +99,7 @@ FROM M2StackWord IMPORT StackOfWord, InitStackWord, KillStackWord,
+                         IsEmptyWord, NoOfItemsInStackWord ;
+ 
+ IMPORT M2Error ;
++IMPORT M2StackSpell ;
+ 
+ 
+ CONST
+@@ -236,6 +237,7 @@ BEGIN
+    StartScope(ModuleSym) ;
+    Assert(IsDefImp(ModuleSym)) ;
+    Assert(CompilingDefinitionModule()) ;
++   M2StackSpell.Push (ModuleSym) ;
+    PushT(name) ;
+    M2Error.EnterDefinitionScope (name)
+ END PCStartBuildDefModule ;
+@@ -265,6 +267,7 @@ BEGIN
+    Assert(CompilingDefinitionModule()) ;
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -305,7 +308,8 @@ BEGIN
+    Assert(IsDefImp(ModuleSym)) ;
+    Assert(CompilingImplementationModule()) ;
+    PushTtok(name, tok) ;
+-   M2Error.EnterImplementationScope (name)
++   M2Error.EnterImplementationScope (name) ;
++   M2StackSpell.Push (ModuleSym)
+ END PCStartBuildImpModule ;
+ 
+ 
+@@ -333,6 +337,7 @@ BEGIN
+    Assert(CompilingImplementationModule()) ;
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -378,7 +383,8 @@ BEGIN
+    Assert(CompilingProgramModule()) ;
+    Assert(NOT IsDefImp(ModuleSym)) ;
+    PushTtok(name, tok) ;
+-   M2Error.EnterProgramScope (name)
++   M2Error.EnterProgramScope (name) ;
++   M2StackSpell.Push (ModuleSym)
+ END PCStartBuildProgModule ;
+ 
+ 
+@@ -416,7 +422,8 @@ BEGIN
+       WriteFormat0('too many errors in pass 3') ;
+       FlushErrors
+    END ;
+-   M2Error.LeaveErrorScope
++   M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop
+ END PCEndBuildProgModule ;
+ 
+ 
+@@ -448,7 +455,8 @@ BEGIN
+    Assert(NOT IsDefImp(ModuleSym)) ;
+    SetCurrentModule(ModuleSym) ;
+    PushTtok(name, tok) ;
+-   M2Error.EnterModuleScope (name)
++   M2Error.EnterModuleScope (name) ;
++   M2StackSpell.Push (ModuleSym)
+ END PCStartBuildInnerModule ;
+ 
+ 
+@@ -486,7 +494,8 @@ BEGIN
+       FlushErrors
+    END ;
+    SetCurrentModule(GetModuleScope(GetCurrentModule())) ;
+-   M2Error.LeaveErrorScope
++   M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop
+ END PCEndBuildInnerModule ;
+ 
+ 
+@@ -628,7 +637,8 @@ BEGIN
+    Assert (IsProcedure (ProcSym)) ;
+    PushTtok (ProcSym, tok) ;
+    StartScope (ProcSym) ;
+-   M2Error.EnterProcedureScope (name)
++   M2Error.EnterProcedureScope (name) ;
++   M2StackSpell.Push (ProcSym)
+ END PCStartBuildProcedure ;
+ 
+ 
+@@ -672,7 +682,8 @@ BEGIN
+       FlushErrors
+    END ;
+    EndScope ;
+-   M2Error.LeaveErrorScope
++   M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop
+ END PCEndBuildProcedure ;
+ 
+ 
+@@ -694,7 +705,10 @@ END PCEndBuildProcedure ;
+ 
+ PROCEDURE PCEndBuildForward ;
+ BEGIN
+-   PopN (2)
++   PopN (2) ;
++   EndScope ;
++   M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop
+ END PCEndBuildForward ;
+ 
+ 
+@@ -728,7 +742,8 @@ BEGIN
+    THEN
+       PopT (ProcSym) ;
+       PopT (NameStart) ;
+-      EndScope
++      EndScope ;
++      M2StackSpell.Pop
+    END
+ END PCBuildProcedureHeading ;
+ 
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/constaggregate.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/constaggregate.mod
+new file mode 100644
+index 000000000000..1f38f7b00f58
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/constaggregate.mod
+@@ -0,0 +1,19 @@
++(* { dg-do compile } *)
++(* { dg-options "-g" } *)
++
++MODULE constaggregate ;
++
++TYPE
++   callType = RECORD
++                 callNick  : ARRAY [0..8] OF CHAR;
++                 callString: ARRAY [0..20] OF CHAR;
++              END ;
++
++CONST
++   cls = CallType {"nickname", "realname"} ;
++   (* { dg-error "constructor type 'CallType' is undefined, did you mean callType?" "CallType" { target *-*-* } 13 } *)
++   (* { dg-error "the type of the constant declaration 'cls' cannot be determined" "cls" { target *-*-* } 13 } *)
++
++
++BEGIN
++END constaggregate.

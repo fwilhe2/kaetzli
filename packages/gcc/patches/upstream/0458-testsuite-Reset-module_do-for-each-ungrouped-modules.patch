@@ -1,0 +1,35 @@
+From f28d4b8de5c9e4ac1d96ae13a13abf7fce97c9d1 Mon Sep 17 00:00:00 2001
+From: Christophe Lyon <christophe.lyon@arm.com>
+Date: Fri, 23 Oct 2026 13:07:00 +0000
+Subject: [PATCH] testsuite: Reset module_do for each ungrouped modules test
+
+The ungrouped modules test loop does not reset module_do between
+tests.  If a previous test calls unsupported, module_do can remain
+set to {"compile" "N"}, causing the CMI checks for subsequent
+tests to be skipped.
+
+Reset module_do at the beginning of each iteration, as is already
+done for grouped modules tests.
+
+gcc/testsuite/ChangeLog:
+
+	* g++.dg/modules/modules.exp: Reset module_do between ungrouped
+	tests.
+
+(cherry picked from commit b86d9c53ebb3b674771eeac5513a8c173285593c)
+---
+ gcc/testsuite/g++.dg/modules/modules.exp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/testsuite/g++.dg/modules/modules.exp b/gcc/testsuite/g++.dg/modules/modules.exp
+index aa351b73e0e6..4d21afb3a3db 100644
+--- a/gcc/testsuite/g++.dg/modules/modules.exp
++++ b/gcc/testsuite/g++.dg/modules/modules.exp
+@@ -363,6 +363,7 @@ foreach test [prune [lsort [find $srcdir/$subdir {*.[CH]}]] \
+ 	foreach std $std_list {
+ 	    global module_cmis
+ 	    set module_cmis {}
++	    set module_do {"compile" "P"}
+ 	    verbose "Testing $nshort $std" 1
+ 	    dg-test $test "$std" $DEFAULT_MODFLAGS
+ 	    if { [lindex $module_do 1] == "N" } {
