@@ -4,7 +4,7 @@
 [    0.100000] Run /bin/bash as init process
 Welcome to Kaetzli!
 
-kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0; unalias -a
 SHELL-IS-UP
 Link 2 (ens3) routable
 inet 10.0.2.15/24

@@ -5,5 +5,6 @@
 >> systemd OK: taint string is empty
 >> systemd OK: nothing tried to write to the read-only root
 >> systemd OK: no errors in the journal
+>> systemd OK: /etc/bashrc aliases load in login and non-login shells
 >> systemd OK: the image's sysctls are applied
 >> systemd OK: a credential arrived through fw_cfg

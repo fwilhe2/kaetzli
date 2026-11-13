@@ -4,6 +4,6 @@
 [    0.100000] Run /bin/bash as init process
 Welcome to Kaetzli!
 
-kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0; unalias -a
 SHELL-IS-UP
 [   9.0] Kernel panic - not syncing: oops

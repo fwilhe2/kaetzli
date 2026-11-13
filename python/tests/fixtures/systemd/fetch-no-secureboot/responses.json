@@ -16,6 +16,10 @@
   "SYSTEMD-ERRS:[0]\n"
  ],
  [
+  "ALIAS-LOGIN",
+  "SYSTEMD-ALIAS-LOGIN:[alias ll='ls -lh']\nSYSTEMD-ALIAS-NONLOGIN:[alias ll='ls -lh']\n"
+ ],
+ [
   "kernel/hostname",
   "SYSTEMD-HOSTNAME:[kaetzli-fwcfg]\n"
  ],

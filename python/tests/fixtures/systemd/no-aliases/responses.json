@@ -1,0 +1,50 @@
+[
+ [
+  "is-system-running",
+  "SYSTEMD-STATE:running\n"
+ ],
+ [
+  "Tainted",
+  "SYSTEMD-TAINT:[Tainted=]\n"
+ ],
+ [
+  "Read-only file system",
+  "SYSTEMD-ROFS:[0]\n"
+ ],
+ [
+  "journalctl -b -q -p err",
+  "SYSTEMD-ERRS:[0]\n"
+ ],
+ [
+  "ALIAS-LOGIN",
+  "SYSTEMD-ALIAS-LOGIN:[alias ll='ls -lh']\nSYSTEMD-ALIAS-NONLOGIN:[bash: alias: ll: not found]\n"
+ ],
+ [
+  "kernel/hostname",
+  "SYSTEMD-HOSTNAME:[kaetzli-fwcfg]\n"
+ ],
+ [
+  "/proc/sys",
+  "SYSCTL> kernel/kptr_restrict=1\nSYSCTL> kernel/dmesg_restrict=1\nSYSCTL> kernel/unprivileged_bpf_disabled=1\nSYSCTL> kernel/yama/ptrace_scope=1\nSYSCTL> dev/tty/legacy_tiocsti=0\nSYSCTL> fs/protected_regular=2\nSYSCTL> fs/protected_fifos=2\nSYSCTL> fs/inotify/max_user_instances=8192\nSYSCTL> vm/max_map_count=262144\nSYSCTL> fs/aio-max-nr=1048576\nSYSCTL> kernel/panic=10\nSYSTEMD-SYSCTL-DONE\n"
+ ],
+ [
+  "fwcfg-probe",
+  "SYSTEMD-FWCFG:[delivered]\n"
+ ],
+ [
+  "fetch",
+  "\n      /\\_/\\      root@kaetzli\n     ( o.o )     OS: Kaetzli\n                 Image: c4927070eaaa (verity root hash)\n                 Root: erofs, read-only, dm-verity\n                 Secure Boot: unavailable (not booted through UEFI)\n                 State: in memory (/var is tmpfs, lost at shutdown)\n\nFETCH-DONE\n"
+ ],
+ [
+  "systemd-analyze security",
+  "SEC> UNIT EXPOSURE\nSEC> serial-getty@ttyS0.service 9.6\nSEC> systemd-journald.service 4.9\nSEC> systemd-resolved.service 2.2\nSYSTEMD-SECURITY-DONE\n"
+ ],
+ [
+  "systemd-analyze time",
+  "TIME> Startup finished in 257ms (kernel) + 1.813s (userspace) = 2.071s\nTIME> multi-user.target reached after 1.790s in userspace.\nBLAME> 416ms dev-dm\\x2d0.device\nBLAME> 161ms sshd-keygen.service\nSYSTEMD-TIME-DONE\n"
+ ],
+ [
+  "systemctl --failed",
+  "UNIT LOAD ACTIVE SUB DESCRIPTION\nfoo.service loaded failed failed Foo\n"
+ ]
+]

@@ -89,10 +89,11 @@ SYSCTLS = [
     "fs/aio-max-nr=1048576",
     "kernel/panic=10",
 ]
-# /etc/profile sources /etc/bashrc for the login shell; bash reads it itself (SYS_BASHRC)
-# for a non-login interactive one. Neither marker may be in the typed command.
+# /etc/profile sources /etc/bashrc for a login shell; bash reads it itself (SYS_BASHRC)
+# for a non-login interactive one. Each in a new bash: the console's shell has had its
+# aliases removed (console.QUIET). Neither marker may be in the typed command.
 ALIAS_CHECK = (
-    "echo SYSTEMD'-ALIAS-LOGIN':[$(alias ll 2>&1)]; "
+    "echo SYSTEMD'-ALIAS-LOGIN':[$(bash -lic 'alias ll' 2>&1)]; "
     "echo SYSTEMD'-ALIAS-NONLOGIN':[$(bash -ic 'alias ll' 2>&1)]"
 )
 
