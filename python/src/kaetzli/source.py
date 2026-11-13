@@ -21,8 +21,9 @@ hash of the commit's pins), pulled over the registry's HTTP API, so nothing but 
 python is needed. Nothing is kept unless every tarball matches the commit's pinned
 SHA-256 and every patch directory the commit's own.
 
---tar FILE packs that directory into one reproducible tar instead (pack()): what the
-release job uploads to every snapshot as kaetzli-source.tar.
+--tar FILE packs that directory into one reproducible tar instead (pack()), for handing
+the source over as one file. Releases up to November 2026 carried it as kaetzli-source.tar;
+since then the release job tags the sources image with the snapshot's name instead.
 """
 
 from __future__ import annotations

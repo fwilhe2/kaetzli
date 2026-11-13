@@ -72,9 +72,6 @@ ARCHES = ("amd64", "arm64")
 # so the README's install line works unchanged. The release job builds it into
 # <artifacts>/launcher/.
 LAUNCHERS = ("kaetzli-linux-x86_64", "kaetzli-linux-aarch64")
-# The corresponding source (tools/corresponding-source.py --tar), which the release job
-# writes to <artifacts>/source/ before publishing.
-SOURCE = "kaetzli-source.tar"
 ASSET_MAX = 2 * 2**30  # GitHub's limit for one release asset
 NAME = re.compile(r"^[0-9]{8}\.[0-9]{6}-[1-9][0-9]*$")
 # What ci.yml's `changes` job skips the build for: docs/** and the root *.md. The two
@@ -385,21 +382,6 @@ def collect_launcher(artifacts: Path, out: Path) -> Collected:
     return got
 
 
-def collect_source(artifacts: Path, out: Path) -> Collected:
-    """The corresponding source, one tar, from <artifacts>/source/ into out/."""
-    out.mkdir(parents=True, exist_ok=True)
-    got = Collected()
-    src = artifacts / "source" / SOURCE
-    if not src.is_file() or src.is_symlink():
-        got.problems.append(f"no source/{SOURCE} (tools/corresponding-source.py --tar)")
-    elif (size := src.stat().st_size) > ASSET_MAX:
-        got.problems.append(f"{SOURCE} is {size / 2**30:.1f} GiB, over GitHub's 2 GiB per asset")
-    else:
-        _place(src, out / SOURCE)
-        got.assets.append(Asset(SOURCE, out / SOURCE))
-    return got
-
-
 def sha256sums(assets: list[Asset]) -> str:
     lines = []
     for a in sorted(assets, key=lambda a: a.name):
@@ -413,11 +395,13 @@ def sha256sums(assets: list[Asset]) -> str:
 
 # --- the build inputs, by digest --------------------------------------------------------
 
-Http = Callable[[str, str, dict], tuple[int, dict, bytes]]
+Http = Callable[..., tuple[int, dict, bytes]]  # (method, url, headers, data=None)
 
 
-def urllib_http(method: str, url: str, headers: dict) -> tuple[int, dict, bytes]:
-    req = urllib.request.Request(url, method=method, headers=headers)
+def urllib_http(
+    method: str, url: str, headers: dict, data: bytes | None = None
+) -> tuple[int, dict, bytes]:
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             return r.status, {k.lower(): v for k, v in r.headers.items()}, r.read()
@@ -437,22 +421,27 @@ MANIFEST_TYPES = ", ".join(
 )
 
 
-def image_digest(ref: str, http: Http = urllib_http) -> str | None:
-    """What the registry says the tag points at now, by the distribution API: a token,
-    anonymous or from GITHUB_TOKEN, then a HEAD of the manifest. No pull."""
-    registry, _, rest = ref.partition("/")
-    path, _, tag = rest.rpartition(":")
+def _bearer(registry: str, path: str, actions: str, http: Http) -> str | None:
+    """A registry token for the repository, anonymous or from GITHUB_TOKEN."""
     auth = {}
     if token := os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"):
         auth["Authorization"] = "Basic " + base64.b64encode(f"x:{token}".encode()).decode()
-    status, _, body = http(
-        "GET", f"https://{registry}/token?scope=repository:{path}:pull&service={registry}", auth
-    )
+    url = f"https://{registry}/token?scope=repository:{path}:{actions}&service={registry}"
+    status, _, body = http("GET", url, auth)
     if status != 200:
         return None
     try:
-        bearer = json.loads(body)["token"]
+        return json.loads(body)["token"]
     except (ValueError, KeyError):
+        return None
+
+
+def image_digest(ref: str, http: Http = urllib_http) -> str | None:
+    """What the registry says the tag points at now, by the distribution API: a token,
+    then a HEAD of the manifest. No pull."""
+    registry, _, rest = ref.partition("/")
+    path, _, tag = rest.rpartition(":")
+    if not (bearer := _bearer(registry, path, "pull", http)):
         return None
     status, headers, _ = http(
         "HEAD",
@@ -461,6 +450,36 @@ def image_digest(ref: str, http: Http = urllib_http) -> str | None:
     )
     digest = headers.get("docker-content-digest", "") if status == 200 else ""
     return digest if digest.startswith("sha256:") else None
+
+
+def tag_image(ref: str, new_tag: str, http: Http = urllib_http) -> bool:
+    """Tag what ref names as <repository>:<new_tag> too: its manifest, as the registry
+    serves it, PUT under the new tag. Same repository, so every manifest and blob it
+    names is there already; same bytes, so the same digest. No pull, no podman."""
+    registry, _, rest = ref.partition("/")
+    path, _, tag = rest.rpartition(":")
+    if not (bearer := _bearer(registry, path, "pull,push", http)):
+        return False
+    status, headers, body = http(
+        "GET",
+        f"https://{registry}/v2/{path}/manifests/{tag}",
+        {"Authorization": f"Bearer {bearer}", "Accept": MANIFEST_TYPES},
+    )
+    if status != 200 or not body:
+        return False
+    status, _, _ = http(
+        "PUT",
+        f"https://{registry}/v2/{path}/manifests/{new_tag}",
+        {"Authorization": f"Bearer {bearer}", "Content-Type": headers.get("content-type", "")},
+        data=body,
+    )
+    return status in (200, 201)
+
+
+def sources_tag(images: list[tuple[str, str, str | None]], name: str) -> str:
+    """The sources image's reference under the release's name."""
+    ref = next((r for label, r, _ in images if label == "sources"), "")
+    return f"{ref.rpartition(':')[0]}:{name}" if ref else ""
 
 
 def build_images(http: Http = urllib_http) -> list[tuple[str, str, str | None]]:
@@ -553,12 +572,15 @@ def notes(
     for label, ref, digest in images:
         at = f"`{ref.rpartition(':')[0]}@{digest}`" if digest else "digest unavailable"
         lines.append(f"  - {label}: {at} (tag `{ref.rpartition(':')[2]}`)")
+    tagged = sources_tag(images, name)
     lines += [
         "",
         "The sources image holds every pinned tarball and patch the build used, which is "
-        "the corresponding source for the copyleft packages in these images. "
-        f"`{SOURCE}` is that source with the repository at this commit, verified against "
-        f"its pins, in one file; `tools/corresponding-source.py {name}` makes it again.",
+        "the corresponding source for the copyleft packages in these images"
+        + (f", and is also tagged `{tagged}`; that tag outlives this release" if tagged else "")
+        + ". `tools/corresponding-source.py "
+        f"{name}` writes it out with the repository at this commit, verified against its "
+        "pins.",
         "",
         "## License",
         "",
@@ -692,6 +714,7 @@ def publish(
     gh: GitHub,
     images: Callable[[], list[tuple[str, str, str | None]]] = build_images,
     report: Report | None = None,
+    tag_sources: Callable[[str, str], bool] = tag_image,
 ) -> int:
     rep = report or Report.from_env()
     say = rep.out
@@ -733,9 +756,9 @@ def publish(
             missing_workbooks.append(arch)
         if got.cve_db:
             cve_db[arch] = got.cve_db
-    for got in (collect_launcher(o.artifacts, o.out), collect_source(o.artifacts, o.out)):
-        assets += got.assets
-        problems += got.problems
+    got = collect_launcher(o.artifacts, o.out)
+    assets += got.assets
+    problems += got.problems
     imgs = images()
     problems += [f"no digest for {ref}" for _, ref, digest in imgs if not digest]
 
@@ -762,6 +785,7 @@ def publish(
                 f"- would create a draft `{o.name}` on `{o.sha[:12]}`, "
                 f"uploading {len(files)} assets"
             )
+            say(f"- would tag the sources image `{sources_tag(imgs, o.name)}`")
             say("- would publish it and mark it latest")
         for r in expired(releases, o.now, o.name if decision.action == "publish" else previous):
             say(f"- would delete `{r['tag_name']}` (published {r['published_at']}) and its tag")
@@ -780,6 +804,13 @@ def publish(
     except (StopIteration, ReleaseError):
         say("- error: the draft just created is not in the listing")
         return 1
+    # The corresponding source under the release's name, before the release is visible:
+    # a published release always has its sources:<name>, which no expiry deletes.
+    sources_ref = next((r for label, r, _ in imgs if label == "sources"), "")
+    if not sources_ref or not tag_sources(sources_ref, o.name):
+        say(f"- error: could not tag the sources image as `{sources_tag(imgs, o.name)}`")
+        return 1
+    say(f"- tagged the sources image `{sources_tag(imgs, o.name)}`")
     if not gh.publish(draft["id"]):
         say(f"- error: publishing the draft {draft['id']} failed; a retry replaces it")
         return 1

@@ -291,6 +291,44 @@ def test_digest_is_none_when_the_registry_does_not_answer():
     assert release.image_digest("ghcr.io/x/y:t", lambda *a: (404, {}, b"")) is None
 
 
+INDEX_TYPE = "application/vnd.oci.image.index.v1+json"
+
+
+def registry(put_status=201):
+    calls = []
+
+    def http(method, url, headers, data=None):
+        calls.append((method, url, headers, data))
+        if "/token" in url:
+            return 200, {}, b'{"token": "t"}'
+        assert headers["Authorization"] == "Bearer t"
+        if method == "GET":
+            return 200, {"content-type": INDEX_TYPE}, b'{"the": "index"}'
+        return put_status, {}, b""
+
+    return http, calls
+
+
+def test_tag_image_puts_the_same_index_under_the_release_name():
+    http, calls = registry()
+    assert release.tag_image("ghcr.io/fwilhe2/kaetzli/sources:0123", "20261103.141205-42", http)
+    token, get, put = calls
+    assert "scope=repository:fwilhe2/kaetzli/sources:pull,push" in token[1]
+    assert get[:2] == ("GET", "https://ghcr.io/v2/fwilhe2/kaetzli/sources/manifests/0123")
+    assert put[:2] == (
+        "PUT",
+        "https://ghcr.io/v2/fwilhe2/kaetzli/sources/manifests/20261103.141205-42",
+    )
+    # the bytes and media type as they were, so the new tag names the same digest
+    assert put[2]["Content-Type"] == INDEX_TYPE and put[3] == b'{"the": "index"}'
+
+
+def test_tag_image_fails_when_the_registry_refuses():
+    http, _ = registry(put_status=403)
+    assert not release.tag_image("ghcr.io/x/sources:1", "n", http)
+    assert not release.tag_image("ghcr.io/x/sources:1", "n", lambda *a, **k: (401, {}, b""))
+
+
 # --- the notes --------------------------------------------------------------------------
 
 
@@ -315,6 +353,7 @@ def test_notes_carry_the_notice_provenance_and_boot_instructions():
     assert A in text and "actions/runs/7" in text
     assert "sources@sha256:" + "e" * 64 in text.replace("ghcr.io/x/", "")
     assert "tools/corresponding-source.py 20261103.141205-42" in text
+    assert "`ghcr.io/x/sources:20261103.141205-42`" in text
     assert "releases/latest/download/rootfs-amd64.erofs" in text
     assert "cve-arm64.ods" in text  # the missing workbook is said
     assert "20261101.000000-41" in text
@@ -412,42 +451,19 @@ def test_a_missing_launcher_binary_is_a_problem(tmp_path):
     assert any("kaetzli-linux-aarch64" in p for p in got.problems)
 
 
-def source_tar(artifacts: Path) -> Path:
-    d = artifacts / "source"
-    d.mkdir(parents=True, exist_ok=True)
-    (d / release.SOURCE).write_bytes(b"the corresponding source")
-    return d / release.SOURCE
-
-
-def test_collect_source_takes_the_one_tar(tmp_path):
-    source_tar(tmp_path / "artifacts")
-    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
-    assert got.problems == []
-    assert got.assets == [release.Asset(release.SOURCE, tmp_path / "out" / release.SOURCE)]
-
-
-def test_a_missing_source_tar_is_a_problem(tmp_path):
-    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
-    assert got.problems == [f"no source/{release.SOURCE} (tools/corresponding-source.py --tar)"]
-
-
-def test_a_source_tar_over_githubs_asset_limit_is_a_problem(tmp_path, monkeypatch):
-    source_tar(tmp_path / "artifacts")
-    monkeypatch.setattr(release, "ASSET_MAX", 4)
-    got = release.collect_source(tmp_path / "artifacts", tmp_path / "out")
-    assert got.assets == [] and "over GitHub's" in got.problems[0]
-
-
 @pytest.fixture
 def both_arches(tmp_path):
     for arch in release.ARCHES:
         artifacts(tmp_path / "artifacts", arch)
     launchers(tmp_path / "artifacts")
-    source_tar(tmp_path / "artifacts")
     return tmp_path
 
 
-def run_publish(tmp_path, gh, dry_run=True, sha=B):
+def run_publish(tmp_path, gh, dry_run=True, sha=B, tag_ok=True):
+    def tag_sources(ref, name):
+        gh.calls.append(["tag", ref, name])
+        return tag_ok
+
     return release.publish(
         release.Options(
             repo="o/r",
@@ -462,6 +478,7 @@ def run_publish(tmp_path, gh, dry_run=True, sha=B):
         ),
         release.GitHub("o/r", run=gh),
         images=lambda: [("sources", "ghcr.io/x/sources:1", "sha256:" + "e" * 64)],
+        tag_sources=tag_sources,
     )
 
 
@@ -474,7 +491,9 @@ def test_dry_run_writes_nothing_and_leaves_the_release_on_disk(both_arches):
     listed = [line.split()[1] for line in (out / "SHA256SUMS").read_text().splitlines()]
     assert "rootfs-amd64.erofs" in listed and "rootfs-arm64.erofs" in listed
     assert "uki-amd64.efi" in listed and "uki-arm64.efi" in listed
-    assert release.SOURCE in listed
+    # the source is the sources image, tagged with the release's name, not an asset
+    assert not any("source" in n for n in listed)
+    assert not any(c[0] == "tag" for c in gh.calls)
 
 
 def test_dry_run_of_a_skipped_commit_still_collects_and_succeeds(both_arches):
@@ -499,8 +518,17 @@ def test_publish_creates_a_draft_then_publishes_it_as_latest(both_arches):
     patch = next(c for c in gh.calls if "PATCH" in c)
     assert "repos/o/r/releases/99" in patch
     assert "draft=false" in patch and "make_latest=true" in patch
-    # the draft is made before it is published
+    # the draft is made before it is published, and the source is tagged before either
+    # is visible: a published release always has its sources:<name>
+    tag = ["tag", "ghcr.io/x/sources:1", "20261103.141205-42"]
     assert gh.calls.index(create) < gh.calls.index(patch)
+    assert gh.calls.index(tag) < gh.calls.index(patch)
+
+
+def test_no_sources_tag_no_release(both_arches):
+    gh = FakeGh(head=B, latest=("20261101.000000-41", A), compare={(A, B): ("ahead", ["x"])})
+    assert run_publish(both_arches, gh, dry_run=False, tag_ok=False) == 1
+    assert not any("PATCH" in c for c in gh.calls)
 
 
 def test_a_published_release_of_this_name_is_left_alone(both_arches):
