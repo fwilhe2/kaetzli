@@ -1232,7 +1232,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write # the release, and listing drafts (a retry replaces its own)
-      packages: read # the builder and sources images' digests, for the notes
+      packages: write # the images' digests for the notes; sources:<snapshot> (release.py)
       id-token: write # the assets' attestation (actions/attest)
       attestations: write
     steps:
@@ -1272,15 +1272,14 @@ jobs:
       - name: Build the launcher
         run: ./tools/build-launcher.sh artifacts/launcher "$(./tools/release.py name)"
 
-      # The complete corresponding source as one asset (tools/corresponding-source.py):
-      # the repository at this commit and its sources image, verified against the pins.
-      # In a dry run too, so a pull request's CI fails where main's would.
-      - name: Collect the corresponding source
+      # The corresponding source is the sources image, which release.py tags with the
+      # snapshot's name (not an asset: it is large and the registry has it). Checked here
+      # that it is complete: every tarball and patch against the commit's pins. In a dry
+      # run too, so a pull request's CI fails where main's would.
+      - name: Verify the corresponding source
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          ./tools/corresponding-source.py HEAD --out "$RUNNER_TEMP/source"
-          --tar artifacts/source/kaetzli-source.tar
+        run: ./tools/corresponding-source.py HEAD --out "$RUNNER_TEMP/source"
 
       - name: Publish the snapshot
         env:
