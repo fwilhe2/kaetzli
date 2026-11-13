@@ -6,7 +6,8 @@
 # A package is two files:
 #
 #   packages/<pkg>/env.sh     VERSION, TARBALL, URL, SHA256, LICENSE, and optionally
-#                             NO_SYSROOT, LOCAL_SOURCE, EXTENSION, VENDOR_*, FOLLOWS.
+#                             NO_SYSROOT, LOCAL_SOURCE, EXTENSION, VENDOR_*, GO_MODULES,
+#                             FOLLOWS.
 #   packages/<pkg>/patches/   optional, applied to the source at extraction
 #                             (docs/guides/patches.md).
 #   packages/<pkg>/build.sh   configure/compile/install, sourced by
@@ -106,7 +107,8 @@ else
     # other package's stamp stays what it was.
     stamp="$PKG_DIR/.$PACKAGE.patches"
     want_stamp=$(patches_digest "$PKG"
-                 [ -z "${VENDOR_TARBALL:-}" ] || echo "vendor $VENDOR_TARBALL $VENDOR_SHA256")
+                 [ -z "${VENDOR_TARBALL:-}" ] || echo "vendor $VENDOR_TARBALL $VENDOR_SHA256"
+                 [ -z "${GO_MODULES:-}" ] || echo "go-modules")
     if [ -d "$PKG_DIR/$PACKAGE" ] && [ "$(cat "$stamp" 2>/dev/null || true)" != "$want_stamp" ]; then
         echo "The patches or vendored sources for $PKG changed since $PKG_DIR/$PACKAGE was extracted; extracting again."
         as_owner rm -rf "$PKG_DIR/$PACKAGE"
@@ -121,6 +123,25 @@ else
         # The vendored dependencies (./vendor/...) go in on top.
         if [ -n "${VENDOR_TARBALL:-}" ]; then
             tar -xf "downloads/$VENDOR_TARBALL" -C "$staging"
+        fi
+        # GO_MODULES=1: vendor/ from the modules tools/fetch-sources.sh put beside the
+        # tarball, made offline by `go mod vendor` with them as its proxy. Go checks each
+        # against go.sum once more, and go.mod and go.sum must come out as they went in.
+        # From here the tree is any vendored Go source: -mod=vendor (build-package.sh),
+        # and the dependencies' license texts in vendor/.
+        if [ -n "${GO_MODULES:-}" ]; then
+            echo "Vendoring the Go modules of ${PACKAGE}..."
+            before=$(cd "$staging" && sha256sum go.mod go.sum)
+            podman run --rm --network=none --security-opt label=disable \
+                --volume "$PWD/$staging":/usr/local/src --workdir /usr/local/src \
+                --volume "$PWD/downloads/go-modules/$PACKAGE":/usr/local/go-modules:ro \
+                --env GOTOOLCHAIN=local --env GOPROXY=file:///usr/local/go-modules \
+                --env GOSUMDB=off --env GOFLAGS=-mod=readonly --env GOPATH=/tmp/go \
+                "$BUILDER" go mod vendor
+            if [ "$(cd "$staging" && sha256sum go.mod go.sum)" != "$before" ]; then
+                echo "error: go mod vendor changed go.mod or go.sum of $PACKAGE" >&2
+                exit 1
+            fi
         fi
         apply_patches "$PKG" "$staging" "$BUILDER"
         printf '%s\n' "$want_stamp" > "$stamp"

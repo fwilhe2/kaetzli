@@ -1,0 +1,3 @@
+github.com/pkg/errors v0.9.1 (BSD-2-Clause, its LICENSE in the zip) as proxy.golang.org
+serves it, and the two go.sum lines cni-plugins 1.10.0 has for it: real hashes, so the h1:
+implementations (kaetzli.source.go_hash, tools/fetch-sources.sh's go_hash) are held to Go's.
