@@ -33,6 +33,28 @@
 # content hash honest, since two builds of the same deps.txt now produce the same image
 # instead of merely claiming to.
 ARG SNAPSHOT=20261104
+
+# Go and Rust are upstream's release tarballs, not sid's packages (builder/toolchains/,
+# docs/proposals/own-toolchain.md): unpacked in a stage of their own, so the image gets the
+# installed trees and not the 300 MB of tarballs. tools/prep.sh fetches them, checks each
+# against its pinned SHA-256 and upstream's signature, and passes the directory as the
+# `toolchain-tarballs` build context; its SHA256SUMS is checked again here, so a build
+# handed the wrong files fails rather than installs them. Same base as below, so
+# bump-snapshot.sh moves both FROM lines together.
+FROM debian:sid-${SNAPSHOT}@sha256:e276677157e13bc51ea5b8651f54ad28883f503cc37b3e3af2c4b6cc2f4efe7b AS toolchains
+COPY --from=toolchain-tarballs . /dl
+# Rust's components each carry an install.sh; one prefix for all three, which rustc finds
+# its standard library relative to. Its uninstaller and manifests are of no use here.
+RUN cd /dl && sha256sum --check --strict SHA256SUMS \
+    && tar -C /opt -xzf go*.linux-*.tar.gz \
+    && for c in rustc cargo rust-std; do \
+           mkdir "/tmp/$c" && tar -C "/tmp/$c" --strip-components=1 -xzf "$c"-*.tar.gz \
+           && "/tmp/$c/install.sh" --prefix=/opt/rust --disable-ldconfig >/dev/null \
+           || exit 1; \
+       done \
+    && rm -rf /opt/rust/share/doc /opt/rust/lib/rustlib/uninstall.sh /opt/rust/lib/rustlib/manifest-* \
+    && /opt/go/bin/go version && /opt/rust/bin/rustc --version && /opt/rust/bin/cargo --version
+
 FROM debian:sid-${SNAPSHOT}@sha256:e276677157e13bc51ea5b8651f54ad28883f503cc37b3e3af2c4b6cc2f4efe7b
 
 # FROM consumed the outer ARG; redeclare it to use it in the build stage.
@@ -72,6 +94,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /debs/partial \
     && if ! mountpoint -q /debs; then rm -rf /debs; fi
+
+COPY --from=toolchains /opt/go /opt/go
+COPY --from=toolchains /opt/rust /opt/rust
+ENV PATH=/opt/go/bin:/opt/rust/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 COPY builder/build-package.sh /build.sh
 RUN chmod +x /build.sh

@@ -3,15 +3,15 @@
     ./tools/snapshot-changes.py 20261027 20261104
 
 A Markdown list for update-packages.yml's commit and pull request body. "The snapshot
-moved by eight days" says nothing a reviewer can act on; "gcc 16.1 -> 16.2, Go 1.26 ->
-1.27" says which packages a red build should be suspected of, and which numbers a size
+moved by eight days" says nothing a reviewer can act on; "gcc 16.1 -> 16.2, OpenSSL
+3.5.4 -> 3.5.5" says which packages a red build should be suspected of, and which numbers a size
 or boot-time change may be blamed on.
 
 Both dates' sid Packages index (amd64; one FROM line serves both arches, and sid builds
 them from the same source) comes from snapshot.debian.org, the archive both Containerfiles
 install from. Only TOOLS is reported, not every package the builder pulls in: the
 compilers, the -dev packages our libraries are coupled to (CLAUDE.md, linking), and what
-the assembly image lays the bytes out with. A metapackage (gcc, golang-go, python3) is
+the assembly image lays the bytes out with. A metapackage (gcc, clang, python3) is
 followed to the package it depends on, since its own version is the defaults package's.
 """
 
@@ -39,8 +39,7 @@ TOOLS = (
     Tool("gcc", "gcc", r"gcc-\d+"),
     Tool("binutils", "binutils"),
     Tool("clang", "clang", r"clang-\d+"),
-    Tool("Go", "golang-go", r"golang-[\d.]+-go"),
-    Tool("rustc", "rustc"),
+    # Go and Rust are not here: they are upstream's, pinned in builder/toolchains/.
     Tool("glibc (headers, libc6)", "libc6"),
     Tool("Linux headers", "linux-libc-dev"),
     Tool("OpenSSL", "libssl-dev"),

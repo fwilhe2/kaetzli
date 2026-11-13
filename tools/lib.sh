@@ -66,6 +66,31 @@ env_get() (
     for var; do printf '%s\n' "${!var:-}"; done
 )
 
+# all_toolchains — the builder's upstream toolchains (builder/toolchains/<name>.sh), one
+# name per line.
+all_toolchains() {
+    local f
+    for f in builder/toolchains/*.sh; do
+        f="${f##*/}"
+        printf '%s\n' "${f%.sh}"
+    done
+}
+
+# toolchain_files <name> [arch] — "<file> <url> <sha256>" per pinned tarball of that
+# toolchain for the architecture (the host's by default), from its pin file. The SHA-256
+# is empty when the pin file has none for it, which a caller treats as an error.
+toolchain_files() (
+    local arch comp file var
+    arch=$(normalize_arch "${2:-}")
+    # shellcheck disable=SC1090
+    source "builder/toolchains/$1.sh"
+    for comp in $COMPONENTS; do
+        file=$(toolchain_file "$comp" "$arch")
+        var="SHA256_${comp//-/_}_$arch"
+        printf '%s %s %s\n' "$file" "$URL_BASE/$file" "${!var:-}"
+    done
+)
+
 # Downloading a tarball: follow redirects, fail on HTTP errors, and retry the 5xx a mirror
 # serves while it syncs. No --retry-delay, so curl backs off exponentially (1, 2, 4 … 32 s,
 # about a minute in all): GitHub's release downloads answer 500 for longer than a fixed

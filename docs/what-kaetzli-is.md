@@ -15,7 +15,8 @@ every night when CI passes. There are no stable versions and no backports.
 ## The build
 
 **One toolchain, not a bootstrap.** Packages are compiled in a single builder image: a
-Debian sid snapshot pinned by date. Unlike LFS, there is no cross-toolchain stage. glibc is
+Debian sid snapshot pinned by date, plus upstream's Go and Rust releases, pinned and
+signature-checked. Unlike LFS, there is no cross-toolchain stage. glibc is
 the exception: kaetzli builds its own, compiles every package against it as `--sysroot`,
 and runs the builder itself on it. Other libraries are compiled against sid's `-dev`
 headers and run against kaetzli's own builds. Three ELF checks guard that split:
@@ -184,7 +185,8 @@ requests.
 
 ## What it is not
 
-- **Not a self-hosting LFS.** The toolchain is Debian's, permanently.
+- **Not a self-hosting LFS.** The C toolchain is Debian's; Go and Rust are upstream's
+  binaries.
 - **Not for hardware.** It targets VMs only, and the kernel has no drivers beyond that.
 - **Not a package-managed distribution.** Software is added as a package build or a
   system extension.
