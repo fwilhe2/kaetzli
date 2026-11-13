@@ -1,0 +1,38 @@
+From 07e841eb47dc4961cc9d9932c8d7f81a118d2285 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 07:17:29 +0000
+Subject: [PATCH] modula2: Correct testclock2.mod test code
+
+The testclock2.mod test should not change the system time.
+(Even if it is to the current time).
+
+gcc/testsuite/ChangeLog:
+
+	* gm2/iso/run/pass/testclock2.mod: Remove ability to
+	change the system clock.
+
+(cherry picked from commit 3f2108c80feff0eda301a19a8a2eed32560ec818)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/testsuite/gm2/iso/run/pass/testclock2.mod | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/gcc/testsuite/gm2/iso/run/pass/testclock2.mod b/gcc/testsuite/gm2/iso/run/pass/testclock2.mod
+index c80faff8aef0..15c672ec017b 100644
+--- a/gcc/testsuite/gm2/iso/run/pass/testclock2.mod
++++ b/gcc/testsuite/gm2/iso/run/pass/testclock2.mod
+@@ -10,12 +10,10 @@ BEGIN
+       SysClock.GetClock (dt) ;
+       IF SysClock.CanSetClock ()
+       THEN
+-         STextIO.WriteString ("success we can set the clock") ; STextIO.WriteLn ;
+-         SysClock.SetClock (dt)
++         STextIO.WriteString ("we can set the clock, but we won't in the testsuite") ; STextIO.WriteLn
+       ELSE
+          STextIO.WriteString ("unable to set the clock") ; STextIO.WriteLn
+       END
+-      ; SysClock.SetClock (dt)
+    ELSE
+       STextIO.WriteString ("unable to get the clock") ; STextIO.WriteLn
+    END

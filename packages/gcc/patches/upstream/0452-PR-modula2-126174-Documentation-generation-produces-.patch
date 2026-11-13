@@ -1,0 +1,143 @@
+From 670ffdd852619e16d1d2b364e858d465f20e8936 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 06:27:50 +0000
+Subject: [PATCH] PR modula2/126174: Documentation generation produces warnings
+ when generating gm2.info
+
+This patch corrects navigation node ordering in the menu.  The patch also
+introduces README.texi files for the
+gm2-libs-{cor,iso,pim}-common/README.texi.
+
+gcc/ChangeLog:
+
+	PR modula2/126174
+	* doc/gm2.texi (Using GNU Modula-2): Move Unbounded by reference after
+	Exception handling in the menu.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/126174
+	* Make-lang.in (m2/gm2-libs.texi): Add test for
+	m2/gm2-libs-pim-common and create if necessary.
+	Add test for m2/gm2-libs-iso-common and create if necessary.
+	Add test for m2/gm2-libs-cor-common and create if necessary.
+	* tools-src/def2doc.py (Base_Libs): Change section heading name.
+	(library_classifications): Add PIM_Common, ISO_Common and
+	COR_Common.
+	(PIM_Common): New list.
+	(ISO_Common): New list.
+	(COR_Common): New list.
+	* gm2-libs-cor-common/README.texi: New file.
+	* gm2-libs-iso-common/README.texi: New file.
+	* gm2-libs-pim-common/README.texi: New file.
+
+(cherry picked from commit 3ba687c78ac7e26cf2f26c01f4ab8439e439269f)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/doc/gm2.texi                       | 4 ++--
+ gcc/m2/Make-lang.in                    | 3 +++
+ gcc/m2/gm2-libs-cor-common/README.texi | 2 ++
+ gcc/m2/gm2-libs-iso-common/README.texi | 5 +++++
+ gcc/m2/gm2-libs-pim-common/README.texi | 6 ++++++
+ gcc/m2/tools-src/def2doc.py            | 9 +++++++--
+ 6 files changed, 25 insertions(+), 4 deletions(-)
+ create mode 100644 gcc/m2/gm2-libs-cor-common/README.texi
+ create mode 100644 gcc/m2/gm2-libs-iso-common/README.texi
+ create mode 100644 gcc/m2/gm2-libs-pim-common/README.texi
+
+diff --git a/gcc/doc/gm2.texi b/gcc/doc/gm2.texi
+index beb95d02342d..3cd28a6daabd 100644
+--- a/gcc/doc/gm2.texi
++++ b/gcc/doc/gm2.texi
+@@ -230,8 +230,8 @@ such as the AVR and the ARM).
+ * Semantic checking::     How to detect run time problems at compile time.
+ * Extensions::            GNU Modula-2 language extensions.
+ * Type compatibility::    Data type compatibility.
+-* Unbounded by reference::Explanation of a language optimization.
+ * Exception handling::    Example of exception handling.
++* Unbounded by reference::Explanation of a language optimization.
+ * Building a shared library:: How to build a shared library.
+ * Interface for Python::  How to produce swig interface files.
+ * Producing a Python module::  How to produce a Python module.
+@@ -1497,7 +1497,7 @@ the following pairs of options:
+ The option @samp{-fsources} will show the source module, path and
+ pathname for each module parsed.
+ 
+-@node Exceptions, Semantic checking, Dialect, Using
++@node Exceptions, Semantic checking, Module Search Path, Using
+ @section Exception implementation
+ 
+ This section describes how exceptions are implemented in GNU Modula-2
+diff --git a/gcc/m2/Make-lang.in b/gcc/m2/Make-lang.in
+index d5635a7cdfa6..1912a53b875a 100644
+--- a/gcc/m2/Make-lang.in
++++ b/gcc/m2/Make-lang.in
+@@ -236,6 +236,9 @@ m2/gm2-libs.texi: gm2-libs.texi-check; @true
+ ifeq ($(HAVE_PYTHON),yes)
+ gm2-libs.texi-check: m2/SYSTEM-pim.texi m2/SYSTEM-iso.texi m2/Builtins.texi \
+                      m2/gm2-libs-coroutines/SYSTEM.def
++	-test -d m2/gm2-libs-pim-common || $(mkinstalldirs) m2/gm2-libs-pim-common
++	-test -d m2/gm2-libs-iso-common || $(mkinstalldirs) m2/gm2-libs-iso-common
++	-test -d m2/gm2-libs-cor-common || $(mkinstalldirs) m2/gm2-libs-cor-common
+ 	-test -d m2/gm2-libs-log || $(mkinstalldirs) m2/gm2-libs-log
+ 	-test -d m2/gm2-libs-iso || $(mkinstalldirs) m2/gm2-libs-iso
+ 	-test -d m2/gm2-libs || $(mkinstalldirs) m2/gm2-libs
+diff --git a/gcc/m2/gm2-libs-cor-common/README.texi b/gcc/m2/gm2-libs-cor-common/README.texi
+new file mode 100644
+index 000000000000..5842b74023b9
+--- /dev/null
++++ b/gcc/m2/gm2-libs-cor-common/README.texi
+@@ -0,0 +1,2 @@
++The @code{SYSTEM} module will have additional size based data types if
++they are supported by the target.
+diff --git a/gcc/m2/gm2-libs-iso-common/README.texi b/gcc/m2/gm2-libs-iso-common/README.texi
+new file mode 100644
+index 000000000000..94b683a7f1d0
+--- /dev/null
++++ b/gcc/m2/gm2-libs-iso-common/README.texi
+@@ -0,0 +1,5 @@
++The modules @code{ComplexMath}, @code{LongComplexMath} and
++@code{ShortComplexMath} will have instrinic procedure functions
++enabled if the target supports the required GCC builtins.  The
++@code{SYSTEM} module will have additional size based data types if
++they are supported by the target.
+diff --git a/gcc/m2/gm2-libs-pim-common/README.texi b/gcc/m2/gm2-libs-pim-common/README.texi
+new file mode 100644
+index 000000000000..25e6f21ded79
+--- /dev/null
++++ b/gcc/m2/gm2-libs-pim-common/README.texi
+@@ -0,0 +1,6 @@
++These library modules contain access to functionality which is enabled
++if there is support in the GCC builtins.  The module
++@code{Builtins} contains access to many of the instrinsic
++procedure functions supported by GCC.  The @code{SYSTEM} module
++has been extended to include target supported data types (for example
++fixed sized @code{CARDINAL}, @code{INTEGER} and @code{REAL} types).
+diff --git a/gcc/m2/tools-src/def2doc.py b/gcc/m2/tools-src/def2doc.py
+index a953d9596997..e6e79884d9e6 100644
+--- a/gcc/m2/tools-src/def2doc.py
++++ b/gcc/m2/tools-src/def2doc.py
+@@ -25,7 +25,7 @@ import argparse
+ import os
+ import sys
+ 
+-Base_Libs = ['gm2-libs', 'Base libraries', 'Basic M2F compatible libraries']
++Base_Libs = ['gm2-libs', 'Base libraries', 'Basic PIM style compatible libraries']
+ 
+ PIM_Log_Desc = 'PIM and Logitech 3.0 compatible libraries'
+ PIM_Log = ['gm2-libs-log', 'PIM and Logitech 3.0 Compatible', PIM_Log_Desc]
+@@ -33,7 +33,12 @@ PIM_Cor_Desc = 'PIM compatible process support'
+ PIM_Cor = ['gm2-libs-coroutines', 'PIM coroutine support', PIM_Cor_Desc]
+ ISO_Libs = ['gm2-libs-iso', 'M2 ISO Libraries', 'ISO defined libraries']
+ 
+-library_classifications = [Base_Libs, PIM_Log, PIM_Cor, ISO_Libs]
++PIM_Common = ['gm2-libs-pim-common', 'PIM target', 'PIM target']
++ISO_Common = ['gm2-libs-iso-common', 'ISO target', 'ISO target']
++COR_Common = ['gm2-libs-cor-common', 'Coroutine target', 'Coroutine target']
++
++library_classifications = [Base_Libs, PIM_Log, PIM_Cor, ISO_Libs,
++                           PIM_Common, ISO_Common, COR_Common]
+ 
+ # state_states
+ state_none, state_var, state_type, state_const = range(4)

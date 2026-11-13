@@ -1,0 +1,250 @@
+From 9bca63ee4b27d79e08fe3c2a108dcc697de283ec Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Fri, 13 Nov 2026 00:21:57 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           |  5 +++
+ gcc/DATESTAMP           |  2 +-
+ gcc/fortran/ChangeLog   | 34 ++++++++++++++++
+ gcc/m2/ChangeLog        | 87 +++++++++++++++++++++++++++++++++++++++++
+ gcc/testsuite/ChangeLog | 24 ++++++++++++
+ libgm2/ChangeLog        | 39 ++++++++++++++++++
+ 6 files changed, 190 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 4b5e6db7db98..0070b6147f6c 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,8 @@
++2026-11-12  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/125129
++	* doc/gm2.texi (-fdump-builtins): New switch.
++
+ 2026-11-11  David Faust  <david.faust@oss.qualcomm.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index f668010427bd..72440d7670ee 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261112
++20261113
+diff --git a/gcc/fortran/ChangeLog b/gcc/fortran/ChangeLog
+index 9cb98eed3d0d..fc3894728bf1 100644
+--- a/gcc/fortran/ChangeLog
++++ b/gcc/fortran/ChangeLog
+@@ -1,3 +1,37 @@
++2026-11-12  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-10-30  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/128042
++	* target-memory.cc (encode_derived): Handle the case where an array
++	component of a derived type is initialized by a scalar.
++
++2026-11-12  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-10-25  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/127892
++	* simplify.cc (gfc_simplify_transfer): Fix a GMP memleak.
++	Reorganize the generation of the result expression so that its
++	known rank is directly used.
++	* target-memory.cc (gfc_target_interpret_expr): Use mpfr_clear /
++	mpz_clear before reinitializing scalar numerical value components.
++
++2026-11-12  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-10-20  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/127892
++	* expr.cc (gfc_copy_expr): Ensure that the result representation
++	length is the same as that of the source.
++	* gfortran.h (gfc_char_to_widechar): Adjust prototype.
++	* scanner.cc (gfc_char_to_widechar): Add optional argument for
++	the result representation length, instead of deriving it from the
++	string argument.
++
+ 2026-11-09  Paul Thomas  <pault@gcc.gnu.org>
+ 
+ 	Backported from master:
+diff --git a/gcc/m2/ChangeLog b/gcc/m2/ChangeLog
+index a1639d6d24d4..2cbb6f6df575 100644
+--- a/gcc/m2/ChangeLog
++++ b/gcc/m2/ChangeLog
+@@ -1,3 +1,90 @@
++2026-11-12  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/126911
++	PR modula2/125129
++	* Make-lang.in (escape_path): New define.
++	(RSTSRC): Remove.
++	(gm2-libs.texi-check): Rewrite without $(objdir).
++	(m2/gm2-libs.rst): Remove.
++	(gm2-ebnf.rst): Ditto.
++	(gm2-ebnf.rst-check): Ditto.
++	(SYSTEM-pim-texi-check): Ditto.
++	(m2/SYSTEM-pim.rst): Ditto.
++	(m2/SYSTEM-iso.texi): Rewrite without $(objdir).
++	(Builtins.texi-check): Rewrite specifying $(srcdir).
++	(m2/Builtins.rst): Remove.
++	(MC_ARGS): Add -I$(srcdir)/m2/gm2-libs-pim-common
++	and -I$(srcdir)/m2/mc-boot-ch.
++	(m2/mc-boot/$(SRC_PREFIX)%.o): Add -I$(srcdir)/m2/mc-boot-ch.
++	(m2/mc-boot-ch/$(SRC_PREFIX)%.o): Ditto.
++	(MC_BOOT_INCLUDES): New define.
++	(m2/gm2-libs-boot/UnixArgs.o): Add MC_BOOT_INCLUDES.
++	(m2/gm2-libs-boot/choosetemp.o): Ditto.
++	(m2/gm2-libs-boot/errno.o): Ditto.
++	(m2/gm2-libs-boot/dtoa.o): Ditto.
++	(m2/gm2-libs-boot/ldtoa.o): Ditto.
++	(m2/gm2-libs-boot/termios.o): Ditto.
++	(m2/gm2-libs-boot/SysExceptions.o): Ditto.
++	(m2/gm2-libs-boot/SysStorage.o): Ditto.
++	(m2/gm2-libs/Builtins.def): Rewrite.
++	(m2/gm2-libs/Builtins.mod): Ditto.
++	(m2/gm2-libs/%.o): Ditto.
++	* gm2-compiler/M2Options.def (SetDumpBuiltins): New procedure.
++	(GetDumpBuiltins): New procedure function.
++	* gm2-compiler/M2Options.mod (DumpBuiltinsFlag): New variable.
++	(SetDumpBuiltins): Implement new procedure.
++	(GetDumpBuiltins): Implement new procedure function.
++	* gm2-compiler/M2Quads.mod (BuildComponentValue): Removed unused
++	variable virtpos.
++	* gm2-gcc/m2builtins.cc (GM2_BUG_REPORT): Reformat.
++	(ASSERT): Ditto.
++	(ERROR): Ditto.
++	(dump_available): New function.
++	(define_builtin): Call dump_available if GetDumpBuiltins is set.
++	(dump_builtin): New function.
++	(m2builtins_init): Call dump_builtin.
++	* gm2-gcc/m2options.h (M2Options_SetDumpBuiltins): New prototype.
++	(M2Options_GetDumpBuiltins): Ditto.
++	* gm2-lang.cc (gm2_langhook_handle_option): Add OPT_fdump_builtins
++	case.
++	* gm2-libs-coroutines/SYSTEM.def: Move to...
++	* gm2-libs-cor-common/SYSTEM.def: ...here.
++	* gm2-libs-coroutines/SYSTEM.mod: Move to...
++	* gm2-libs-cor-common/SYSTEM.mod: ...here.
++	* gm2-libs-iso/ComplexMath.def: Move to...
++	* gm2-libs-iso-common/ComplexMath.def: ...here.
++	* gm2-libs-iso/ComplexMath.mod: Move to...
++	* gm2-libs-iso-common/ComplexMath.mod: ...here.
++	* gm2-libs-iso/LongComplexMath.def: Move to...
++	* gm2-libs-iso-common/LongComplexMath.def: ...here.
++	* gm2-libs-iso/LongComplexMath.mod: Move to...
++	* gm2-libs-iso-common/LongComplexMath.mod: ...here.
++	* gm2-libs-iso/SYSTEM.def: Move to...
++	* gm2-libs-iso-common/SYSTEM.def: ...here.
++	* gm2-libs-iso/SYSTEM.mod: Move to...
++	* gm2-libs-iso-common/SYSTEM.mod: ...here.
++	* gm2-libs-iso/ShortComplexMath.def: Move to...
++	* gm2-libs-iso-common/ShortComplexMath.def: ...here.
++	* gm2-libs-iso/ShortComplexMath.mod: Move to...
++	* gm2-libs-iso-common/ShortComplexMath.mod: ...here.
++	* gm2-libs-min/SYSTEM.def:
++	* gm2-libs/Builtins.def: Move to...
++	* gm2-libs-pim-common/Builtins.def: ...here.
++	* gm2-libs/Builtins.mod: Move to...
++	* gm2-libs-pim-common/Builtins.mod: ...here.
++	* gm2-libs/SYSTEM.def: Move to...
++	* gm2-libs-pim-common/SYSTEM.def: ...here.
++	* gm2-libs/SYSTEM.mod: Move to...
++	* gm2-libs-pim-common/SYSTEM.mod: ...here.
++	* gm2-libs/cbuiltin.def: Move to...
++	* gm2-libs-pim-common/cbuiltin.def: ...here.
++	* lang.opt (fdump-builtins): Add.
++	* tools-src/def2doc.py: Modified to process tags.
++	* tools-src/makeSystem: Modified to reflect new tags.
++	Replace echo with printf equivalent.
++	* tools-src/mktargetsrc.py: New file.
++	* gm2spec.cc (lang_specific_driver): Comment formatting.
++
+ 2026-11-08  Gaius Mulley  <gaiusmod2@gmail.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index b8d098d3dc1b..839dea415498 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,27 @@
++2026-11-12  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-10-30  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/128042
++	* gfortran.dg/transfer_simplify_17.f90: New test.
++
++2026-11-12  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-10-25  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/127892
++	* gfortran.dg/transfer_simplify_16.f90: New test.
++
++2026-11-12  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/125129
++	* gm2/exceptions/run/pass/exceptions-run-pass.exp: Use
++	gm2_target_compiler rather than target_compile.
++	* lib/gm2.exp (gm2_target_compile_default): Check
++	check_effective_target_pie and append -fPIE if necessary.
++
+ 2026-11-11  David Faust  <david.faust@oss.qualcomm.com>
+ 
+ 	Backported from master:
+diff --git a/libgm2/ChangeLog b/libgm2/ChangeLog
+index bf807ba4153d..a6cb1b4bc961 100644
+--- a/libgm2/ChangeLog
++++ b/libgm2/ChangeLog
+@@ -1,3 +1,42 @@
++2026-11-12  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	* configure: Regenerate.
++	* libm2min/Makefile.am (AM_MAKEFLAGS): Add the missing PYTHON and
++	HAVE_PYTHON_INTERPRETER declarations.
++	* libm2min/Makefile.in: Rebuilt.
++
++2026-11-12  Gaius Mulley  <gaiusmod2@gmail.com>
++
++	PR modula2/126847
++	PR modula2/125129
++	PR modula2/126863
++	PR modula2/125129
++	PR modula2/127359
++	* Makefile.am (AM_MAKEFLAGS): Add HAVE_PYTHON_INTERPRETER.
++	* Makefile.in: Regenerate.
++	* aclocal.m4: Regenerate.
++	* configure.ac: Call AC_PYTHON_INTERPRETER.
++	Remove call to AC_PYTHON_DEVEL.
++	* libm2cor/Makefile.in: Regenerate.
++	* libm2iso/Makefile.in: Regenerate.
++	* libm2log/Makefile.in: Regenerate.
++	* libm2min/Makefile.in: Regenerate.
++	* libm2pim/Makefile.in: Regenerate.
++	* libm2cor/Makefile.am (libm2cor_la_M2FLAGS): Add
++	gm2-libs-cor-common and pathname.
++	Replace bash with $(SHELL).
++	(SYSTEM.def): Rewrite rule.
++	(SYSTEM.mod): Copy common file.
++	* libm2iso/Makefile.am (AM_MAKEFLAGS): Add HAVE_PYTHON_INTERPRETER.
++	(libm2iso_la_CFLAGS): Add m2pim pathname and ../libm2pim to
++	include path.
++	* libm2log/Makefile.am: Rewrite to handle HAVE_PYTHON_INTERPRETER.
++	Falling back to the common versions of target sources if
++	HAVE_PYTHON_INTERPRETER is false.
++	* libm2min/Makefile.am: Ditto.
++	* libm2pim/Makefile.am:	Ditto.
++	* ax_python_interpreter.m4: New file.
++
+ 2026-08-07  Release Manager
+ 
+ 	* GCC 16.2.0 released.

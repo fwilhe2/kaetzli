@@ -1,0 +1,712 @@
+From 0ac764212f128c3fc190630fd6ab7e0641ca1715 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 11:06:49 +0000
+Subject: [PATCH] PR modula2/127622: spell checking candidates should include
+ base module and types
+
+This patch ensures that the base module is pushed first and that the
+scope check code does not stop at a module boundary.  The patch also
+allows symbols to be filtered on variables, types and constants.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127622
+	* gm2-compiler/M2Base.mod (CheckCompatible): Rename t1 to left.
+	Rename t2 to right.
+	Add spellcheck hint format specifiers to unknown types.
+	* gm2-compiler/M2MetaError.mod (ConfigureFilter): New procedure.
+	(errorBlock): filterVar new field.
+	filterType new field.
+	filterConst new field.
+	(continuation): Add T V C filter modifiers.
+	(FilterOnType): New procedure.
+	(FilterOnVariable): Ditto.
+	(FilrerOnConst): Ditto.
+	(SpellHint): Call ConfigureFilter.
+	* gm2-compiler/M2StackSpell.def (FilterType): New procedure.
+	(FilterVariable): Ditto.
+	(FilrerConst): Ditto.
+	* gm2-compiler/M2StackSpell.mod (FilterKind): New type.
+	(FilterSet): Ditto.
+	(CurrentFilter): New variable.
+	(PushNameFilter): New procedure.
+	(PushCandidates): Pass PushNameFilter as callback.
+	(GetSpellHintFilter): New procedure.
+	(GetSpellHint): Reimplement.
+	(FilterType): New procedure.
+	(FilterVariable): Ditto.
+	(FilterConst): Ditto.
+	(Init): Initialize CurrentFilter.
+	* gm2-compiler/P3SymBuild.mod (P3StartBuildDefModule): Push base
+	module.
+	(P3EndBuildDefModule): Pop base module.
+	(P3StartBuildImpModule): Push base module.
+	(P3EndBuildImpModule): Pop base module.
+	(P3StartBuildProgModule): Push base module.
+	(P3EndBuildProgModule): Pop base module.
+	(StartBuildInnerModule): Push base module.
+	(EndBuildInnerModule): Pop base module.
+	* gm2-compiler/PCSymBuild.mod (PCEndBuildDefModule): Pop
+	base module.
+	(PCStartBuildImpModule): Push base module.
+	(PCEndBuildImpModule): Pop base module.
+	(PCStartBuildProgModule): Push base module.
+	(PCEndBuildProgModule): Pop base module.
+	(StartBuildInnerModule): Push base module.
+	(EndBuildInnerModule): Pop base module.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/127622
+	* gm2.dg/spell/iso/fail/badspelltype.mod: New test.
+	* gm2.dg/spell/iso/fail/badspelltype2.mod: New test.
+
+(cherry picked from commit 074937c853850cef4281931b6709f95098a486c9)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-compiler/M2Base.mod                |  36 +++---
+ gcc/m2/gm2-compiler/M2MetaError.mod           |  73 +++++++++++-
+ gcc/m2/gm2-compiler/M2StackSpell.def          |  39 +++++--
+ gcc/m2/gm2-compiler/M2StackSpell.mod          | 105 +++++++++++++++---
+ gcc/m2/gm2-compiler/P3SymBuild.mod            |  10 +-
+ gcc/m2/gm2-compiler/PCSymBuild.mod            |  10 +-
+ .../gm2.dg/spell/iso/fail/badspelltype.mod    |  15 +++
+ .../gm2.dg/spell/iso/fail/badspelltype2.mod   |  18 +++
+ 8 files changed, 262 insertions(+), 44 deletions(-)
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype.mod
+ create mode 100644 gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype2.mod
+
+diff --git a/gcc/m2/gm2-compiler/M2Base.mod b/gcc/m2/gm2-compiler/M2Base.mod
+index e2862cdd0732..51c08955c3a9 100644
+--- a/gcc/m2/gm2-compiler/M2Base.mod
++++ b/gcc/m2/gm2-compiler/M2Base.mod
+@@ -1198,12 +1198,12 @@ END EmitTypeIncompatibleError ;
+ *)
+ 
+ PROCEDURE CheckCompatible (tok: CARDINAL;
+-                           t1, t2: CARDINAL; kind: Compatability) ;
++                           left, right: CARDINAL; kind: Compatability) ;
+ VAR
+    s: String ;
+    r: Compatible ;
+ BEGIN
+-   r := IsCompatible (t1, t2, kind) ;
++   r := IsCompatible (left, right, kind) ;
+    IF (r#first) AND (r#second)
+    THEN
+       IF (r=warnfirst) OR (r=warnsecond)
+@@ -1212,27 +1212,31 @@ BEGIN
+       ELSE
+          s := InitString('')
+       END ;
+-      IF IsUnknown(t1) AND IsUnknown(t2)
++      IF IsUnknown (left) AND IsUnknown (right)
+       THEN
+-         (* --fixme-- spellcheck.  *)      
+-         s := ConCat(s, InitString('two different unknown types {%1a:{%2a:{%1a} and {%2a}}} must either be declared or imported)')) ;
+-         MetaErrorStringT2 (tok, s, t1, t2)
+-      ELSIF IsUnknown(t1)
++         (* Spellcheck.  *)
++         s := ConCat(s, InitString('two different unknown types'
++                                   + ' {%1a:{%2a:{%1a} and {%2a}}} must either be declared'
++                                   + ' or imported {%1&Ts} {%2&Ts}')) ;
++         MetaErrorStringT2 (tok, s, left, right)
++      ELSIF IsUnknown (left)
+       THEN
+-         (* --fixme-- spellcheck.  *)      
+-         s := ConCat(s, InitString('this type {%1a} is currently unknown, it must be declared or imported')) ;
+-         MetaErrorStringT1 (tok, s, t1)
+-      ELSIF IsUnknown(t2)
++         (* Spellcheck.  *)
++         s := ConCat(s, InitString('this type {%1a} is currently unknown,'
++                                   + ' it must be declared or imported {%1&Ts}')) ;
++         MetaErrorStringT1 (tok, s, left)
++      ELSIF IsUnknown (right)
+       THEN
+-         (* --fixme-- spellcheck.  *)      
+-         s := ConCat (s, InitString('this type {%1a} is currently unknown, it must be declared or imported')) ;
+-         MetaErrorStringT1 (tok, s, t2)
++         (* Spellcheck.  *)
++         s := ConCat (s, InitString('this type {%1a} is currently unknown,'
++                                    + ' it must be declared or imported {%1&Ts}')) ;
++         MetaErrorStringT1 (tok, s, right)
+       ELSE
+          IF (r=warnfirst) OR (r=warnsecond)
+          THEN
+-            EmitTypeIncompatibleWarning (tok, kind, t1, t2)
++            EmitTypeIncompatibleWarning (tok, kind, left, right)
+          ELSE
+-            EmitTypeIncompatibleError (tok, kind, t1, t2)
++            EmitTypeIncompatibleError (tok, kind, left, right)
+          END
+       END
+    END
+diff --git a/gcc/m2/gm2-compiler/M2MetaError.mod b/gcc/m2/gm2-compiler/M2MetaError.mod
+index b270f7ca64aa..6298718f7da4 100644
+--- a/gcc/m2/gm2-compiler/M2MetaError.mod
++++ b/gcc/m2/gm2-compiler/M2MetaError.mod
+@@ -73,7 +73,9 @@ IMPORT M2Error ;
+ IMPORT FilterError ;
+ 
+ FROM FilterError IMPORT Filter, AddSymError, IsSymError ;
+-FROM M2StackSpell IMPORT GetDefModuleSpellHint, GetSpellHint ;
++
++FROM M2StackSpell IMPORT GetDefModuleSpellHint, GetSpellHint,
++                         FilterConst, FilterVariable, FilterType ;
+ 
+ 
+ CONST
+@@ -101,6 +103,9 @@ TYPE
+                    ini       : INTEGER ;
+                    vowel,
+                    filterDef,
++                   filterVar,
++                   filterType,
++                   filterConst,
+                    importHint,
+                    exportHint,
+                    withStackHint,
+@@ -534,7 +539,10 @@ BEGIN
+       ini        := 0 ;
+       glyph      := FALSE ;  (* Nothing to output yet.  *)
+       vowel      := FALSE ;  (* Check for a vowel when outputing string?  *)
+-      filterDef  := FALSE ;  (* Filter on definition module list?  *)
++      filterDef  := FALSE ;  (* Filter on definition module list.  *)
++      filterType := FALSE ;  (* Filter on type.  *)
++      filterConst := FALSE ;  (* Filter on const.  *)
++      filterVar  := FALSE ;  (* Filter on variable.  *)
+       importHint := FALSE;
+       exportHint := FALSE ;
+       withStackHint := FALSE ;
+@@ -1842,7 +1850,7 @@ END op ;
+ 
+ 
+ (*
+-   continuation := {':'|'1'|'2'|'3'|'4'|'i'|'s'|'x'|'w'|'D'} =:
++   continuation := {':'|'1'|'2'|'3'|'4'|'i'|'s'|'x'|'w'|'D'|'T'|'V'|'C'} =:
+ *)
+ 
+ PROCEDURE continuation (VAR eb: errorBlock;
+@@ -1863,10 +1871,13 @@ BEGIN
+       's':  SpellHint (eb, sym, bol) |
+       'x':  AddExportsHint (eb) |
+       'w':  AddWithStackHint (eb) |
+-      'D':  FilterOnDefinitionModule (eb)
++      'D':  FilterOnDefinitionModule (eb) |
++      'T':  FilterOnType (eb) |
++      'V':  FilterOnVariable (eb) |
++      'C':  FilterOnConst (eb)
+ 
+       ELSE
+-         InternalFormat (eb, 'expecting one of [:1234isxw]',
++         InternalFormat (eb, 'expecting one of [:1234isxwDT]',
+                          __LINE__)
+       END ;
+       INC (eb.ini)
+@@ -1953,6 +1964,27 @@ BEGIN
+ END JoinSentances ;
+ 
+ 
++(*
++   ConfigureFilter -
++*)
++
++PROCEDURE ConfigureFilter (eb: errorBlock) ;
++BEGIN
++   IF eb.filterType
++   THEN
++      FilterType
++   END ;
++   IF eb.filterVar
++   THEN
++      FilterVariable
++   END ;
++   IF eb.filterConst
++   THEN
++      FilterConst
++   END
++END ConfigureFilter ;
++
++
+ (*
+    SpellHint -
+ *)
+@@ -1966,6 +1998,7 @@ BEGIN
+          JoinSentances (eb, GetDefModuleSpellHint (sym[bol]))
+       ELSIF IsUnknown (sym[bol]) OR IsError (sym[bol])
+       THEN
++         ConfigureFilter (eb) ;
+          JoinSentances (eb, GetSpellHint (sym[bol]))
+       END
+    END
+@@ -2012,6 +2045,36 @@ BEGIN
+ END FilterOnDefinitionModule ;
+ 
+ 
++(*
++   FilterOnType -
++*)
++
++PROCEDURE FilterOnType (VAR eb: errorBlock) ;
++BEGIN
++   eb.filterType := TRUE
++END FilterOnType ;
++
++
++(*
++   FilterOnConst -
++*)
++
++PROCEDURE FilterOnConst (VAR eb: errorBlock) ;
++BEGIN
++   eb.filterConst := TRUE
++END FilterOnConst ;
++
++
++(*
++   FilterOnVariable -
++*)
++
++PROCEDURE FilterOnVariable (VAR eb: errorBlock) ;
++BEGIN
++   eb.filterVar := TRUE
++END FilterOnVariable ;
++
++
+ (*
+    changeColor - changes to color, c.
+ *)
+diff --git a/gcc/m2/gm2-compiler/M2StackSpell.def b/gcc/m2/gm2-compiler/M2StackSpell.def
+index a0c11aacb642..5f9816c7376b 100644
+--- a/gcc/m2/gm2-compiler/M2StackSpell.def
++++ b/gcc/m2/gm2-compiler/M2StackSpell.def
+@@ -25,13 +25,6 @@ FROM DynamicStrings IMPORT String ;
+ FROM NameKey IMPORT Name ;
+ 
+ 
+-(*
+-   GetSpellHint - return a string describing a spelling hint.
+-*)
+-
+-PROCEDURE GetSpellHint (unknown: CARDINAL) : String ;
+-
+-
+ (*
+    Push - push a scope onto the spelling stack.
+           sym might be a ModSym, DefImpSym or a varsym
+@@ -69,4 +62,36 @@ PROCEDURE GetRecordField (tokno: CARDINAL;
+ PROCEDURE GetDefModuleSpellHint (defimp: CARDINAL) : String ;
+ 
+ 
++(*
++   GetSpellHint - return a string describing a spelling hint.
++                  The spell candidates can be filtered using
++                  the attributes below.  Note that the
++                  GetDefModuleSpellHint and GetRecordField
++                  are not filtered.
++*)
++
++PROCEDURE GetSpellHint (unknown: CARDINAL) : String ;
++
++
++(*
++   FilterConst - filter on constants.
++*)
++
++PROCEDURE FilterConst ;
++
++
++(*
++   FilterVariable - filter on variables.
++*)
++
++PROCEDURE FilterVariable ;
++
++
++(*
++   FilterType - filter on types.
++*)
++
++PROCEDURE FilterType ;
++
++
+ END M2StackSpell.
+diff --git a/gcc/m2/gm2-compiler/M2StackSpell.mod b/gcc/m2/gm2-compiler/M2StackSpell.mod
+index 22f7137945f8..b8ae3d754a46 100644
+--- a/gcc/m2/gm2-compiler/M2StackSpell.mod
++++ b/gcc/m2/gm2-compiler/M2StackSpell.mod
+@@ -25,6 +25,7 @@ FROM SymbolTable IMPORT NulSym, IsModule, IsDefImp, IsRecord,
+                         IsEnumeration, IsProcedure, GetNth,
+                         GetSymName, GetSym, GetLocalSym, GetScope,
+                         UnknownReported, IsUnknown,
++                        IsAModula2Type, IsConst, IsVar,
+                         GetUnknownOnImport, GetUnknownDeclScope,
+                         ForeachExportedDo,
+                         ForeachProcedureDo, ForeachLocalSymDo,
+@@ -47,8 +48,13 @@ IMPORT m2spellcheck ;
+ FROM m2spellcheck IMPORT Candidates ;
+ 
+ 
++TYPE
++   FilterKind = (constant, type, variable) ;
++   FilterSet  = SET OF FilterKind ;
++
+ VAR
+-   DefaultStack: StackOfWord ;
++   DefaultStack : StackOfWord ;
++   CurrentFilter: FilterSet ;
+ 
+ 
+ (*
+@@ -192,11 +198,37 @@ VAR
+ BEGIN
+    str := InitStringCharStar (KeyToCharStar (GetSymName (sym))) ;
+    m2spellcheck.Push (PushCandidate, string (str)) ;
+-   (* str := KillString (str) *)
++   (* str := KillString (str) ;  *)
+    INC (PushCount)
+ END PushName ;
+ 
+ 
++(*
++   PushNameFilter - push a name to the candidate vec provided
++                    the filter allows.
++*)
++
++PROCEDURE PushNameFilter (sym: CARDINAL) ;
++BEGIN
++   IF CurrentFilter = FilterSet {}
++   THEN
++      (* No filtering.  *)
++      PushName (sym)
++   ELSE
++      IF (constant IN CurrentFilter) AND IsConst (sym)
++      THEN
++         PushName (sym)
++      ELSIF (type IN CurrentFilter) AND IsAModula2Type (sym)
++      THEN
++         PushName (sym)
++      ELSIF (variable IN CurrentFilter) AND IsVar (sym)
++      THEN
++         PushName (sym)
++      END
++   END
++END PushNameFilter ;
++
++
+ (*
+    ForeachRecordFieldDo -
+ *)
+@@ -228,14 +260,14 @@ BEGIN
+    PushCandidate := cand ;
+    IF IsModule (sym) OR IsDefImp (sym)
+    THEN
+-      ForeachProcedureDo (sym, PushName) ;
+-      ForeachLocalSymDo (sym, PushName)
++      ForeachProcedureDo (sym, PushNameFilter) ;
++      ForeachLocalSymDo (sym, PushNameFilter)
+    ELSIF IsEnumeration (sym)
+    THEN
+-      ForeachFieldEnumerationDo (sym, PushName)
++      ForeachFieldEnumerationDo (sym, PushNameFilter)
+    ELSIF IsRecord (sym)
+    THEN
+-      ForeachRecordFieldDo (sym, PushName)
++      ForeachRecordFieldDo (sym, PushNameFilter)
+    END ;
+    RETURN PushCount
+ END PushCandidates ;
+@@ -309,10 +341,11 @@ END AddPunctuation ;
+ 
+ 
+ (*
+-   GetSpellHint - return a string describing a spelling hint.
++   GetSpellHintFilter - return a string describing a spelling hint.
++                        The hint may be filtered.
+ *)
+ 
+-PROCEDURE GetSpellHint (unknown: CARDINAL) : String ;
++PROCEDURE GetSpellHintFilter (unknown: CARDINAL) : String ;
+ BEGIN
+    IF IsUnknown (unknown) AND
+       GetUnknownOnImport (unknown) AND
+@@ -322,9 +355,57 @@ BEGIN
+       RETURN GetExportedSpellHint (unknown, GetUnknownDeclScope (unknown))
+    END ;
+    RETURN GetScopeSpellHint (unknown)
++END GetSpellHintFilter ;
++
++
++(*
++   GetSpellHint - return a string describing a spelling hint.
++                  The spell candidates can be filtered using
++                  the attributes below.  Note that the
++                  GetDefModuleSpellHint and GetRecordField
++                  are not filtered.
++*)
++
++PROCEDURE GetSpellHint (unknown: CARDINAL) : String ;
++VAR
++   hint: String ;
++BEGIN
++   hint := GetSpellHintFilter (unknown) ;
++   CurrentFilter := FilterSet {} ;  (* Reset for the next time.  *)
++   RETURN hint
+ END GetSpellHint ;
+ 
+ 
++(*
++   FilterConst - filter on constants.
++*)
++
++PROCEDURE FilterConst ;
++BEGIN
++   INCL (CurrentFilter, constant)
++END FilterConst ;
++
++
++(*
++   FilterVariable - filter on variables.
++*)
++
++PROCEDURE FilterVariable ;
++BEGIN
++   INCL (CurrentFilter, variable)
++END FilterVariable ;
++
++
++(*
++   FilterType - filter on types.
++*)
++
++PROCEDURE FilterType ;
++BEGIN
++   INCL (CurrentFilter, type)
++END FilterType ;
++
++
+ (*
+    GetExportedSpellHint - return a string describing a spelling hint
+                           using the module exported identifiers.
+@@ -372,11 +453,6 @@ BEGIN
+    WHILE (i <= n) AND (HintStr = NIL) DO
+       sym := PeepWord (DefaultStack, i) ;
+       HintStr := CheckForHintStr (sym, HintStr, misspell) ;
+-      IF IsModule (sym) OR IsDefImp (sym)
+-      THEN
+-         (* Cannot see beyond a module scope.  *)
+-         RETURN AddPunctuation (HintStr, '?')
+-      END ;
+       INC (i)
+    END ;
+    RETURN AddPunctuation (HintStr, '?')
+@@ -389,7 +465,8 @@ END GetScopeSpellHint ;
+ 
+ PROCEDURE Init ;
+ BEGIN
+-   DefaultStack := InitStackWord ()
++   DefaultStack := InitStackWord () ;
++   CurrentFilter := FilterSet {}
+ END Init ;
+ 
+ 
+diff --git a/gcc/m2/gm2-compiler/P3SymBuild.mod b/gcc/m2/gm2-compiler/P3SymBuild.mod
+index 85f1e9f80400..16a561748ee0 100644
+--- a/gcc/m2/gm2-compiler/P3SymBuild.mod
++++ b/gcc/m2/gm2-compiler/P3SymBuild.mod
+@@ -31,7 +31,7 @@ FROM M2LexBuf IMPORT GetTokenNo ;
+ 
+ FROM SymbolTable IMPORT NulSym, ModeOfAddr, ProcedureKind,
+                         StartScope, EndScope, GetScope, GetCurrentScope,
+-                        GetModuleScope,
++                        GetModuleScope, GetBaseModule,
+                         SetCurrentModule, GetCurrentModule, SetFileModule,
+                         GetExported, IsExported, IsImplicityExported,
+                         IsDefImp, IsModule, IsImported, IsIncludedByDefinition,
+@@ -97,6 +97,7 @@ BEGIN
+    StartScope (ModuleSym) ;
+    Assert (IsDefImp (ModuleSym)) ;
+    Assert (CompilingDefinitionModule ()) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym) ;
+    PushT (name) ;
+    M2Error.EnterDefinitionScope (name)
+@@ -128,6 +129,7 @@ BEGIN
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
+    M2StackSpell.Pop ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -169,6 +171,7 @@ BEGIN
+    Assert (CompilingImplementationModule()) ;
+    PushT (name) ;
+    M2Error.EnterImplementationScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END P3StartBuildImpModule ;
+ 
+@@ -198,6 +201,7 @@ BEGIN
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
+    M2StackSpell.Pop ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -244,6 +248,7 @@ BEGIN
+    Assert(NOT IsDefImp(ModuleSym)) ;
+    PushT(name) ;
+    M2Error.EnterProgramScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END P3StartBuildProgModule ;
+ 
+@@ -283,6 +288,7 @@ BEGIN
+       FlushErrors
+    END ;
+    M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop ;
+    M2StackSpell.Pop
+ END P3EndBuildProgModule ;
+ 
+@@ -316,6 +322,7 @@ BEGIN
+    SetCurrentModule(ModuleSym) ;
+    PushT(name) ;
+    M2Error.EnterModuleScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END StartBuildInnerModule ;
+ 
+@@ -355,6 +362,7 @@ BEGIN
+    END ;
+    SetCurrentModule(GetModuleScope(GetCurrentModule())) ;
+    M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop ;
+    M2StackSpell.Pop
+ END EndBuildInnerModule ;
+ 
+diff --git a/gcc/m2/gm2-compiler/PCSymBuild.mod b/gcc/m2/gm2-compiler/PCSymBuild.mod
+index f54e83a4fc3a..010bccc8a1a7 100644
+--- a/gcc/m2/gm2-compiler/PCSymBuild.mod
++++ b/gcc/m2/gm2-compiler/PCSymBuild.mod
+@@ -54,7 +54,7 @@ FROM M2Reserved IMPORT PlusTok, MinusTok, TimesTok, DivTok, ModTok,
+ 
+ FROM SymbolTable IMPORT NulSym, ModeOfAddr, ProcedureKind,
+                         StartScope, EndScope, GetScope, GetCurrentScope,
+-                        GetModuleScope,
++                        GetModuleScope, GetBaseModule,
+                         SetCurrentModule, GetCurrentModule, SetFileModule,
+                         GetExported,
+                         IsDefImp, IsModule,
+@@ -237,6 +237,7 @@ BEGIN
+    StartScope(ModuleSym) ;
+    Assert(IsDefImp(ModuleSym)) ;
+    Assert(CompilingDefinitionModule()) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym) ;
+    PushT(name) ;
+    M2Error.EnterDefinitionScope (name)
+@@ -268,6 +269,7 @@ BEGIN
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
+    M2StackSpell.Pop ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -309,6 +311,7 @@ BEGIN
+    Assert(CompilingImplementationModule()) ;
+    PushTtok(name, tok) ;
+    M2Error.EnterImplementationScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END PCStartBuildImpModule ;
+ 
+@@ -338,6 +341,7 @@ BEGIN
+    CheckForUnknownInModule (tokno) ;
+    EndScope ;
+    M2StackSpell.Pop ;
++   M2StackSpell.Pop ;
+    PopT(NameEnd) ;
+    PopT(NameStart) ;
+    IF NameStart#NameEnd
+@@ -384,6 +388,7 @@ BEGIN
+    Assert(NOT IsDefImp(ModuleSym)) ;
+    PushTtok(name, tok) ;
+    M2Error.EnterProgramScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END PCStartBuildProgModule ;
+ 
+@@ -423,6 +428,7 @@ BEGIN
+       FlushErrors
+    END ;
+    M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop ;
+    M2StackSpell.Pop
+ END PCEndBuildProgModule ;
+ 
+@@ -456,6 +462,7 @@ BEGIN
+    SetCurrentModule(ModuleSym) ;
+    PushTtok(name, tok) ;
+    M2Error.EnterModuleScope (name) ;
++   M2StackSpell.Push (GetBaseModule ()) ;
+    M2StackSpell.Push (ModuleSym)
+ END PCStartBuildInnerModule ;
+ 
+@@ -495,6 +502,7 @@ BEGIN
+    END ;
+    SetCurrentModule(GetModuleScope(GetCurrentModule())) ;
+    M2Error.LeaveErrorScope ;
++   M2StackSpell.Pop ;
+    M2StackSpell.Pop
+ END PCEndBuildInnerModule ;
+ 
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype.mod
+new file mode 100644
+index 000000000000..28708c638f41
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype.mod
+@@ -0,0 +1,15 @@
++
++(* { dg-do compile } *)
++(* { dg-options "-g -c" } *)
++
++MODULE badspelltype ;
++
++VAR
++   a: CARDINAL ;
++   b: CARDINAl ;
++ (* { dg-error "unknown symbol 'CARDINAl', did you mean CARDINAL" "CARDINAl" { target *-*-* } 9 } *)
++BEGIN
++   IF a = b
++   THEN
++   END
++END badspelltype.
+diff --git a/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype2.mod b/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype2.mod
+new file mode 100644
+index 000000000000..5e27a8e52872
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/spell/iso/fail/badspelltype2.mod
+@@ -0,0 +1,18 @@
++
++(* { dg-do compile } *)
++(* { dg-options "-g -c" } *)
++
++MODULE badspelltype2 ;
++
++TYPE
++   Cardinal = CARDINAL ;
++
++VAR
++   a: Cardinal ;
++   b: Cardina1 ;
++ (* { dg-error "unknown symbol 'Cardina1', did you mean Cardinal" "Cardina1" { target *-*-* } 12 } *)
++BEGIN
++   IF a = b
++   THEN
++   END
++END badspelltype2.
