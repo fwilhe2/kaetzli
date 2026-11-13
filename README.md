@@ -208,8 +208,9 @@ it requires, for example:
 ```
 
 The complete source of any build, for a GPL source request, is one command: the
-repository at that commit plus every upstream tarball and patch from its sources image,
-each checked against the commit's pins, in `output/source/<commit>/`:
+repository at that commit plus every upstream tarball and patch from its sources image
+(each release tags it `ghcr.io/fwilhe2/kaetzli/sources:<release>`), each checked against
+the commit's pins, in `output/source/<commit>/`:
 
 ```sh
 ./tools/corresponding-source.py 20261107.094545-751   # a release name, or a commit (BUILD_ID)

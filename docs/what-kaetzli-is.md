@@ -120,8 +120,8 @@ patches become VEX statements. `check-sbom.py` validates the result.
 **Licenses are checked and shipped.** Every package must have a DFSG-free SPDX license
 (`check-licenses.py`, its own workflow). Upstream license texts are copied into
 `/usr/share/licenses/<pkg>/`, and assembly fails if any later step changes that tree. The
-sources image holding every tarball and patch is referenced by digest in each release, as
-the corresponding source.
+sources image holding every tarball and patch is referenced by digest in each release and
+tagged with its name (`sources:<snapshot>`), as the corresponding source.
 
 **Provenance.** Builds on `main` attest the OCI images (SLSA provenance and SBOM) and every
 file in the boot bundle. `tools/fetch-image.sh` installs nothing whose hashes do not match
