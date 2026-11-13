@@ -31,12 +31,13 @@ REPORTER = "update-check"
 Runner = Callable[[list[str]], subprocess.CompletedProcess]
 
 # What update-packages.yml's bumps write: a package's env.sh (bump-version.sh) and its
-# upstream patch series (sync-patches.sh), or for the Debian snapshot the two
-# Containerfiles (bump-snapshot.sh). Never build.sh, our own patches or a signing key
-# (upstream-key.asc is a person's decision, tools/pin-upstream-key.sh), and never two
-# packages at once.
+# upstream patch series (sync-patches.sh), for the Debian snapshot the two Containerfiles
+# (bump-snapshot.sh), for a toolchain its one pin file (bump-toolchain.sh). Never build.sh,
+# our own patches or a signing key (upstream-key.asc and builder/toolchains/*-key.asc are a
+# person's decision), and never two packages or toolchains at once.
 _BUMP = re.compile(r"packages/([^/]+)/(env\.sh|patches/upstream/.+)")
 SNAPSHOT_FILES = {"builder/Containerfile", "image/Containerfile"}
+_TOOLCHAIN = re.compile(r"builder/toolchains/[^/]+\.sh")
 # `gh pr view --json files` lists at most this many; a list that long may not be all.
 GH_FILES_CAP = 100
 
@@ -49,6 +50,8 @@ def outside_scope(files: list[str]) -> list[str]:
         return [f"({GH_FILES_CAP} files or more: gh lists no more)"]
     if SNAPSHOT_FILES & set(files):
         return [f for f in files if f not in SNAPSHOT_FILES]
+    if _TOOLCHAIN.fullmatch(files[0]):
+        return files[1:]
     out, pkg = [], None
     for f in files:
         m = _BUMP.fullmatch(f)

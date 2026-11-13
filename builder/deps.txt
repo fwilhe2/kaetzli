@@ -74,15 +74,12 @@ clang
 bpftool
 linux-bpf-dev
 
-# Go and Rust, for the container stack: podman is Go, netavark and aardvark-dns are Rust.
-# Builder-side only, like every other compiler here. Each package's build has to point
-# its toolchain at our glibc by hand — cgo through CGO_CFLAGS/CGO_LDFLAGS, cargo through
-# a linker argument — because neither reads CFLAGS; builder/build-package.sh exports both.
-# protobuf-compiler is netavark's: its DHCP proxy speaks gRPC, and the bindings are
-# generated at build time.
-golang-go
-rustc
-cargo
+# Go and Rust are not here: they are upstream's releases, pinned in builder/toolchains/ and
+# installed by builder/Containerfile, so a package needing a new Go or Rust does not wait
+# for sid. Each package's build has to point its toolchain at our glibc by hand — cgo
+# through CGO_CFLAGS/CGO_LDFLAGS, cargo through a linker argument — because neither reads
+# CFLAGS; builder/build-package.sh exports both. protobuf-compiler is netavark's: its
+# DHCP proxy speaks gRPC, and the bindings are generated at build time.
 protobuf-compiler
 
 # The kernel package: BTF needs pahole out of dwarves. libssl-dev used to be here too,

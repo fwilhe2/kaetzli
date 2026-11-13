@@ -12,8 +12,8 @@ which.
 Any newer dated image is reported. How often that turns into a bump is the caller's
 cadence, not this script's: update-packages.yml asks on Sundays only, because every bump
 invalidates the builder tag and with it every package's build cache on both
-architectures — a full rebuild, worth spending weekly for a current toolchain (sid's Go,
-above all, which compiles every Go binary the extensions ship) and not nightly.
+architectures — a full rebuild, worth spending weekly for a current gcc and current
+-dev headers and not nightly. (Go and Rust are not sid's: tools/check-toolchains.py.)
 
   STALE_DAYS    how old the pin has to be before this says so loudly (default 90).
                 The failure mode of automation is silence: a checker that stops finding

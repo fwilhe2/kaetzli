@@ -62,6 +62,7 @@ FILES = {
         (["packages/bash/env.sh", "packages/bash/patches/upstream/bash53-004"], []),
         (["packages/bash/patches/upstream/bash53-005"], []),
         (["builder/Containerfile", "image/Containerfile"], []),
+        (["builder/toolchains/go.sh"], []),
         # what a bump never touches
         (["packages/curl/env.sh", ".github/workflows/ci.yml"], [".github/workflows/ci.yml"]),
         (["packages/curl/build.sh"], ["packages/curl/build.sh"]),
@@ -74,6 +75,17 @@ FILES = {
         # one package per bump, and a snapshot bump is a bump of nothing else
         (["packages/curl/env.sh", "packages/zlib/env.sh"], ["packages/zlib/env.sh"]),
         (["builder/Containerfile", "packages/curl/env.sh"], ["packages/curl/env.sh"]),
+        # one toolchain per bump, and never its key
+        (
+            ["builder/toolchains/go.sh", "builder/toolchains/rust.sh"],
+            ["builder/toolchains/rust.sh"],
+        ),
+        (
+            ["builder/toolchains/go.sh", "builder/toolchains/go-key.asc"],
+            ["builder/toolchains/go-key.asc"],
+        ),
+        (["builder/toolchains/go-key.asc"], ["builder/toolchains/go-key.asc"]),
+        (["packages/curl/env.sh", "builder/toolchains/go.sh"], ["builder/toolchains/go.sh"]),
         ([], ["(no files)"]),
         (["packages/curl/env.sh"] * 100, ["(100 files or more: gh lists no more)"]),
     ],

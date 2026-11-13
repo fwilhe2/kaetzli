@@ -1,10 +1,10 @@
 # Our own toolchain
 
-**Status: proposal, nothing implemented.** This would reverse a stated aim: "No
-self-hosted toolchain. The Debian builder image is the toolchain, deliberately and
-permanently" (`CLAUDE.md`, [what-kaetzli-is.md](../what-kaetzli-is.md)). Adopting any phase
-past the first is a decision to change that aim, and both files change with it. None of
-the six project constraints is affected.
+**Status: proposal, partly implemented.** Implemented: phase 1 (`builder/toolchains/`,
+[build inputs](../guides/build-container.md)). Phases 2 and 3 would reverse a stated aim,
+that the Debian builder image is the C toolchain (`CLAUDE.md`,
+[what-kaetzli-is.md](../what-kaetzli-is.md)); adopting either is a decision to change that
+aim, and both files change with it. None of the six project constraints is affected.
 
 The goal: take the latest gcc, Go, Rust and libraries when upstream releases them, not
 when Debian uploads them to sid. The phases below are independent enough to stop after any
@@ -30,7 +30,8 @@ Replace `golang-go`, `rustc`, `cargo` with upstream's release tarballs (go.dev/d
 static.rust-lang.org), installed in the builder image.
 
 - **Pinned, not floating.** "Always latest" means a version and SHA-256 per arch in a pin
-  file, bumped by `check-updates.py` and the nightly update PRs like any package. A
+  file (`builder/toolchains/<name>.sh`). `tools/check-toolchains.py` and
+  `tools/bump-toolchain.sh` feed the nightly update PRs, like `debian-snapshot`. A
   floating "latest" would break *same commit, same bytes*. The pin file is hashed into the
   builder tag by `tools/image-tags.sh`.
 - **Signatures**: both upstreams publish detached signatures next to their tarballs. Pin
@@ -40,7 +41,8 @@ static.rust-lang.org), installed in the builder image.
 - Rust: a minimal profile (`rustc`, `cargo`, `rust-std`) for the host triple only.
 - Both are builder-side, so constraint 5 does not apply.
 
-**Effort**: 1–2 days. **Build time**: none. The builder image grows by roughly 400 MB.
+**Effort**: 1–2 days. **Build time**: none. The builder image grows by about 860 MB
+installed (Go 276 MB, Rust 584 MB, mostly rustc's LLVM), less what sid's packages took.
 **Ongoing**: Go point releases monthly, Rust every six weeks, both automated.
 
 The gain is immediate: Kubernetes and podman often require a Go minor release before sid

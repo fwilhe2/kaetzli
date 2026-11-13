@@ -23,8 +23,10 @@ ARCH=$(normalize_arch "${ARCH:-}")
 case "${1:-}" in
     builder)
         # Everything that changes what is installed in the image, and nothing else: the
-        # dependency list, how it is installed, and the entrypoint baked in beside it.
-        hash=$(cat builder/Containerfile builder/deps.txt builder/build-package.sh | sha256sum)
+        # dependency list, how it is installed, the upstream toolchains' pins and keys,
+        # and the entrypoint baked in beside it.
+        hash=$(cat builder/Containerfile builder/deps.txt builder/build-package.sh \
+                   builder/toolchains/* | sha256sum)
         echo "$REGISTRY/builder:${hash:0:16}-$ARCH"
         exit 0
         ;;

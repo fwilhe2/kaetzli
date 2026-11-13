@@ -11,6 +11,16 @@ pinned Debian snapshot. The image is built natively for each supported architect
 content-addressed tag includes the Containerfile, dependency list, build entrypoint, and
 base image reference; see `tools/image-tags.sh`.
 
+Go and Rust are not Debian's. `builder/toolchains/go.sh` and `rust.sh` pin upstream's
+release tarballs: a version and a SHA-256 per component and architecture, beside the
+signing key allowed to have made them (`<name>-key.asc`). `tools/prep.sh` fetches them
+with `tools/fetch-toolchains.sh`, which checks the checksum and the signature, and passes
+them to `podman build` as the `toolchain-tarballs` context. The builder installs them
+under `/opt/go` and `/opt/rust`. The pins are in the builder tag.
+`tools/check-toolchains.py` reports new releases. `tools/bump-toolchain.sh <name> <version>`
+writes a new pin from signature-checked tarballs, and the nightly update workflow opens
+those bumps as pull requests.
+
 The explicit dependency list makes the toolchain reviewable and repeatable. Avoid adding a
 dependency merely because an upstream package can use it optionally: configure that feature
 out when possible. Otherwise the build may link against a library that the target image

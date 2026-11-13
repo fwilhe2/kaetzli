@@ -16,9 +16,11 @@ A **minimal but genuinely useful general-purpose Linux**, built from source, aut
 kept current. Small because nothing unnecessary was added, not because something useful was
 removed.
 
-- **No self-hosted toolchain.** The Debian builder image is the toolchain, deliberately and
-  permanently, not a stepping stone. glibc is the one exception (version skew there silently
-  makes binaries that cannot start); everything else links against Debian's.
+- **No self-hosted toolchain.** The Debian builder image is the C toolchain, deliberately,
+  not a stepping stone. glibc is the one exception (version skew there silently makes
+  binaries that cannot start); everything else links against Debian's. Go and Rust are
+  upstream's release binaries (`builder/toolchains/`), so they never wait for sid; going
+  further is `docs/proposals/own-toolchain.md`.
 - **Modern and established, both**: choices a competent engineer would defend in 2026 —
   neither decade-old inertia nor last month's GitHub project.
 - **Useful, not merely bootable.** A Kubernetes node is *an* aim, not *the* aim; features are
@@ -151,6 +153,8 @@ policy checks are done).
 ./tools/pin-upstream-key.sh <pkg> [url]  # add the key that signed the pinned release (a reviewed commit)
 ./tools/check-updates.py [pkg...]   # upstream releases since the pinned VERSION/VENDOR_VERSION/patch series
 ./tools/check-snapshot.py           # is the pinned Debian snapshot still current?
+./tools/check-toolchains.py [go|rust]  # Go and Rust pins vs upstream's latest stable
+./tools/bump-toolchain.sh <go|rust> <ver>  # VERSION + every SHA256, each tarball signature-checked
 ./tools/snapshot-changes.py OLD NEW # toolchain versions two snapshots differ in (the bump's commit body)
 ./tools/bump-snapshot.sh            # move builder + assembler to the newest dated sid snapshot
 ./tools/check-patches.sh [--version V] [pkg...]  # patches apply to the tarball (seconds, no build)
@@ -250,7 +254,9 @@ compile. Extraction is `--strip-components=1` into `$PACKAGE`.
 compile, install); CI's `build` matrix is generated from `packages/`. Shared machinery:
 
 - `builder/Containerfile` + `deps.txt` → the one builder image (bottom of `deps.txt`: what is
-  deliberately absent).
+  deliberately absent). Go and Rust come from `builder/toolchains/<name>.sh` (VERSION, a
+  SHA-256 per component and arch) and `<name>-key.asc`: `tools/fetch-toolchains.sh`
+  checks both and hands the tarballs over as a build context. A key is a person's commit.
 - `tools/prep.sh` → the only network step: pull-or-build the builder and sources images
   (content-hash tags, `tools/image-tags.sh`), unpack tarballs. A builder build is seeded with
   the last one's `.deb`s (`builder-debs:<snapshot>-<arch>`, apt-verified), retried, and pushes

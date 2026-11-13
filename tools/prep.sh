@@ -114,16 +114,23 @@ push_debs() {
 build_builder() {
     seed_debs
     seeded=$(debs_count)
-    local attempt
+    # Go and Rust, checked against their pins and upstream's signatures, as the build
+    # context builder/Containerfile installs them from: exactly the pinned files.
+    local toolchains attempt
+    mkdir -p downloads && toolchains=$(mktemp -d downloads/.toolchain-context.XXXXXX)
+    ./tools/fetch-toolchains.sh "$toolchains"
     for attempt in 1 2 3 4 5; do
         if podman build -t "$builder" -f builder/Containerfile \
+                --build-context "toolchain-tarballs=$toolchains" \
                 --volume "$PWD/$debs_dir:/debs:z" .; then
+            rm -rf "$toolchains"
             push_debs
             return 0
         fi
         echo ">> builder: attempt $attempt failed, $(debs_count) packages fetched so far" >&2
         [ "$attempt" = 5 ] || sleep $((attempt * 60))
     done
+    rm -rf "$toolchains"
     push_debs
     echo "error: could not build $builder: snapshot.debian.org kept refusing" >&2
     return 1

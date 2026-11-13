@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        description: "Packages to check, space separated (empty = all, `debian-snapshot` for the toolchain)"
+        description: "Packages to check, space separated (empty = all; `debian-snapshot`, `go`, `rust` for the toolchains)"
         required: false
         default: ""
 
@@ -59,10 +59,30 @@ jobs:
           PACKAGES: ${{ inputs.packages }}
           EVENT: ${{ github.event_name }}
         run: |
+          # Go and Rust (builder/toolchains/) are not packages: asked by name, they go to
+          # check-toolchains.py, and the rest to check-updates.py.
+          toolchains=$(ls builder/toolchains/*.sh | sed 's|.*/||; s|\.sh$||')
+          wanted_packages= wanted_toolchains=
+          for p in $PACKAGES; do
+            if grep -qx "$p" <<< "$toolchains"; then wanted_toolchains+=" $p"
+            elif [ "$p" != debian-snapshot ]; then wanted_packages+=" $p"; fi
+          done
+
           # An upstream that can't be reached shouldn't stop the packages that can, so
           # the failures are reported at the end rather than aborting the run.
-          ./tools/check-updates.py --json $PACKAGES > updates.json || failed=1
-          [ -s updates.json ] || echo '[]' > updates.json
+          echo '[]' > updates.json
+          if [ -z "$PACKAGES" ] || [ -n "$wanted_packages" ]; then
+            ./tools/check-updates.py --json $wanted_packages > updates.json || failed=1
+            [ -s updates.json ] || echo '[]' > updates.json
+          fi
+
+          # Go and Rust from upstream, nightly: a bump rebuilds everything, as glibc's
+          # nightly patch syncs already do, and Go's security releases should not wait.
+          echo '[]' > toolchains.json
+          if [ -z "$PACKAGES" ] || [ -n "$wanted_toolchains" ]; then
+            ./tools/check-toolchains.py --json $wanted_toolchains > toolchains.json || failed=1
+            [ -s toolchains.json ] || echo '[]' > toolchains.json
+          fi
 
           # The toolchain pin, from its own script for its own reasons: check-updates.py
           # iterates packages/*/env.sh and the Debian base is not one of those. Both emit
@@ -98,7 +118,7 @@ jobs:
           # but only in a week where something actually has an update, since `[]` is one
           # line either way. tools/check-updates.py emits compact JSON for exactly this
           # reason (`jq -sc .`); merging the snapshot list in is what dropped it.
-          jq -cs add updates.json snapshot.json > all.json
+          jq -cs add updates.json toolchains.json snapshot.json > all.json
           echo "updates=$(cat all.json)" >> "$GITHUB_OUTPUT"
           jq -r '.[] | "\(.package)\(if .component then "/" + .component else "" end): \(.current) -> \(.latest)"' all.json
           if [ -n "${failed:-}" ]; then
@@ -198,6 +218,18 @@ jobs:
           Tag: $URL
           EOF
             )
+          elif [ "$KIND" = toolchain ]; then
+            # VERSION and every SHA-256, each tarball verified against the key pinned
+            # beside it; a release signed by another key fails here, for a person.
+            ./tools/bump-toolchain.sh "$PKG" "$LATEST"
+            TITLE="Update the $PKG toolchain to $LATEST"
+            COMMIT_BODY=$(cat <<EOF
+          Builder toolchain \`$PKG\` $CURRENT -> $LATEST, from upstream's release
+          (builder/toolchains/$PKG.sh).
+
+          Release notes: $URL
+          EOF
+            )
           elif [ "$KIND" = vendor ]; then
             ./tools/bump-version.sh --vendor "$PKG" "$LATEST"
             TITLE="Update $COMPONENT in $PKG to $LATEST"
@@ -280,6 +312,22 @@ jobs:
           Opened automatically by \`.github/workflows/update-packages.yml\`. Closing this
           pull request stops $LATEST from being proposed again; the next dated image still
           gets its own.
+          EOF
+          )
+          elif [ "$KIND" = toolchain ]; then
+            BODY=$(cat <<EOF
+          Builder toolchain \`$PKG\` $CURRENT -> $LATEST, written to
+          \`builder/toolchains/$PKG.sh\` by \`tools/bump-toolchain.sh\` after every tarball
+          verified against \`builder/toolchains/$PKG-key.asc\`.
+
+          Release notes: $URL
+
+          The builder tag changes, so CI rebuilds the builder and every package; what this
+          compiler builds is podman, Kubernetes, CRI-O, the CNI plugins (Go) or netavark
+          and aardvark-dns (Rust).
+
+          Opened automatically by \`.github/workflows/update-packages.yml\`. Closing this
+          pull request stops $LATEST from being proposed again.
           EOF
           )
           elif [ "$KIND" = patches ]; then
