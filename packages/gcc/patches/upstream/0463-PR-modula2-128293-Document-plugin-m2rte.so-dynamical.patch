@@ -1,0 +1,39 @@
+From 34bb1ded7e1304a92301dbb2c9933f7bb81c6f39 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 23:48:25 +0000
+Subject: [PATCH] PR modula2/128293: Document plugin/m2rte.so dynamically
+ linked to stdc++
+
+This patch for doc/install.texi documents that m2rte.so is
+dependent upon stdc++.
+
+gcc/ChangeLog:
+
+	PR modula2/128293
+	* doc/install.texi (GM2-prerequisite): Add paragraph
+	explaining m2rte.so is dependent upon stdc++.
+
+(cherry picked from commit a6c50b0dde127f7e1c60d480de5fc4b4629aa6f2)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/doc/install.texi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/gcc/doc/install.texi b/gcc/doc/install.texi
+index 41424773b0a8..46d466e657cc 100644
+--- a/gcc/doc/install.texi
++++ b/gcc/doc/install.texi
+@@ -346,6 +346,12 @@ documentation including the target @code{SYSTEM} definition module.
+ If Python3 is unavailable Modula-2 documentation will include a target
+ independent version of the SYSTEM modules.
+ 
++If plugins are enabled a compile time call flow analysis shared
++library @file{m2rte.so} is built.  This plugin performs a limited
++amount of compile time static analysis in an attempt to detect runtime
++Modula-2 exceptions at compile time.  The plugin @file{m2rte.so}
++depends upon @file{-lstdc++}.
++
+ @item @anchor{gccrs-prerequisite}gccrs
+ 
+ The official Rust compiler and Rust build system (cargo) are required for
