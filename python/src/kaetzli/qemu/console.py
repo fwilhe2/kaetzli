@@ -42,8 +42,9 @@ CONSOLE_BAD = (
 # The marker is split by quotes so the echo of what we typed cannot match it.
 READY = "SHELL-IS-UP"
 PROBE = "echo SHELL-IS'-UP'"
-# Echo off, prompt and colours off: the log is read as text.
-QUIET = "stty -echo; PS1=; export SYSTEMD_COLORS=0"
+# Echo off, prompt and colours off: the log is read as text. No aliases either: the image's
+# /etc/bashrc ones (grep --color, df -h, mkdir -p) would change what every command prints.
+QUIET = "stty -echo; PS1=; export SYSTEMD_COLORS=0; unalias -a"
 
 
 _END = re.compile(rb"\Z")

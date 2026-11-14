@@ -16,6 +16,10 @@
   "ERRS> Jan 01 kaetzli foo[12]: something broke\nERRS> Jan 01 kaetzli bar[13]: so did this\nSYSTEMD-ERRS:[2]\n"
  ],
  [
+  "ALIAS-LOGIN",
+  "SYSTEMD-ALIAS-LOGIN:[alias ll='ls -lh']\nSYSTEMD-ALIAS-NONLOGIN:[alias ll='ls -lh']\n"
+ ],
+ [
   "kernel/hostname",
   "SYSTEMD-HOSTNAME:[kaetzli-fwcfg]\n"
  ],

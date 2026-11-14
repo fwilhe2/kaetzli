@@ -1,0 +1,5 @@
+# The shell's startup files (image/files/etc): /etc/profile for login shells, which sources
+# /etc/bashrc, the one bash reads itself for non-login interactive shells (SYS_BASHRC,
+# packages/bash/build.sh). test/systemd.py checks both load in the guest.
+present etc/profile
+present etc/bashrc

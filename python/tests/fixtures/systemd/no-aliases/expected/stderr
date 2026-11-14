@@ -1,0 +1,16 @@
+>> systemd test FAILED: a non-login interactive shell has no `ll` alias (got: [bash: alias: ll: not found]) — image/files/etc/bashrc, read via /etc/profile and bash's SYS_BASHRC (packages/bash/build.sh)
+>> last 80 lines of the console:
+[    0.000000] Linux version 7.3.1
+[    0.100000] Run /bin/bash as init process
+Welcome to Kaetzli!
+
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0; unalias -a
+SHELL-IS-UP
+SYSTEMD-STATE:running
+SYSTEMD-TAINT:[Tainted=]
+SYSTEMD-ROFS:[0]
+SYSTEMD-ERRS:[0]
+SYSTEMD-ALIAS-LOGIN:[alias ll='ls -lh']
+SYSTEMD-ALIAS-NONLOGIN:[bash: alias: ll: not found]
+UNIT LOAD ACTIVE SUB DESCRIPTION
+foo.service loaded failed failed Foo

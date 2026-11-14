@@ -4,12 +4,14 @@
 [    0.100000] Run /bin/bash as init process
 Welcome to Kaetzli!
 
-kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0
+kaetzli login: stty -echo; PS1=; export SYSTEMD_COLORS=0; unalias -a
 SHELL-IS-UP
 SYSTEMD-STATE:running
 SYSTEMD-TAINT:[Tainted=]
 SYSTEMD-ROFS:[0]
 SYSTEMD-ERRS:[0]
+SYSTEMD-ALIAS-LOGIN:[alias ll='ls -lh']
+SYSTEMD-ALIAS-NONLOGIN:[alias ll='ls -lh']
 SYSCTL> kernel/kptr_restrict=1
 SYSCTL> kernel/dmesg_restrict=1
 SYSCTL> kernel/unprivileged_bpf_disabled=1

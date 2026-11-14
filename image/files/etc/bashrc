@@ -1,0 +1,33 @@
+# Interactive conveniences for root and user alike. bash is built to read this file for
+# interactive non-login shells (SYS_BASHRC, packages/bash/build.sh); /etc/profile sources it
+# for login shells, which never read a bashrc themselves.
+# Plain aliases only: nothing here changes what a script or a non-interactive shell does.
+case $- in
+*i*) ;;
+*) return 0 ;;
+esac
+
+alias ls='ls --color=auto'
+alias ll='ls -lh'
+alias la='ls -lAh'
+alias l='ls -CF'
+alias lt='ls -lhtr'
+
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+alias grep='grep --color=auto'
+alias egrep='grep -E --color=auto'
+alias fgrep='grep -F --color=auto'
+
+alias df='df -h'
+alias du='du -h'
+alias free='free -h'
+alias mkdir='mkdir -p'
+
+alias h='history'
+alias j='journalctl'
+alias sc='systemctl'
+alias ports='ss -tulpn'
+alias ipa='ip -c a'
