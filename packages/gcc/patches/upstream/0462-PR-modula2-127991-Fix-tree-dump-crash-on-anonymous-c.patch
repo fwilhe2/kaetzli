@@ -1,0 +1,101 @@
+From 584d2bc707b31f1078b4aea6cb840fa85bab58b7 Mon Sep 17 00:00:00 2001
+From: Gaius Mulley <gaiusmod2@gmail.com>
+Date: Fri, 13 Nov 2026 23:47:06 +0000
+Subject: [PATCH] PR modula2/127991: Fix tree-dump crash on anonymous constants
+
+m2decl_DeclareKnownConstant creates an IDENTIFIER_NODE without setting
+its string, even though the constant is intended to be anonymous.  Tree
+dumps treat the nonnull DECL_NAME as printable and dereference its null
+string, causing a crash for anonymous set constants.
+
+Build the CONST_DECL with a NULL_TREE name instead.  The dumper then
+uses the declaration's generated name.  Add a dump regression test.
+
+The test case was found by a non-AI automated testing tool.
+The investigation was assisted by OpenAI Codex 5.6 Sol and Claude.
+
+gcc/m2/ChangeLog:
+
+	PR modula2/127991
+	* gm2-gcc/m2decl.cc (m2decl_DeclareKnownConstant): Build the
+	anonymous constant declaration without a name.
+
+gcc/testsuite/ChangeLog:
+
+	PR modula2/127991
+	* gm2.dg/dump/pim/pass/anonymousconst.mod: New test.
+	* gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp: New test.
+
+	Authored-by: Yongqiang Tian <yqtian668@gmail.com>
+(cherry picked from commit 5a696df0da45397886341fee4618720384798259)
+
+Signed-off-by: Gaius Mulley <gaiusmod2@gmail.com>
+---
+ gcc/m2/gm2-gcc/m2decl.cc                          |  3 +--
+ .../gm2.dg/dump/pim/pass/anonymousconst.mod       | 13 +++++++++++++
+ .../gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp     | 15 +++++++++++++++
+ 3 files changed, 29 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gm2.dg/dump/pim/pass/anonymousconst.mod
+ create mode 100644 gcc/testsuite/gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp
+
+diff --git a/gcc/m2/gm2-gcc/m2decl.cc b/gcc/m2/gm2-gcc/m2decl.cc
+index 966b22cf776a..095fba0d4a72 100644
+--- a/gcc/m2/gm2-gcc/m2decl.cc
++++ b/gcc/m2/gm2-gcc/m2decl.cc
+@@ -142,7 +142,6 @@ m2decl_DeclareKnownVariable (location_t location, const char *name, tree type,
+ tree
+ m2decl_DeclareKnownConstant (location_t location, tree type, tree value)
+ {
+-  tree id = make_node (IDENTIFIER_NODE); /* Ignore the name of the constant. */
+   tree decl;
+ 
+   m2assert_AssertLocation (location);
+@@ -150,7 +149,7 @@ m2decl_DeclareKnownConstant (location_t location, tree type, tree value)
+   type = m2tree_skip_type_decl (type);
+   layout_type (type);
+ 
+-  decl = build_decl (location, CONST_DECL, id, type);
++  decl = build_decl (location, CONST_DECL, NULL_TREE, type);
+ 
+   value = copy_node (value);
+   TREE_TYPE (value) = type;
+diff --git a/gcc/testsuite/gm2.dg/dump/pim/pass/anonymousconst.mod b/gcc/testsuite/gm2.dg/dump/pim/pass/anonymousconst.mod
+new file mode 100644
+index 000000000000..f19449fa14d7
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/dump/pim/pass/anonymousconst.mod
+@@ -0,0 +1,13 @@
++(* { dg-do compile } *)
++(* { dg-options "-O0 -fdump-tree-optimized" } *)
++
++MODULE anonymousconst ;
++TYPE
++   large = SET OF [0..1023] ;
++PROCEDURE Check (a: large) ;
++END Check ;
++BEGIN
++   Check(large{2, 3, 4})
++END anonymousconst.
++
++(* { dg-final { scan-tree-dump "Check \\(C\\." "optimized" } } *)
+diff --git a/gcc/testsuite/gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp b/gcc/testsuite/gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp
+new file mode 100644
+index 000000000000..086b175bd69a
+--- /dev/null
++++ b/gcc/testsuite/gm2.dg/dump/pim/pass/dg-dump-pim-pass.exp
+@@ -0,0 +1,15 @@
++# Compile tests, no torture testing.
++
++# Load support procs.
++load_lib gm2-dg.exp
++
++gm2_init_pim4 $srcdir/$subdir
++
++# Initialize `dg'.
++dg-init
++
++# Main loop.
++dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.mod]] "" ""
++
++# All done.
++dg-finish

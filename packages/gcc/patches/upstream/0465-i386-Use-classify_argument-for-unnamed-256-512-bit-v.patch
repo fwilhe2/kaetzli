@@ -1,0 +1,337 @@
+From 0be7752b59a68e42415826e2632719ffbfe350c8 Mon Sep 17 00:00:00 2001
+From: liuhongt <hongtao.liu@intel.com>
+Date: Wed, 11 Nov 2026 23:06:28 -0800
+Subject: [PATCH] i386: Use classify_argument for unnamed 256/512-bit vector
+ args [PR128640]
+
+Unnamed 256-bit and 512-bit vector arguments must be passed on the
+stack, since the register save area set up by a variadic callee only
+holds 16 bytes per SSE register.  function_arg_advance_64,
+function_arg_64 and ix86_gimplify_va_arg implement this rule with an
+explicit check for the 256-bit and 512-bit vector modes.
+
+The explicit mode check is not enough.  Whether an argument goes in a
+single YMM/ZMM register is decided by classify_argument (SSE followed
+by all SSEUP), and that classification also applies to BLKmode
+aggregates without a vector mode, e.g. a union whose widest member is
+a 256-bit or 512-bit vector.  Such unnamed arguments slip past the
+mode check: the caller passes them in %ymm/%zmm, and va_arg reads them
+from consecutive 16-byte slots of the register save area, which yields
+wrong upper lanes, or segfaults on an aligned 32/64-byte load from a
+16-byte aligned slot.
+
+Replace the explicit mode check with classify_argument: it only returns
+more than 2 classes for SSE followed by all SSEUP, i.e. exactly when
+the argument would be passed in a single 256-bit or 512-bit vector
+register.  Assert that invariant in the classify_argument wrapper with
+checking enabled.
+
+gcc/ChangeLog:
+
+	PR target/128640
+	* config/i386/i386.cc (classify_argument): In the wrapper,
+	assert that more than 2 classes means SSE followed by all SSEUP.
+	(function_arg_advance_64): Use classify_argument instead of an
+	explicit vector mode check to pass unnamed 256-bit and 512-bit
+	vector arguments on stack.
+	(function_arg_64): Likewise.
+	(ix86_gimplify_va_arg): Likewise.
+
+gcc/testsuite/ChangeLog:
+
+	PR target/128640
+	* gcc.target/i386/pr128640-1.c: New test.
+	* gcc.target/i386/pr128640-2.c: New test.
+	* gcc.target/i386/pr128640-3.c: New test.
+
+(cherry picked from commit 19c7fe8874c52e3452379e87ceaf039de1ae1249)
+---
+ gcc/config/i386/i386.cc                    | 96 ++++++++--------------
+ gcc/testsuite/gcc.target/i386/pr128640-1.c | 54 ++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128640-2.c | 52 ++++++++++++
+ gcc/testsuite/gcc.target/i386/pr128640-3.c | 27 ++++++
+ 4 files changed, 167 insertions(+), 62 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128640-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128640-2.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128640-3.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index d0cc7fcc8a8d..9cb33ff8c721 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -2714,6 +2714,18 @@ classify_argument (machine_mode mode, const_tree type,
+   static bool warned = false;
+   int n = classify_argument (mode, type, classes, bit_offset,
+ 			     zero_width_bitfields);
++  /* More than 2 classes is only possible for a single 256-bit or
++     512-bit vector register: SSE followed by all SSEUP.  This is
++     relied upon by function_arg_advance_64, function_arg_64 and
++     ix86_gimplify_va_arg, which pass unnamed 256-bit and 512-bit
++     vector parameters on stack when classify_argument returns more
++     than 2 classes.  */
++  if (flag_checking && n > 2)
++    {
++      gcc_assert ((n == 4 || n == 8) && classes[0] == X86_64_SSE_CLASS);
++      for (int i = 1; i < n; i++)
++	gcc_assert (classes[i] == X86_64_SSEUP_CLASS);
++    }
+   if (!zero_width_bitfields || warned || !warn_psabi)
+     return n;
+   enum x86_64_reg_class alt_classes[MAX_CLASSES];
+@@ -3205,10 +3217,11 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, machine_mode mode,
+ 			 const_tree type, HOST_WIDE_INT words, bool named)
+ {
+   int int_nregs, sse_nregs;
++  enum x86_64_reg_class regclass[MAX_CLASSES];
+ 
+-  /* Unnamed 512 and 256bit vector mode parameters are passed on stack.  */
+-  if (!named && (VALID_AVX512F_REG_MODE (mode)
+-		 || VALID_AVX256_REG_MODE (mode)))
++  /* Unnamed 512 and 256bit vector parameters are passed on stack.  See
++     function_arg_64.  */
++  if (!named && classify_argument (mode, type, regclass, 0) > 2)
+     return 0;
+ 
+   if (!examine_argument (mode, type, 0, &int_nregs, &sse_nregs)
+@@ -3458,32 +3471,14 @@ function_arg_64 (const CUMULATIVE_ARGS *cum, machine_mode mode,
+ 		       : cum->sse_regno)
+ 		    : -1);
+ 
+-  switch (mode)
+-    {
+-    default:
+-      break;
+-
+-    case E_V16HFmode:
+-    case E_V16BFmode:
+-    case E_V8SFmode:
+-    case E_V8SImode:
+-    case E_V32QImode:
+-    case E_V16HImode:
+-    case E_V4DFmode:
+-    case E_V4DImode:
+-    case E_V32HFmode:
+-    case E_V32BFmode:
+-    case E_V16SFmode:
+-    case E_V16SImode:
+-    case E_V64QImode:
+-    case E_V32HImode:
+-    case E_V8DFmode:
+-    case E_V8DImode:
+-      /* Unnamed 256 and 512bit vector mode parameters are passed on stack.  */
+-      if (!named)
+-	return NULL;
+-      break;
+-    }
++  /* Unnamed 256 and 512bit vector parameters are passed on stack.
++     classify_argument returns more than 2 classes only for SSE followed
++     by all SSEUP, i.e. a single 256-bit or 512-bit vector register.
++     Besides the vector modes, this covers BLKmode aggregates such as a
++     union with such a vector member.  */
++  enum x86_64_reg_class regclass[MAX_CLASSES];
++  if (!named && classify_argument (mode, type, regclass, 0) > 2)
++    return NULL;
+ 
+   const int *parm_regs;
+   if (cum->preserve_none_abi)
+@@ -4977,39 +4972,16 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+   rsize = CEIL (size, UNITS_PER_WORD);
+ 
+   nat_mode = type_natural_mode (type, NULL, false);
+-  switch (nat_mode)
+-    {
+-    case E_V16HFmode:
+-    case E_V16BFmode:
+-    case E_V8SFmode:
+-    case E_V8SImode:
+-    case E_V32QImode:
+-    case E_V16HImode:
+-    case E_V4DFmode:
+-    case E_V4DImode:
+-    case E_V32HFmode:
+-    case E_V32BFmode:
+-    case E_V16SFmode:
+-    case E_V16SImode:
+-    case E_V64QImode:
+-    case E_V32HImode:
+-    case E_V8DFmode:
+-    case E_V8DImode:
+-      /* Unnamed 256 and 512bit vector mode parameters are passed on stack.  */
+-      if (!TARGET_64BIT_MS_ABI)
+-	{
+-	  container = NULL;
+-	  break;
+-	}
+-      /* FALLTHRU */
+-
+-    default:
+-      container = construct_container (nat_mode, TYPE_MODE (type),
+-				       type, 0, X86_64_REGPARM_MAX,
+-				       X86_64_SSE_REGPARM_MAX, intreg,
+-				       0);
+-      break;
+-    }
++  /* Unnamed 256 and 512bit vector parameters are passed on stack.  See
++     function_arg_64.  */
++  enum x86_64_reg_class regclass[MAX_CLASSES];
++  if (!TARGET_64BIT_MS_ABI
++      && classify_argument (nat_mode, type, regclass, 0) > 2)
++    container = NULL;
++  else
++    container = construct_container (nat_mode, TYPE_MODE (type),
++				     type, 0, X86_64_REGPARM_MAX,
++				     X86_64_SSE_REGPARM_MAX, intreg, 0);
+ 
+   /* Pull the value out of the saved registers.  */
+ 
+diff --git a/gcc/testsuite/gcc.target/i386/pr128640-1.c b/gcc/testsuite/gcc.target/i386/pr128640-1.c
+new file mode 100644
+index 000000000000..50019ca2d9b0
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128640-1.c
+@@ -0,0 +1,54 @@
++/* PR target/128640 */
++/* { dg-do run { target { ! ia32 } } } */
++/* { dg-require-effective-target avx } */
++/* { dg-options "-O2 -mavx" } */
++
++#include <stdarg.h>
++#include "avx-check.h"
++
++typedef float v8sf __attribute__((vector_size (32)));
++typedef long long v4di __attribute__((vector_size (32)));
++
++union u1 { v8sf f; };
++union u2 { v8sf f; float x; };
++struct s3 { union u1 u; };
++union u4 { v4di f; };
++
++#ifndef CHECK
++#define CHECK(X, N) \
++  for (int i = 0; i < N; i++) \
++    if ((X)[i] != i + 1) \
++      abort ()
++#endif
++
++__attribute__((noipa)) void
++foo (int n, ...)
++{
++  va_list ap;
++  va_start (ap, n);
++  if (va_arg (ap, double) != 0.0)
++    abort ();
++  union u1 a = va_arg (ap, union u1);
++  CHECK (a.f, 8);
++  if (va_arg (ap, double) != 5.0)
++    abort ();
++  union u2 b = va_arg (ap, union u2);
++  CHECK (b.f, 8);
++  struct s3 c = va_arg (ap, struct s3);
++  CHECK (c.u.f, 8);
++  union u4 d = va_arg (ap, union u4);
++  CHECK (d.f, 4);
++  if (va_arg (ap, double) != 6.0)
++    abort ();
++  va_end (ap);
++}
++
++static void
++avx_test (void)
++{
++  union u1 a = { { 1, 2, 3, 4, 5, 6, 7, 8 } };
++  union u2 b = { { 1, 2, 3, 4, 5, 6, 7, 8 } };
++  struct s3 c = { { { 1, 2, 3, 4, 5, 6, 7, 8 } } };
++  union u4 d = { { 1, 2, 3, 4 } };
++  foo (1, 0.0, a, 5.0, b, c, d, 6.0);
++}
+diff --git a/gcc/testsuite/gcc.target/i386/pr128640-2.c b/gcc/testsuite/gcc.target/i386/pr128640-2.c
+new file mode 100644
+index 000000000000..99480fbab47b
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128640-2.c
+@@ -0,0 +1,52 @@
++/* PR target/128640 */
++/* { dg-do run { target { ! ia32 } } } */
++/* { dg-require-effective-target avx512f } */
++/* { dg-options "-O2 -mavx512f" } */
++
++#include <stdarg.h>
++#include "avx512f-check.h"
++
++typedef float v16sf __attribute__((vector_size (64)));
++typedef long long v8di __attribute__((vector_size (64)));
++
++union u1 { v16sf f; };
++union u2 { v16sf f; float x; };
++struct s3 { union u1 u; };
++union u4 { v8di f; };
++
++#define CHECK(X, N) \
++  for (int i = 0; i < N; i++) \
++    if ((X)[i] != i + 1) \
++      abort ()
++
++__attribute__((noipa)) void
++foo (int n, ...)
++{
++  va_list ap;
++  va_start (ap, n);
++  if (va_arg (ap, double) != 0.0)
++    abort ();
++  union u1 a = va_arg (ap, union u1);
++  CHECK (a.f, 16);
++  if (va_arg (ap, double) != 5.0)
++    abort ();
++  union u2 b = va_arg (ap, union u2);
++  CHECK (b.f, 16);
++  struct s3 c = va_arg (ap, struct s3);
++  CHECK (c.u.f, 16);
++  union u4 d = va_arg (ap, union u4);
++  CHECK (d.f, 8);
++  if (va_arg (ap, double) != 6.0)
++    abort ();
++  va_end (ap);
++}
++
++static void
++avx512f_test (void)
++{
++  union u1 a = { { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 } };
++  union u2 b = { { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 } };
++  struct s3 c = { { { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 } } };
++  union u4 d = { { 1, 2, 3, 4, 5, 6, 7, 8 } };
++  foo (1, 0.0, a, 5.0, b, c, d, 6.0);
++}
+diff --git a/gcc/testsuite/gcc.target/i386/pr128640-3.c b/gcc/testsuite/gcc.target/i386/pr128640-3.c
+new file mode 100644
+index 000000000000..390e0d5b83a2
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128640-3.c
+@@ -0,0 +1,27 @@
++/* PR target/128640 */
++/* { dg-do compile { target { ! ia32 } } } */
++/* { dg-options "-O2 -mavx512f" } */
++
++typedef float v8sf __attribute__((vector_size (32)));
++typedef float v16sf __attribute__((vector_size (64)));
++union u1 { v8sf f; };
++union u2 { v16sf f; };
++
++void bar (int, ...);
++
++/* Unnamed 256-bit and 512-bit unions are passed on the stack, so no
++   SSE register is used for the variadic arguments.  */
++void
++foo1 (union u1 *p)
++{
++  bar (1, *p);
++}
++
++void
++foo2 (union u2 *p)
++{
++  bar (1, *p);
++}
++
++/* { dg-final { scan-assembler-times "xorl\[\\t \]+%eax, %eax" 2 } } */
++/* { dg-final { scan-assembler-not "movl\[\\t \]+\\\$1, %eax" } } */
