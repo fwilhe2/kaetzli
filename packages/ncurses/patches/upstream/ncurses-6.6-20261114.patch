@@ -1,0 +1,1042 @@
+# ncurses 6.6 - patch 20261114 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.6 is at
+#   https://invisible-island.net/archives/ncurses/
+#   https://invisible-mirror.net/archives/ncurses/
+#   https://ftp.gnu.org/gnu/ncurses/
+#
+# Patches for ncurses 6.6 can be found at
+#   https://invisible-island.net/archives/ncurses/6.6
+#   https://invisible-mirror.net/archives/ncurses/6.6
+#
+# ------------------------------------------------------------------------------
+# https://invisible-island.net/archives/ncurses/6.6/ncurses-6.6-20261114.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Nov 15 02:21:11 UTC 2026
+# ------------------------------------------------------------------------------
+# NEWS                             |   11 +++
+# VERSION                          |    2 
+# c++/cursesapp.h                  |   22 ++-----
+# c++/cursesf.h                    |  102 +++++++++----------------------------
+# c++/cursesm.h                    |   64 ++++++-----------------
+# c++/cursesp.h                    |   23 ++------
+# c++/cursesw.h                    |   42 +++------------
+# c++/cursslk.h                    |   43 +++------------
+# c++/demo.cc                      |   38 ++++---------
+# dist.mk                          |    4 -
+# misc/terminfo.src                |   78 ++++++++++++++++++----------
+# package/debian-mingw/changelog   |    4 -
+# package/debian-mingw64/changelog |    4 -
+# package/debian/changelog         |    4 -
+# package/mingw-ncurses.nsi        |    4 -
+# package/mingw-ncurses.spec       |    6 +-
+# package/ncurses.spec             |    6 +-
+# package/ncursest.spec            |    6 +-
+# test/dup_field.c                 |    4 -
+# test/move_field.c                |    5 +
+# test/ncurses.c                   |    3 -
+# 21 files changed, 176 insertions(+), 299 deletions(-)
+# ------------------------------------------------------------------------------
+Index: NEWS
+Prereq:  1.4572 
+--- ncurses-6.6-20261107+/NEWS	2026-11-07 21:42:06.000000000 +0000
++++ ncurses-6.6-20261114/NEWS	2026-11-15 01:26:54.000000000 +0000
+@@ -26,7 +26,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.4572 2026/11/07 21:42:06 tom Exp $
++-- $Id: NEWS,v 1.4575 2026/11/15 01:26:54 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -46,6 +46,15 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20261114
++	+ review/fix teraterm special keys -TD
++	+ add kp5/kbeg to xterm+noapp (report by Jakub Horky)
++	+ add kbeg to linux-basic, konsole, terminology (patches by Jakub Horky)
++	+ add st-0.9.2 -TD
++	+ revise numeric keypad for iterm2, nsterm, mlterm -TD
++	+ make c++ binding's "operator=" private, since those do construct new
++	  copies (patch by Martin Mirchev). 
++
+ 20261107
+ 	+ check for terminating NUL in canonical_name() for infocmp -F
+ 	  (report/testcase by Martin Mirchev).
+Index: VERSION
+--- ncurses-6.6-20261107+/VERSION	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/VERSION	2026-11-14 10:37:38.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.6	20261107
++5:0:10	6.6	20261114
+Index: c++/cursesapp.h
+Prereq:  1.18 
+--- ncurses-6.6-20261107+/c++/cursesapp.h	2021-06-17 21:26:02.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursesapp.h	2026-11-14 16:22:16.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright 2019-2020,2021 Thomas E. Dickey                                *
++ * Copyright 2019-2021,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2005,2011 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -32,7 +32,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesapp.h,v 1.18 2021/06/17 21:26:02 tom Exp $
++// $Id: cursesapp.h,v 1.20 2026/11/14 16:22:16 tom Exp $
+ 
+ #ifndef NCURSES_CURSESAPP_H_incl
+ #define NCURSES_CURSESAPP_H_incl
+@@ -103,19 +103,11 @@
+   // class constructor. The argument tells whether or not you want colors.
+   NCursesApplication(bool wantColors = FALSE);
+ 
+-  NCursesApplication& operator=(const NCursesApplication& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  NCursesApplication(const NCursesApplication& rhs)
+-    : b_Colors(rhs.b_Colors),
+-      Root_Window(rhs.Root_Window)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesApplication& operator=(const NCursesApplication& rhs);
++  NCursesApplication(const NCursesApplication& rhs);
++protected:
+ 
+   static NCursesWindow *&getTitleWindow();
+ 
+Index: c++/cursesf.h
+Prereq:  1.41 
+--- ncurses-6.6-20261107+/c++/cursesf.h	2025-01-25 21:20:17.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursesf.h	2026-11-14 16:22:16.000000000 +0000
+@@ -1,7 +1,7 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ // vile:cppmode
+ /****************************************************************************
+- * Copyright 2019-2024,2025 Thomas E. Dickey                                *
++ * Copyright 2019-2025,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2012,2014 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -33,7 +33,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesf.h,v 1.41 2025/01/25 21:20:17 tom Exp $
++// $Id: cursesf.h,v 1.43 2026/11/14 16:22:16 tom Exp $
+ 
+ #ifndef NCURSES_CURSESF_H_incl
+ #define NCURSES_CURSESF_H_incl 1
+@@ -82,18 +82,10 @@
+   {
+   }
+ 
+-  NCursesFieldType& operator=(const NCursesFieldType& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  NCursesFieldType(const NCursesFieldType& rhs)
+-    : fieldtype(rhs.fieldtype)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesFieldType& operator=(const NCursesFieldType& rhs);
++  NCursesFieldType(const NCursesFieldType& rhs);
+ 
+ };
+ 
+@@ -140,18 +132,11 @@
+ 	OnError(errno);
+   }
+ 
+-  NCursesFormField& operator=(const NCursesFormField& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  NCursesFormField(const NCursesFormField& rhs)
+-    : field(rhs.field), ftype(rhs.ftype)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesFormField& operator=(const NCursesFormField& rhs);
++  NCursesFormField(const NCursesFormField& rhs);
++public:
+ 
+   virtual ~NCursesFormField () THROWS(NCursesException);
+ 
+@@ -452,25 +437,11 @@
+       InitForm(Fields, with_frame, autoDelete_Fields);
+   }
+ 
+-  NCursesForm& operator=(const NCursesForm& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      NCursesPanel::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  NCursesForm(const NCursesForm& rhs)
+-    : NCursesPanel(rhs),
+-      form(rhs.form),
+-      sub(rhs.sub),
+-      b_sub_owner(rhs.b_sub_owner),
+-      b_framed(rhs.b_framed),
+-      b_autoDelete(rhs.b_autoDelete),
+-      my_fields(rhs.my_fields)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesForm& operator=(const NCursesForm& rhs);
++  NCursesForm(const NCursesForm& rhs);
++public:
+ 
+   virtual ~NCursesForm() THROWS(NCursesException);
+ 
+@@ -813,22 +784,11 @@
+     copy_regex(expr);
+   }
+ 
+-  Regular_Expression_Field& operator=(const Regular_Expression_Field& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      copy_regex(rhs.regex);
+-      NCursesFieldType::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  Regular_Expression_Field(const Regular_Expression_Field& rhs)
+-    : NCursesFieldType(rhs),
+-      regex(NULL)
+-  {
+-    copy_regex(rhs.regex);
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  Regular_Expression_Field& operator=(const Regular_Expression_Field& rhs);
++  Regular_Expression_Field(const Regular_Expression_Field& rhs);
++public:
+ 
+   ~Regular_Expression_Field() {
+     delete[] regex;
+@@ -856,22 +816,10 @@
+       non_unique_matches(non_unique ? -1 : 0) {
+   }
+ 
+-  Enumeration_Field& operator=(const Enumeration_Field& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      NCursesFieldType::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  Enumeration_Field(const Enumeration_Field& rhs)
+-    : NCursesFieldType(rhs),
+-      list(rhs.list),
+-      case_sensitive(rhs.case_sensitive),
+-      non_unique_matches(rhs.non_unique_matches)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  Enumeration_Field& operator=(const Enumeration_Field& rhs);
++  Enumeration_Field(const Enumeration_Field& rhs);
+ };
+ 
+ class NCURSES_CXX_IMPEXP IPV4_Address_Field : public NCursesFieldType
+Index: c++/cursesm.h
+Prereq:  1.37 
+--- ncurses-6.6-20261107+/c++/cursesm.h	2025-01-25 21:20:17.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursesm.h	2026-11-14 16:22:16.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright 2019-2024,2025 Thomas E. Dickey                                *
++ * Copyright 2019-2025,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2012,2014 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -32,7 +32,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursesm.h,v 1.37 2025/01/25 21:20:17 tom Exp $
++// $Id: cursesm.h,v 1.39 2026/11/14 16:22:16 tom Exp $
+ 
+ #ifndef NCURSES_CURSESM_H_incl
+ #define NCURSES_CURSESM_H_incl 1
+@@ -72,19 +72,11 @@
+   // item is constructed which can be used to terminate a list of
+   // NCursesMenu objects.
+ 
+-  NCursesMenuItem& operator=(const NCursesMenuItem& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  NCursesMenuItem(const NCursesMenuItem& rhs)
+-    : item(NULL)
+-  {
+-    (void) rhs;
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesMenuItem& operator=(const NCursesMenuItem& rhs);
++  NCursesMenuItem(const NCursesMenuItem& rhs);
++public:
+ 
+   virtual ~NCursesMenuItem () THROWS(NCursesException);
+   // Release the items memory
+@@ -166,19 +158,11 @@
+       p_fct (fct) {
+   }
+ 
+-  NCursesMenuCallbackItem& operator=(const NCursesMenuCallbackItem& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  NCursesMenuCallbackItem(const NCursesMenuCallbackItem& rhs)
+-    : NCursesMenuItem(rhs),
+-      p_fct(NULL)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesMenuCallbackItem& operator=(const NCursesMenuCallbackItem& rhs);
++  NCursesMenuCallbackItem(const NCursesMenuCallbackItem& rhs);
++public:
+ 
+   virtual ~NCursesMenuCallbackItem() THROWS(NCursesException);
+ 
+@@ -313,25 +297,11 @@
+       InitMenu(Items, with_frame, autoDelete_Items);
+   }
+ 
+-  NCursesMenu& operator=(const NCursesMenu& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      NCursesPanel::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  NCursesMenu(const NCursesMenu& rhs)
+-    : NCursesPanel(rhs),
+-      menu(rhs.menu),
+-      sub(rhs.sub),
+-      b_sub_owner(rhs.b_sub_owner),
+-      b_framed(rhs.b_framed),
+-      b_autoDelete(rhs.b_autoDelete),
+-      my_items(rhs.my_items)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesMenu& operator=(const NCursesMenu& rhs);
++  NCursesMenu(const NCursesMenu& rhs);
++public:
+ 
+   virtual ~NCursesMenu () THROWS(NCursesException);
+ 
+Index: c++/cursesp.h
+Prereq:  1.37 
+--- ncurses-6.6-20261107+/c++/cursesp.h	2025-01-25 21:20:17.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursesp.h	2026-11-14 16:22:16.000000000 +0000
+@@ -1,7 +1,7 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ // vile:cppmode
+ /****************************************************************************
+- * Copyright 2019-2022,2025 Thomas E. Dickey                                *
++ * Copyright 2019-2025,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2012,2014 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -36,7 +36,7 @@
+ #ifndef NCURSES_CURSESP_H_incl
+ #define NCURSES_CURSESP_H_incl 1
+ 
+-// $Id: cursesp.h,v 1.37 2025/01/25 21:20:17 tom Exp $
++// $Id: cursesp.h,v 1.39 2026/11/14 16:22:16 tom Exp $
+ 
+ #include <cursesw.h>
+ 
+@@ -118,20 +118,11 @@
+   // This constructor creates the default Panel associated with the
+   // ::stdscr window
+ 
+-  NCursesPanel& operator=(const NCursesPanel& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      NCursesWindow::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  NCursesPanel(const NCursesPanel& rhs)
+-    : NCursesWindow(rhs),
+-      p(rhs.p)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesPanel& operator=(const NCursesPanel& rhs);
++  NCursesPanel(const NCursesPanel& rhs);
++public:
+ 
+   virtual ~NCursesPanel() THROWS(NCursesException);
+ 
+Index: c++/cursesw.h
+Prereq:  1.63 
+--- ncurses-6.6-20261107+/c++/cursesw.h	2026-03-21 19:40:07.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursesw.h	2026-11-14 14:23:45.000000000 +0000
+@@ -32,7 +32,7 @@
+ #ifndef NCURSES_CURSESW_H_incl
+ #define NCURSES_CURSESW_H_incl 1
+ 
+-// $Id: cursesw.h,v 1.63 2026/03/21 19:40:07 tom Exp $
++// $Id: cursesw.h,v 1.64 2026/11/14 14:23:45 Martin.Mirchev Exp $
+ 
+ #include <curses.h>
+ 
+@@ -834,17 +834,11 @@
+   // is two lines and two columns smaller and begins at (1,1).
+   // We may automatically request the box around it.
+ 
+-  NCursesWindow& operator=(const NCursesWindow& rhs)
+-  {
+-    if (this != &rhs)
+-      *this = rhs;
+-    return *this;
+-  }
+-
+-  NCursesWindow(const NCursesWindow& rhs)
+-    : w(rhs.w), alloced(rhs.alloced), par(rhs.par), subwins(rhs.subwins), sib(rhs.sib)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesWindow& operator=(const NCursesWindow& rhs);
++  NCursesWindow(const NCursesWindow& rhs);
++public:
+ 
+   virtual ~NCursesWindow() THROWS(NCursesException);
+ 
+@@ -1474,25 +1468,11 @@
+   NCursesPad(int nlines, int ncols);
+   // create a pad with the given size
+ 
+-  NCursesPad& operator=(const NCursesPad& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      NCursesWindow::operator=(rhs);
+-    }
+-    return *this;
+-  }
+-
+-  NCursesPad(const NCursesPad& rhs)
+-    : NCursesWindow(rhs),
+-      viewWin(rhs.viewWin),
+-      viewSub(rhs.viewSub),
+-      h_gridsize(rhs.h_gridsize),
+-      v_gridsize(rhs.v_gridsize),
+-      min_row(rhs.min_row),
+-      min_col(rhs.min_col)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  NCursesPad& operator=(const NCursesPad& rhs);
++  NCursesPad(const NCursesPad& rhs);
++public:
+ 
+   virtual ~NCursesPad() THROWS(NCursesException) {}
+ 
+Index: c++/cursslk.h
+Prereq:  1.20 
+--- ncurses-6.6-20261107+/c++/cursslk.h	2024-10-05 22:47:12.000000000 +0000
++++ ncurses-6.6-20261114/c++/cursslk.h	2026-11-14 16:22:16.000000000 +0000
+@@ -1,7 +1,7 @@
+ // * this is for making emacs happy: -*-Mode: C++;-*-
+ // vile:cppmode
+ /****************************************************************************
+- * Copyright 2019-2021,2024 Thomas E. Dickey                                *
++ * Copyright 2019-2024,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2003,2005 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -33,7 +33,7 @@
+  *   Author: Juergen Pfeifer, 1997                                          *
+  ****************************************************************************/
+ 
+-// $Id: cursslk.h,v 1.20 2024/10/05 22:47:12 tom Exp $
++// $Id: cursslk.h,v 1.22 2026/11/14 16:22:16 tom Exp $
+ 
+ #ifndef NCURSES_CURSSLK_H_incl
+ #define NCURSES_CURSSLK_H_incl
+@@ -75,21 +75,10 @@
+       return label;
+     }
+ 
+-    Soft_Label_Key& operator=(const Soft_Label_Key& rhs)
+-    {
+-      if (this != &rhs) {
+-        *this = rhs;
+-      }
+-      return *this;
+-    }
+-
+-    Soft_Label_Key(const Soft_Label_Key& rhs)
+-      : label(NULL),
+-        format(rhs.format),
+-        num(rhs.num)
+-    {
+-      *this = rhs.label;
+-    }
++  private:
++    // Copying is not supported, so these are declared but not defined.
++    Soft_Label_Key& operator=(const Soft_Label_Key& rhs);
++    Soft_Label_Key(const Soft_Label_Key& rhs);
+   };
+ 
+ public:
+@@ -147,21 +136,11 @@
+   // with a layout by the constructor above. This layout will be reused.
+   Soft_Label_Key_Set();
+ 
+-  Soft_Label_Key_Set& operator=(const Soft_Label_Key_Set& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-      init();		// allocate a new slk_array[]
+-    }
+-    return *this;
+-  }
+-
+-  Soft_Label_Key_Set(const Soft_Label_Key_Set& rhs)
+-    : b_attrInit(rhs.b_attrInit),
+-      slk_array(NULL)
+-  {
+-    init();		// allocate a new slk_array[]
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  Soft_Label_Key_Set& operator=(const Soft_Label_Key_Set& rhs);
++  Soft_Label_Key_Set(const Soft_Label_Key_Set& rhs);
++public:
+ 
+   virtual ~Soft_Label_Key_Set() THROWS(NCursesException);
+ 
+Index: c++/demo.cc
+Prereq:  1.53 
+--- ncurses-6.6-20261107+/c++/demo.cc	2025-01-25 21:21:05.000000000 +0000
++++ ncurses-6.6-20261114/c++/demo.cc	2026-11-14 16:22:16.000000000 +0000
+@@ -1,6 +1,6 @@
+ // * This makes emacs happy -*-Mode: C++;-*-
+ /****************************************************************************
+- * Copyright 2018-2023,2025 Thomas E. Dickey                                *
++ * Copyright 2018-2025,2026 Thomas E. Dickey                                *
+  * Copyright 1998-2012,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+@@ -36,7 +36,7 @@
+  *   Demo code for NCursesMenu and NCursesForm written by
+  *   Juergen Pfeifer
+  *
+- * $Id: demo.cc,v 1.53 2025/01/25 21:21:05 tom Exp $
++ * $Id: demo.cc,v 1.55 2026/11/14 16:22:16 tom Exp $
+  */
+ 
+ #include "internal.h"
+@@ -280,18 +280,11 @@
+     F[8]->options_off(O_STATIC);  // make field dynamic
+   }
+ 
+-  TestForm& operator=(const TestForm& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  TestForm(const TestForm& rhs)
+-    : NCursesForm(rhs), F(NULL), mft(NULL), ift(NULL), eft(NULL)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  TestForm& operator=(const TestForm& rhs);
++  TestForm(const TestForm& rhs);
++public:
+ 
+   ~TestForm() THROWS(NCursesException) {
+     delete mft;
+@@ -458,18 +451,11 @@
+     P->show();
+   }
+ 
+-  MyMenu& operator=(const MyMenu& rhs)
+-  {
+-    if (this != &rhs) {
+-      *this = rhs;
+-    }
+-    return *this;
+-  }
+-
+-  MyMenu(const MyMenu& rhs)
+-    : NCursesMenu(rhs), P(NULL), I(NULL), u(NULL)
+-  {
+-  }
++private:
++  // Copying is not supported, so these are declared but not defined.
++  MyMenu& operator=(const MyMenu& rhs);
++  MyMenu(const MyMenu& rhs);
++public:
+ 
+   ~MyMenu() THROWS(NCursesException)
+   {
+Index: dist.mk
+Prereq:  1.1759 
+--- ncurses-6.6-20261107+/dist.mk	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/dist.mk	2026-11-14 10:37:38.000000000 +0000
+@@ -26,7 +26,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1759 2026/11/07 10:23:54 tom Exp $
++# $Id: dist.mk,v 1.1760 2026/11/14 10:37:38 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -38,7 +38,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 6
+-NCURSES_PATCH = 20261107
++NCURSES_PATCH = 20261114
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/terminfo.src
+--- ncurses-6.6-20261107+/misc/terminfo.src	2026-11-07 11:58:22.000000000 +0000
++++ ncurses-6.6-20261114/misc/terminfo.src	2026-11-15 01:23:45.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.1283 $
+-#	$Date: 2026/11/07 11:58:22 $
++#	$Revision: 1.1293 $
++#	$Date: 2026/11/15 01:23:45 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -1002,8 +1002,8 @@
+ 	     \264v\301w\302x\263y\363z\362{\343|\330}\234~\376,
+ 	bel=^G, cr=\r, cub1=^H, cud1=\n, dim=\E[2m, ech=\E[%p1%dX,
+ 	el1=\E[1K, flash=\E[?5h$<200/>\E[?5l, ind=\n, kb2=\E[G,
+-	kbs=^?, kcbt=\E[Z, khome=\E[1~, kmous=\E[M, kspd=^Z,
+-	nel=\r\n, ri=\EM, rmam=\E[?7l, rs1=\Ec\E]R,
++	kbeg=\E[G, kbs=^?, kcbt=\E[Z, khome=\E[1~, kmous=\E[M,
++	kspd=^Z, nel=\r\n, ri=\EM, rmam=\E[?7l, rs1=\Ec\E]R,
+ 	sgr=\E[0;10%?%p1%t;7%;%?%p2%t;4%;%?%p3%t;7%;%?%p4%t;5%;%?%p5
+ 	    %t;2%;%?%p6%t;1%;%?%p9%t;11%;m,
+ 	smam=\E[?7h, use=ecma+underline, use=ecma+standout,
+@@ -3665,9 +3665,14 @@
+ nsterm-build440|Terminal.app in MacOS 11.6.8,
+ 	use=xterm+alt1049, use=nsterm-build400,
+ 
++nsterm-build472|Terminal.app in MacOS 26.6.2,
++	ka1=\EOw, ka3=\EOy, kb2=\EOu, kc1=\EOq, kc3=\EOs, ka2=\EOx,
++	kb1=\EOt, kb3=\EOv, kc2=\EOr, kpADD=\EOl, kpDOT=\EOn,
++	kpSUB=\EOm, kpZRO=\EOp, use=nsterm-build440,
++
+ # This is an alias which should always point to the "current" version
+ nsterm|nsterm-256color|Apple_Terminal|AppKit Terminal.app,
+-	use=nsterm-build440,
++	use=nsterm-build472,
+ 
+ #### iTerm, iTerm2
+ 
+@@ -3810,9 +3815,9 @@
+ # 2018/01/21: found xterm+sm+1006 did not work with version 3.1.5
+ # 2018/05/19: xterm+sm+1006 seems to work with 3.1.6beta -TD
+ iTerm2.app|iterm2|terminal emulator for Mac OS X,
+-	cbt=\E[Z, dim=\E[2m, kEND=\E[1;2F, kHOM=\E[1;2H, ka1@, ka3@,
+-	kb2@, kc1@, kc3@, kent@, nel=\EE, op=\E[39;49m,
+-	rs2=\E[!p\E[?3;4l\E[4l\E>\E[?1000l,
++	cbt=\E[Z, dim=\E[2m, kEND=\E[1;2F, kHOM=\E[1;2H, ka1=\EOw,
++	ka3=\EOy, kb2=\EOu, kc1=\EOq, kc3=\EOs, kent@, nel=\EE,
++	op=\E[39;49m, rs2=\E[!p\E[?3;4l\E[4l\E>\E[?1000l,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?
+ 	    %p5%t;2%;m%?%p9%t\016%e\017%;,
+ 	Smulx=\E[4:%p1%dm, kDN3=\E\E[B, kDN4=\E[1;10B,
+@@ -3821,15 +3826,16 @@
+ 	kHOM4=\E[1;10H, kHOM6=\E[1;6H, kHOM7=\E[1;13H,
+ 	kHOM8=\E[1;14H, kLFT3=\E\E[D, kLFT4=\E[1;10D,
+ 	kNXT3=\E\E[6~, kPRV3=\E\E[5~, kRIT3=\E\E[C,
+-	kRIT4=\E[1;10C, kUP3=\E\E[A, kUP4=\E[1;10A, kpDIV=\Eo,
+-	kpMUL=\Ej, kpNUM=\E, kpSUB=\Em,
+-	rv=\E\\[>64;[1-6][0-9];0c,
++	kRIT4=\E[1;10C, kUP3=\E\E[A, kUP4=\E[1;10A, kpADD=\EOk,
++	kpDIV=\EOo, kpDOT=\EOn, kpMUL=\EOj, kpNUM=\E, kpSUB=\EOm,
++	kpZRO=\EOp, rv=\E\\[>64;[1-6][0-9];0c,
+ 	xr=\EP>\\|iTerm2 ([1-9][.0-9])\E\\\\, use=xterm+pcc2,
+ 	use=ecma+underline, use=ecma+strikeout,
+ 	use=ecma+standout, use=ecma+index, use=report+version,
+ 	use=report+da2, use=xterm+alt+title, use=ecma+italics,
+ 	use=iterm, use=bracketed+paste, use=kitty+setal,
+-	use=ecma+overline, use=xterm+24fkeys,
++	use=ecma+overline, use=vt100+keypad+emul,
++	use=xterm+24fkeys,
+ 
+ # otty
+ #
+@@ -4644,18 +4650,20 @@
+ #	+ no UTF-8 apparent when UTF-8 is set, with font Lucida Control
+ teraterm4.97|Tera Term 4.97,
+ 	XT,
+-	kdch1=^?, kf0@, kf1=\E[11~, kf2=\E[12~, kf3=\E[13~,
+-	kf4=\E[14~, kpADD=\EOl, kpNUM@, rv=\E\\[>32;331;0c,
+-	use=dec+sl, use=ecma+color, use=vt100+keypad+emul,
+-	use=report+da2, use=xterm+sm+1006, use=teraterm+keypad,
++	kcbt=\E[Z, kdch1=^?, kf0@, kf1=\E[11~, kf2=\E[12~,
++	kf3=\E[13~, kf4=\E[14~, kpADD=\EOl, kpNUM@,
++	rv=\E\\[>32;331;0c, use=dec+sl, use=ecma+color,
++	use=vt100+keypad+emul, use=report+da2,
++	use=xterm+sm+1006, use=teraterm+keypad,
+ 	use=teraterm4.59,
+ teraterm-256color|TeraTerm with xterm 256-colors,
+ 	use=xterm+256setaf, use=teraterm,
+ teraterm+keypad|teraterm emulating VT100/VT220 numeric keypad,
+-	kbeg=\EOE, kent=\EOM, kpCMA=\EOl, kpDOT=\EOn, kpZRO=\EOp,
++	kent=\EOM, kpCMA=\EOl, kpDOT=\EOn, kpZRO=\EOp,
+ 	use=vt100+keypad,
+ teraterm5.0|Tera Term 5.0,
+-	xenl, use=bracketed+paste, use=xterm+keypad,
++	xenl,
++	kbeg@, kp5@, use=bracketed+paste, use=xterm+keypad,
+ 	use=teraterm4.97,
+ 
+ teraterm|Tera Term,
+@@ -5304,7 +5312,7 @@
+ 	use=vt100+arrows, use=vt100+noapp+pc,
+ 
+ xterm+noapp|alias for vt100+noapp,
+-	use=vt100+noapp,
++	kbeg=\E[E, kp5=\E[E, use=vt100+noapp,
+ 
+ xterm+app|fragment with cursor keys in application mode,
+ 	use=vt100+apparrows, use=xterm+app+pc,
+@@ -6757,10 +6765,10 @@
+ konsole-base|KDE console window (common),
+ 	bce, km@, npc, XT,
+ 	ncv@,
+-	ech=\E[%p1%dX, flash=\E[?5h$<100/>\E[?5l, kf1@, kf10@,
+-	kf11@, kf12@, kf13@, kf14@, kf15@, kf16@, kf17@, kf18@, kf19@, kf2@,
+-	kf20@, kf3@, kf4@, kf5@, kf6@, kf7@, kf8@, kf9@, kfnd@, kslt@,
+-	rmam=\E[?7l, rs1=\Ec,
++	ech=\E[%p1%dX, flash=\E[?5h$<100/>\E[?5l, kbeg=\E[E,
++	kf1@, kf10@, kf11@, kf12@, kf13@, kf14@, kf15@, kf16@, kf17@, kf18@,
++	kf19@, kf2@, kf20@, kf3@, kf4@, kf5@, kf6@, kf7@, kf8@, kf9@, kfnd@,
++	kslt@, rmam=\E[?7l, rs1=\Ec,
+ 	rs2=\E7\E[r\E8\E[m\E[?7h\E[?1;3;4;6l\E[4l\E>\E[?1000l\E[?25h,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;%?
+ 	    %p5%t;2%;%?%p7%t;8%;m%?%p9%t\016%e\017%;,
+@@ -6924,9 +6932,12 @@
+ mlterm3|multi lingual terminal emulator 3.x,
+ 	bce, AX,
+ 	blink=\E[5m, flash=\E[?5h$<100/>\E[?5l, invis=\E[8m,
+-	is2=\E[!p\E[?3;4l\E>, rs2=\E[!p\E[?3;4l\E>,
++	is2=\E[!p\E[?3;4l\E>, ka1=\EOw, ka3=\EOy, kb2=\EOu,
++	kc1=\EOq, kc3=\EOs, rs2=\E[!p\E[?3;4l\E>,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p4%t;5%;%?%p1%p3%|%t;7%;%?
+ 	    %p7%t;8%;m%?%p9%t\E(0%e\E(B%;,
++	ka2=\EOx, kb1=\EOt, kb3=\EOv, kc2=\EOr, kpADD=\EOk,
++	kpDIV=\EOo, kpDOT=\EOn, kpMUL=\EOj, kpSUB=\EOm, kpZRO=\EOp,
+ 	rv=\E\\[>24;279;0c,
+ 	xr=\EP>\\|mlterm\\([0-9][.0-9]+\\)\E\\\\,
+ 	use=ansi+enq, use=ansi+rep, use=ecma+italics,
+@@ -7575,10 +7586,12 @@
+ # st.suckless.org
+ 
+ st|stterm|aka simpleterm,
+-	use=st-0.8.5,
++	use=st-0.9.2,
+ 
+-# Reviewed 0.9.2 (Debian testing package "stterm"):
+-# Inspected source, saw nothing to change in terminfo.
++# Reviewed 0.9.2 (Debian stable package "stterm"):
++st-0.9.2|simpleterm 0.9.2,
++	kb2=\E[E, kbeg=\E[E, ka2=\EOx, kb1=\EOt, kb3=\EOv, kc2=\EOr,
++	use=st-0.8.5,
+ #
+ # Reviewed 0.8.5 (Debian stable package "stterm"):
+ # In tack,
+@@ -7952,8 +7965,10 @@
+ 	use=vt220+cvis, use=ecma+italics, use=xterm-basic,
+ 	use=report+version,
+ 
++# 2026/11/14:
++# Updated special keys for 1.14.0
+ terminology|EFL-based terminal emulator,
+-	use=terminology-1.8.1,
++	kbeg=\EOE, use=terminology-1.8.1,
+ 
+ ######## OPENGL CLIENTS
+ 
+@@ -28595,4 +28610,11 @@
+ # 2026-11-07
+ #	+ fixes for tvi910, tvi950, wy100 (patch by Adam Di Carlo)
+ #
++# 2026-11-14
++#	+ review/fix teraterm special keys -TD
++#	+ add kp5/kbeg to xterm+noapp (report by Jakub Horky)
++#	+ add kbeg to linux-basic, konsole, terminology (patches by Jakub Horky)
++#	+ add st-0.9.2 -TD
++#	+ revise numeric keypad for iterm2, nsterm, mlterm -TD
++#
+ ######## SHANTIH!  SHANTIH!  SHANTIH!
+Index: package/debian-mingw/changelog
+--- ncurses-6.6-20261107+/package/debian-mingw/changelog	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/debian-mingw/changelog	2026-11-14 10:37:38.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261107) unstable; urgency=low
++ncurses6td (6.6+20261114) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Nov 2026 05:23:54 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
+ 
+ ncurses6 (5.9+20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.6-20261107+/package/debian-mingw64/changelog	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/debian-mingw64/changelog	2026-11-14 10:37:38.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261107) unstable; urgency=low
++ncurses6td (6.6+20261114) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Nov 2026 05:23:54 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
+ 
+ ncurses6 (5.9+20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.6-20261107+/package/debian/changelog	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/debian/changelog	2026-11-14 10:37:38.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261107) unstable; urgency=low
++ncurses6td (6.6+20261114) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 07 Nov 2026 05:23:54 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
+ 
+ ncurses6 (5.9+20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.789 
+--- ncurses-6.6-20261107+/package/mingw-ncurses.nsi	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/mingw-ncurses.nsi	2026-11-14 10:37:38.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.789 2026/11/07 10:23:54 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.790 2026/11/14 10:37:38 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "6"
+ !define VERSION_YYYY  "2026"
+-!define VERSION_MMDD  "1107"
++!define VERSION_MMDD  "1114"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.6-20261107+/package/mingw-ncurses.spec	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/mingw-ncurses.spec	2026-11-14 10:37:38.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.6
+-Release: 20261107
++Release: 20261114
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ URL: https://invisible-island.net/ncurses/
+@@ -144,8 +144,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 07 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261107
++* Sat Nov 14 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261114
+ 
+ * Sat Feb 25 2023 Thomas Dickey
+ - amend URLs per rpmlint
+Index: package/ncurses.spec
+--- ncurses-6.6-20261107+/package/ncurses.spec	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/ncurses.spec	2026-11-14 10:37:38.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.6
+-Release: 20261107
++Release: 20261114
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ URL: https://invisible-island.net/ncurses/
+@@ -134,8 +134,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 07 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261107
++* Sat Nov 14 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261114
+ 
+ * Sat Feb 25 2023 Thomas Dickey
+ - amend URLs per rpmlint
+Index: package/ncursest.spec
+--- ncurses-6.6-20261107+/package/ncursest.spec	2026-11-07 10:23:54.000000000 +0000
++++ ncurses-6.6-20261114/package/ncursest.spec	2026-11-14 10:37:38.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.6
+-Release: 20261107
++Release: 20261114
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+@@ -142,8 +142,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 07 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261107
++* Sat Nov 14 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261114
+ 
+ * Tue Dec 24 2019 Thomas Dickey
+ - drop custom CC_NORMAL warning flags because setting CFLAGS interferes with
+Index: test/dup_field.c
+Prereq:  1.30 
+--- ncurses-6.6-20261107+/test/dup_field.c	2026-09-26 21:05:16.000000000 +0000
++++ ncurses-6.6-20261114/test/dup_field.c	2026-11-14 14:37:47.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: dup_field.c,v 1.30 2026/09/26 21:05:16 tom Exp $
++ * $Id: dup_field.c,v 1.31 2026/11/14 14:37:47 tom Exp $
+  *
+  * Demonstrate dup_field() and link_field()
+  */
+@@ -334,7 +334,7 @@
+ 	}
+     }
+ 
+-    if (copied || last_row >= LINES) {
++    if (copied || last_row >= LINES || my_field == NULL) {
+ 	beep();
+     } else if (count > 0 && old_fields != NULL) {
+ 	FIELD *add_field = linked
+Index: test/move_field.c
+Prereq:  1.31 
+--- ncurses-6.6-20261107+/test/move_field.c	2026-08-22 16:58:18.000000000 +0000
++++ ncurses-6.6-20261114/test/move_field.c	2026-11-14 14:38:42.000000000 +0000
+@@ -26,7 +26,7 @@
+  * authorization.                                                           *
+  ****************************************************************************/
+ /*
+- * $Id: move_field.c,v 1.31 2026/08/22 16:58:18 tom Exp $
++ * $Id: move_field.c,v 1.32 2026/11/14 14:38:42 tom Exp $
+  *
+  * Demonstrate move_field().
+  */
+@@ -331,13 +331,14 @@
+ {
+     NCURSES_CONST WINDOW *sub = form_sub(form);
+     int currow, curcol;
+-    WINDOW *status = stdscr;
++    WINDOW *status;
+ 
+     getyx(stdscr, currow, curcol);
+ 
+ #if HAVE_RIPOFFLINE
+     wmove(status = win_help, 0, 0);
+ #else
++    status = stdscr;
+     move(LINES - 1, 0);
+ #endif
+ 
+Index: test/ncurses.c
+Prereq:  1.565 
+--- ncurses-6.6-20261107+/test/ncurses.c	2026-10-31 20:37:44.000000000 +0000
++++ ncurses-6.6-20261114/test/ncurses.c	2026-11-14 14:38:53.000000000 +0000
+@@ -41,7 +41,7 @@
+    Author: Eric S. Raymond <esr@snark.thyrsus.com> 1993
+            Thomas E. Dickey (beginning revision 1.27 in 1996).
+ 
+-$Id: ncurses.c,v 1.565 2026/10/31 20:37:44 tom Exp $
++$Id: ncurses.c,v 1.566 2026/11/14 14:38:53 tom Exp $
+ 
+ ***************************************************************************/
+ 
+@@ -6617,7 +6617,6 @@
+ 
+     c = wGetchar(w);
+     me = current_field(f);
+-    current = TRUE;
+ 
+     if (c == CTRL(']')) {
+ 	if (mode == REQ_INS_MODE) {
