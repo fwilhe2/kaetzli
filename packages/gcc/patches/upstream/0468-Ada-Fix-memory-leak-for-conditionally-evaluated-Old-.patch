@@ -1,0 +1,231 @@
+From 0be9c1d0075006ce99a3c739d6a3110ac8a28d77 Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Sun, 15 Nov 2026 17:52:55 +0100
+Subject: [PATCH] Ada: Fix memory leak for conditionally evaluated 'Old of
+ finalizable type
+
+This fixes an oversight in the implementation of the special trick used for
+a conditionally evaluated 'Old of a type that needs finalization present in
+a post-condition: it is supposed to allocate the temporary holding the old
+value on the secondary stack, but it ends up allocating on the plain heap.
+
+gcc/ada/
+	PR ada/128693
+	* exp_util.adb (Build_Allocate_Deallocate_Proc): Generate a call to
+	SS_Allocate_Any_Controlled for the secondary stack pool.
+	* rtsfind.ads (RE_Id): Add RE_SS_Allocate_Any_Controlled.
+	(RE_Unit_Table): Add entry for RE_SS_Allocate_Any_Controlled.
+	* libgnat/s-stposu.ads (SS_Allocate_Any_Controlled): Declare.
+	* libgnat/s-stposu.adb: Add clauses for System.Secondary_Stack.
+	(SS_Allocate_Any_Controlled): New procedure.
+---
+ gcc/ada/exp_util.adb         | 34 +++++++++++-------
+ gcc/ada/libgnat/s-stposu.adb | 70 ++++++++++++++++++++++++++++++++++++
+ gcc/ada/libgnat/s-stposu.ads | 10 ++++++
+ gcc/ada/rtsfind.ads          |  2 ++
+ 4 files changed, 104 insertions(+), 12 deletions(-)
+
+diff --git a/gcc/ada/exp_util.adb b/gcc/ada/exp_util.adb
+index 451129b8b3de..d42f480fd0c8 100644
+--- a/gcc/ada/exp_util.adb
++++ b/gcc/ada/exp_util.adb
+@@ -1008,24 +1008,30 @@ package body Exp_Util is
+          --  Step 1: Construct all the actuals for the call to library routine
+          --  Allocate_Any_Controlled / Deallocate_Any_Controlled.
+ 
++         Actuals := New_List;
++
+          --  a) Storage pool
+ 
+-         Actuals := New_List (New_Occurrence_Of (Pool_Id, Loc));
++         if not Use_Secondary_Stack_Pool then
++            Append_To (Actuals, New_Occurrence_Of (Pool_Id, Loc));
++         end if;
+ 
+          if Is_Allocate then
+ 
+             --  b) Subpool
+ 
+-            Subpool := Subpool_Handle_Name (Expr);
++            if not Use_Secondary_Stack_Pool then
++               Subpool := Subpool_Handle_Name (Expr);
+ 
+-            --  If a subpool is present it can be an arbitrary name, so make
+-            --  the actual by copying the tree.
++               --  If a subpool is present it can be an arbitrary name, so make
++               --  the actual by copying the tree.
+ 
+-            if Present (Subpool) then
+-               Append_To
+-                 (Actuals, New_Copy_Tree (Subpool, New_Scope => Proc_Id));
+-            else
+-               Append_To (Actuals, Make_Null (Loc));
++               if Present (Subpool) then
++                  Append_To
++                   (Actuals, New_Copy_Tree (Subpool, New_Scope => Proc_Id));
++               else
++                  Append_To (Actuals, Make_Null (Loc));
++               end if;
+             end if;
+ 
+             --  c) Finalization collection
+@@ -1059,7 +1065,9 @@ package body Exp_Util is
+                             New_Occurrence_Of (Ptr_Coll_Id, Loc),
+                           Attribute_Name => Name_Unrestricted_Access))));
+ 
+-            Append_To (Actuals, New_Occurrence_Of (Fin_Coll_Id, Loc));
++            if not Use_Secondary_Stack_Pool then
++               Append_To (Actuals, New_Occurrence_Of (Fin_Coll_Id, Loc));
++            end if;
+          end if;
+ 
+          --  d) Address
+@@ -1342,7 +1350,7 @@ package body Exp_Util is
+ 
+          --  h) On_Subpool
+ 
+-         if Is_Allocate then
++         if Is_Allocate and then not Use_Secondary_Stack_Pool then
+             Append_To (Actuals,
+               New_Occurrence_Of (Boolean_Literals (Present (Subpool)), Loc));
+          end if;
+@@ -1352,7 +1360,9 @@ package body Exp_Util is
+ 
+          --  Select the proper routine to call
+ 
+-         if Is_Allocate then
++         if Use_Secondary_Stack_Pool then
++            Proc_To_Call := RTE (RE_SS_Allocate_Any_Controlled);
++         elsif Is_Allocate then
+             Proc_To_Call := RTE (RE_Allocate_Any_Controlled);
+          else
+             Proc_To_Call := RTE (RE_Deallocate_Any_Controlled);
+diff --git a/gcc/ada/libgnat/s-stposu.adb b/gcc/ada/libgnat/s-stposu.adb
+index c6d941af0a07..b664c4dac609 100644
+--- a/gcc/ada/libgnat/s-stposu.adb
++++ b/gcc/ada/libgnat/s-stposu.adb
+@@ -33,6 +33,7 @@ with Ada.Exceptions; use Ada.Exceptions;
+ 
+ with System.Address_Image;
+ with System.IO;               use System.IO;
++with System.Secondary_Stack;  use System.Secondary_Stack;
+ with System.Soft_Links;       use System.Soft_Links;
+ with System.Storage_Elements; use System.Storage_Elements;
+ 
+@@ -695,6 +696,75 @@ package body System.Storage_Pools.Subpools is
+       Attach (N_Ptr, To.Subpools'Unchecked_Access);
+    end Set_Pool_Of_Subpool;
+ 
++   --------------------------------
++   -- SS_Allocate_Any_Controlled --
++   --------------------------------
++
++   procedure SS_Allocate_Any_Controlled
++     (Addr          : out Address;
++      Storage_Size  : Storage_Count;
++      Alignment     : System.Storage_Elements.Storage_Count;
++      Is_Controlled : Boolean)
++   is
++      N_Addr      : Address;
++      N_Alignment : Storage_Count;
++      N_Size      : Storage_Count;
++
++      Header_And_Padding : Storage_Offset;
++      --  This offset includes the size of a header plus an additional padding
++      --  due to a larger alignment of the object.
++
++   begin
++      if Is_Controlled then
++         --  The size must account for the hidden header before the object.
++         --  Account for possible padding space before the header due to a
++         --  larger alignment of the object.
++
++         Header_And_Padding := Header_Size_With_Padding (Alignment);
++
++         N_Size := Storage_Size + Header_And_Padding;
++
++         --  The alignment must account for the hidden header before the object
++
++         N_Alignment :=
++           System.Storage_Elements.Storage_Count'Max
++             (Alignment, Finalization_Primitives.Header_Alignment);
++
++      --  Non-controlled allocation
++
++      else
++         N_Size      := Storage_Size;
++         N_Alignment := Alignment;
++      end if;
++
++      SS_Allocate (N_Addr, N_Size, N_Alignment);
++
++      if Is_Controlled then
++         --  Move the address from the hidden list header to the start of the
++         --  object. If there is padding due to larger alignment of the object,
++         --  the padding is placed at the beginning. This effectively hides the
++         --  list header:
++
++         --    N_Addr                  Addr
++         --    |                       |
++         --    V                       V
++         --    +-------+---------------+----------------------+
++         --    |Padding|    Header     |        Object        |
++         --    +-------+---------------+----------------------+
++         --    ^       ^               ^
++         --    |       +- Header_Size -+
++         --    |                       |
++         --    +- Header_And_Padding --+
++
++         Addr := N_Addr + Header_And_Padding;
++
++      --  Non-controlled allocation
++
++      else
++         Addr := N_Addr;
++      end if;
++   end SS_Allocate_Any_Controlled;
++
+    -------------------
+    -- _Adjust_Clone --
+    -------------------
+diff --git a/gcc/ada/libgnat/s-stposu.ads b/gcc/ada/libgnat/s-stposu.ads
+index 13d7889471a8..f09ef9da87e3 100644
+--- a/gcc/ada/libgnat/s-stposu.ads
++++ b/gcc/ada/libgnat/s-stposu.ads
+@@ -294,6 +294,16 @@ private
+    --    name is present at the point of allocation. This is used for error
+    --    diagnostics.
+ 
++   procedure SS_Allocate_Any_Controlled
++     (Addr          : out Address;
++      Storage_Size  : System.Storage_Elements.Storage_Count;
++      Alignment     : System.Storage_Elements.Storage_Count;
++      Is_Controlled : Boolean);
++   --  Likewise, but the allocation is done on the secondary stack instead of
++   --  on a pool. This routine belongs in the System.Secondary_Stack unit, but
++   --  it would introduce additional dependencies for it that are problematic
++   --  for the compiler bootstrap.
++
+    procedure Deallocate_Any_Controlled
+      (Pool          : in out Root_Storage_Pool'Class;
+       Addr          : System.Address;
+diff --git a/gcc/ada/rtsfind.ads b/gcc/ada/rtsfind.ads
+index 92a9bba80e65..0b820a1c7a80 100644
+--- a/gcc/ada/rtsfind.ads
++++ b/gcc/ada/rtsfind.ads
+@@ -1849,6 +1849,7 @@ package Rtsfind is
+ 
+      RE_Adjust_Controlled_Dereference,   -- System.Storage_Pools.Subpools
+      RE_Allocate_Any_Controlled,         -- System.Storage_Pools.Subpools
++     RE_SS_Allocate_Any_Controlled,      -- System.Storage_Pools.Subpools
+      RE_Deallocate_Any_Controlled,       -- System.Storage_Pools.Subpools
+      RE_Header_Size_With_Padding,        -- System.Storage_Pools.Subpools
+      RE_Root_Storage_Pool_With_Subpools, -- System.Storage_Pools.Subpools
+@@ -3517,6 +3518,7 @@ package Rtsfind is
+ 
+      RE_Adjust_Controlled_Dereference    => System_Storage_Pools_Subpools,
+      RE_Allocate_Any_Controlled          => System_Storage_Pools_Subpools,
++     RE_SS_Allocate_Any_Controlled       => System_Storage_Pools_Subpools,
+      RE_Deallocate_Any_Controlled        => System_Storage_Pools_Subpools,
+      RE_Header_Size_With_Padding         => System_Storage_Pools_Subpools,
+      RE_Root_Storage_Pool_With_Subpools  => System_Storage_Pools_Subpools,

@@ -1,0 +1,78 @@
+From 7cde0b04b5afdebca0b29e948c590a213e7537a3 Mon Sep 17 00:00:00 2001
+From: Martin Uecker <uecker@tugraz.at>
+Date: Sun, 8 Nov 2026 19:36:49 +0100
+Subject: [PATCH] c: nested function address passed without a trampoline
+ [PR128518]
+
+When marking a function as requiring a non-local context, we returned
+early from mark_decl_used when the function was already marked.  This
+is wrong because we also have to mark nested parent functions, and
+for a new context we may have to mark parents up to a higher level
+than before.
+
+	PR c/128518
+
+gcc/c/ChangeLog:
+	* c-typeck.cc (mark_decl_used): Fix logic.
+
+gcc/testsuite/ChangeLog:
+	* gcc.dg/pr128518.c: New test.
+
+(cherry picked from commit 4f0d0a2c472f5270b066b707aa280ee02e7c9a01)
+---
+ gcc/c/c-typeck.cc               |  6 +++++-
+ gcc/testsuite/gcc.dg/pr128518.c | 26 ++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.dg/pr128518.c
+
+diff --git a/gcc/c/c-typeck.cc b/gcc/c/c-typeck.cc
+index 7e669c207524..b54611c30d02 100644
+--- a/gcc/c/c-typeck.cc
++++ b/gcc/c/c-typeck.cc
+@@ -3815,9 +3815,13 @@ mark_decl_used (tree ref, bool address)
+     DECL_NONLOCAL (ref) = 1;
+ 
+   /* Nothing to do anymore.  */
+-  if (!nonloc_p || C_FUNC_NONLOCAL_CONTEXT (current_function_decl))
++  if (!nonloc_p)
+     return;
+ 
++  /* Even when this function is already marked as requiring a non-local
++     context we need to do the check because we may need to mark more
++     parents.  */
++
+   /* Filter out the cases where referencing a non-local variable does not
+      require a non-local context passed via the static chain.  */
+   if (!c_type_variably_modified_p (TREE_TYPE (ref)))
+diff --git a/gcc/testsuite/gcc.dg/pr128518.c b/gcc/testsuite/gcc.dg/pr128518.c
+new file mode 100644
+index 000000000000..7f809791c73a
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/pr128518.c
+@@ -0,0 +1,26 @@
++/* { dg-do run } */
++/* { dg-options "-O1" } */
++
++int printf(const char *, ...);
++
++void call(void (*f)(void)) { f(); }
++
++int main(void)
++{
++  __label__ o1;
++  void n1(void) { goto o1; }
++  void n2(void)
++  {
++    __label__ o2;
++    int v = 0;
++    void n3(void) { v = 1; n1(); goto o2; }
++    n3();
++  o2:;
++  }
++  void n4(void) { call(n2); }
++  n4();
++o1:
++  printf("ok\n");
++  return 0;
++}
++

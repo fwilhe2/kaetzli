@@ -1,0 +1,108 @@
+From 8be8dad4609d99aa34502ab18ed4338365c01a96 Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Sun, 15 Nov 2026 18:01:41 +0100
+Subject: [PATCH] Ada: Fix wrong resolution for iterated expression of
+ aggregate in instance
+
+This is a regression present on the mainline, 16 and 15 branches: the global
+names present in the expression of an iterated component association inside
+an aggregate are incorrectly resolved in instances of a generic unit.
+
+gcc/ada/
+	PR ada/128723
+	* sem_aggr.adb (Resolve_Array_Aggregate.Resolve_Aggr_Expr):
+	Preanalyze the expression directly inside a generic unit.
+	(Resolve_Delta_Array_Aggregate): Likewise.
+
+gcc/testsuite/
+	* gnat.dg/aggr36.adb: New test.
+---
+ gcc/ada/sem_aggr.adb             | 23 +++++++++++++++++------
+ gcc/testsuite/gnat.dg/aggr36.adb | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 6 deletions(-)
+ create mode 100644 gcc/testsuite/gnat.dg/aggr36.adb
+
+diff --git a/gcc/ada/sem_aggr.adb b/gcc/ada/sem_aggr.adb
+index 5f6570f36f08..d2964b9426ac 100644
+--- a/gcc/ada/sem_aggr.adb
++++ b/gcc/ada/sem_aggr.adb
+@@ -2064,13 +2064,18 @@ package body Sem_Aggr is
+             --  verify legality. We use a copy because the expression will be
+             --  analyzed anew when the enclosing aggregate is expanded and the
+             --  construct is rewritten as a loop with a new iteration variable.
++            --  However, we need to preanalyze the expression itself inside a
++            --  generic to be able to capture global references present in it.
+             --  This does not apply to SPARK mode, where expansion is skipped.
+ 
+             --  If the parent is a component association, we also temporarily
+             --  point its Expression field to the copy, because analysis may
+             --  expect this invariant to hold.
+ 
+-            if Iterated_Expr and then not GNATprove_Mode then
++            if Iterated_Expr
++              and then not Inside_A_Generic
++              and then not GNATprove_Mode
++            then
+                declare
+                   In_Assoc : constant Boolean :=
+                     Nkind (Parent (Expr)) in N_Component_Association
+@@ -4512,12 +4517,18 @@ package body Sem_Aggr is
+ 
+                Enter_Name (Id);
+ 
+-               --  Analyze a copy of the expression, to verify legality. We use
+-               --  a copy because the expression will be analyzed anew when the
+-               --  enclosing aggregate is expanded, and the construct is
+-               --  rewritten as a loop with a new index variable.
++               --  Preanalyze a copy of the expression to verify legality. We
++               --  use a copy because the expression will be analyzed anew when
++               --  the enclosing aggregate is expanded and the construct is
++               --  rewritten as a loop with a new iteration variable. However,
++               --  we need to preanalyze the expression itself inside a generic
++               --  to be able to capture global references present in it.
+ 
+-               Expr := Copy_Separate_Tree (Expression (Assoc));
++               if Inside_A_Generic then
++                  Expr := Expression (Assoc);
++               else
++                  Expr := Copy_Separate_Tree (Expression (Assoc));
++               end if;
+                Set_Parent (Expr, Assoc);
+                Preanalyze_And_Resolve (Expr, Component_Type (Typ));
+                End_Scope;
+diff --git a/gcc/testsuite/gnat.dg/aggr36.adb b/gcc/testsuite/gnat.dg/aggr36.adb
+new file mode 100644
+index 000000000000..0b36d9bcf87f
+--- /dev/null
++++ b/gcc/testsuite/gnat.dg/aggr36.adb
+@@ -0,0 +1,30 @@
++-- { dg-do run }
++-- { dg-options "-gnat2022" }
++
++procedure Aggr36 is
++
++  package Nested is
++    X : constant Integer := 0;
++
++    generic
++      L : Positive;
++    package G is
++      type Arr is array (1 .. L) of Integer;
++      
++      A : constant Arr := [for I in 1 .. L => X + I];
++      B : constant Arr := [A with delta for I in 1 .. L/2 => X + 2 * I];
++    end G;
++  end Nested;
++
++  X : constant Integer := 1000;
++
++  package My_G is new Nested.G (L => 10);
++
++begin
++  if My_G.A (1) /= 1 then
++    raise Program_Error;
++  end if;
++  if My_G.B (1) /= 2 then
++    raise Program_Error;
++  end if;
++end;
