@@ -1,0 +1,128 @@
+From 4d4e2851a4ee32cbbf73dbaf2b6b9c54f3b3a1c2 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Thu, 5 Nov 2026 10:35:42 +0100
+Subject: [PATCH] i386: Don't convert STV chains fed by asm goto outputs
+ [PR125932]
+
+An asm goto with outputs defines them on all outgoing edges, but
+scalar_chain::emit_conversion_insns only handles control-flow defs
+with a single fallthru edge.  The copy into the chain register ended
+up on the fallthru edge only, giving wrong code, or a broken CFG
+when the label is the fallthru block.  Abort chain analysis when a
+non-convertible def is a jump insn.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/125932
+
+gcc/ChangeLog:
+
+	* config/i386/i386-features.cc
+	(scalar_chain::analyze_register_chain): Abort the chain
+	when a non-convertible def is a jump insn.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr125932-1.c: New test.
+	* gcc.target/i386/pr125932-2.c: Ditto.
+
+(cherry picked from commit 5201fa5599c08924cf10b299b0ba2547c99f27e0)
+---
+ gcc/config/i386/i386-features.cc           | 11 ++++++
+ gcc/testsuite/gcc.target/i386/pr125932-1.c | 17 +++++++++
+ gcc/testsuite/gcc.target/i386/pr125932-2.c | 40 ++++++++++++++++++++++
+ 3 files changed, 68 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr125932-1.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr125932-2.c
+
+diff --git a/gcc/config/i386/i386-features.cc b/gcc/config/i386/i386-features.cc
+index d662a495069c..1b7a8ee0dabd 100644
+--- a/gcc/config/i386/i386-features.cc
++++ b/gcc/config/i386/i386-features.cc
+@@ -429,6 +429,17 @@ scalar_chain::analyze_register_chain (bitmap candidates, df_ref ref,
+ 
+       if (DF_REF_REG_DEF_P (chain->ref))
+ 	{
++	  /* An asm goto with outputs defines them on all outgoing edges,
++	     so a conversion copy can't be emitted after it.  */
++	  if (JUMP_P (DF_REF_INSN (chain->ref)))
++	    {
++	      if (dump_file)
++		fprintf (dump_file,
++			 "  r%d def in jump insn %d, aborting chain\n",
++			 DF_REF_REGNO (chain->ref), uid);
++	      return false;
++	    }
++
+ 	  if (dump_file)
+ 	    fprintf (dump_file, "  r%d def in insn %d isn't convertible\n",
+ 		     DF_REF_REGNO (chain->ref), uid);
+diff --git a/gcc/testsuite/gcc.target/i386/pr125932-1.c b/gcc/testsuite/gcc.target/i386/pr125932-1.c
+new file mode 100644
+index 000000000000..23762ee9eb98
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr125932-1.c
+@@ -0,0 +1,17 @@
++/* PR target/125932 */
++/* { dg-do compile } */
++/* { dg-options "-O2 -msse2 -fdump-rtl-stv2" } */
++
++typedef int v4si __attribute__ ((vector_size (16)));
++
++int a;
++
++void b (v4si c)
++{
++  __asm__ goto ("" : "=r" (a) : : : d);
++
++ d:
++  a &= c[1] & c[2] & c[3];
++}
++
++/* { dg-final { scan-rtl-dump "aborting chain" "stv2" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/pr125932-2.c b/gcc/testsuite/gcc.target/i386/pr125932-2.c
+new file mode 100644
+index 000000000000..a261d17fa85a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr125932-2.c
+@@ -0,0 +1,40 @@
++/* PR target/125932 */
++/* { dg-do run } */
++/* { dg-require-effective-target sse2 } */
++/* { dg-options "-O2 -msse2" } */
++
++#include "sse2-check.h"
++
++typedef int v4si __attribute__ ((vector_size (16)));
++
++int a;
++
++__attribute__((noipa)) void
++f (v4si c, int v, int t)
++{
++  int x;
++
++  asm goto ("movl %1, %0\n\t"
++	    "testl %2, %2\n\t"
++	    "jnz %l[d]"
++	    : "=&r" (x) : "r" (v), "r" (t) : : d);
++  a = x & c[1] & c[2] & c[3];
++  return;
++
++ d:
++  a = x & c[0] & c[2] & c[3];
++}
++
++static void
++sse2_test (void)
++{
++  v4si m = { -1, -1, -1, -1 };
++
++  f (m, 0x1234, 1);
++  if (a != 0x1234)
++    __builtin_abort ();
++
++  f (m, 0x5678, 0);
++  if (a != 0x5678)
++    __builtin_abort ();
++}

@@ -1,0 +1,81 @@
+From c3551dae2054ba5f7c18055eaf47e2632f404ab7 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Mon, 16 Nov 2026 00:22:15 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/DATESTAMP           |  2 +-
+ gcc/ada/ChangeLog       | 18 ++++++++++++++++++
+ gcc/c/ChangeLog         |  8 ++++++++
+ gcc/testsuite/ChangeLog | 12 ++++++++++++
+ 4 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 394fe9885c2b..dc488e80488e 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261115
++20261116
+diff --git a/gcc/ada/ChangeLog b/gcc/ada/ChangeLog
+index 59546b6914b4..cf1763bda12e 100644
+--- a/gcc/ada/ChangeLog
++++ b/gcc/ada/ChangeLog
+@@ -1,3 +1,21 @@
++2026-11-15  Eric Botcazou  <ebotcazou@adacore.com>
++
++	PR ada/128723
++	* sem_aggr.adb (Resolve_Array_Aggregate.Resolve_Aggr_Expr):
++	Preanalyze the expression directly inside a generic unit.
++	(Resolve_Delta_Array_Aggregate): Likewise.
++
++2026-11-15  Eric Botcazou  <ebotcazou@adacore.com>
++
++	PR ada/128693
++	* exp_util.adb (Build_Allocate_Deallocate_Proc): Generate a call to
++	SS_Allocate_Any_Controlled for the secondary stack pool.
++	* rtsfind.ads (RE_Id): Add RE_SS_Allocate_Any_Controlled.
++	(RE_Unit_Table): Add entry for RE_SS_Allocate_Any_Controlled.
++	* libgnat/s-stposu.ads (SS_Allocate_Any_Controlled): Declare.
++	* libgnat/s-stposu.adb: Add clauses for System.Secondary_Stack.
++	(SS_Allocate_Any_Controlled): New procedure.
++
+ 2026-11-08  Andrea Boido  <andrea.boido@vector.com>
+ 
+ 	PR ada/128457
+diff --git a/gcc/c/ChangeLog b/gcc/c/ChangeLog
+index 0e15f92b9671..7904fd30cff5 100644
+--- a/gcc/c/ChangeLog
++++ b/gcc/c/ChangeLog
+@@ -1,3 +1,11 @@
++2026-11-15  Martin Uecker  <uecker@tugraz.at>
++
++	Backported from master:
++	2026-11-09  Martin Uecker  <uecker@tugraz.at>
++
++	PR c/128518
++	* c-typeck.cc (mark_decl_used): Fix logic.
++
+ 2026-10-10  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 472c033245b7..ef8f3e905cd7 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,15 @@
++2026-11-15  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* gnat.dg/aggr36.adb: New test.
++
++2026-11-15  Martin Uecker  <uecker@tugraz.at>
++
++	Backported from master:
++	2026-11-09  Martin Uecker  <uecker@tugraz.at>
++
++	PR c/128518
++	* gcc.dg/pr128518.c: New test.
++
+ 2026-11-14  liuhongt  <hongtao.liu@intel.com>
+ 
+ 	Backported from master:

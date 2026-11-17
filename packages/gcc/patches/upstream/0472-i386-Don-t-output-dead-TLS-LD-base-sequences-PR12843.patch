@@ -1,0 +1,200 @@
+From a493dc3b31f5fd8974c5b7d20bae881f5c598756 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Sat, 7 Nov 2026 11:34:49 +0000
+Subject: [PATCH] i386: Don't output dead TLS LD base sequences [PR128437]
+
+The 64-bit TLS local-dynamic base sequence is a const call to
+__tls_get_addr whose template uses '%&', which needs a local-dynamic
+TLS symbol from some other insn in the function.  The last such
+reference can be deleted after RA while the call survives: DCE doesn't
+delete calls in sched2, a dead spill store can still use the call's
+result, and REG_UNUSED notes may not be recomputed at all when sched2 or
+DCE doesn't run.  The function then has no local-dynamic TLS symbol
+left, and '%&' ICEs.
+
+Fix this by making the output independent of what other passes deleted.
+The only users of the local-dynamic base are the "base + sym@dtpoff"
+forms, and all of them contain the TLS symbol.  So if
+get_some_local_dynamic_name finds no symbol, nothing can use the base,
+and the insn only has to define its result register.  Output "xor"
+instead of the lea and call in this case, in both 64-bit patterns and in
+the 32-bit pattern, which can be kept alive by a dead spill store in the
+same way.  FLAGS_REG is clobbered by the call patterns, and explicitly by
+the 32-bit pattern.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128437
+
+gcc/ChangeLog:
+
+	* config/i386/i386.md (*tls_local_dynamic_base_32_gnu): Output
+	xor of the result register when no local-dynamic TLS symbol
+	is left.
+	(*tls_local_dynamic_base_64_<mode>): Ditto.
+	(*tls_local_dynamic_base_64_largepic): Ditto.
+
+gcc/testsuite/ChangeLog:
+
+	* g++.target/i386/pr128437.C: New test.
+	* g++.target/i386/pr128437-1.C: New test.
+
+(cherry picked from commit 45d15ffd7de445fdb993550dee54304d20b053d1)
+---
+ gcc/config/i386/i386.md                    | 18 ++++++++
+ gcc/testsuite/g++.target/i386/pr128437-1.C | 51 ++++++++++++++++++++++
+ gcc/testsuite/g++.target/i386/pr128437.C   | 44 +++++++++++++++++++
+ 3 files changed, 113 insertions(+)
+ create mode 100644 gcc/testsuite/g++.target/i386/pr128437-1.C
+ create mode 100644 gcc/testsuite/g++.target/i386/pr128437.C
+
+diff --git a/gcc/config/i386/i386.md b/gcc/config/i386/i386.md
+index 7e6f3aa572d5..a303fa79f9f3 100644
+--- a/gcc/config/i386/i386.md
++++ b/gcc/config/i386/i386.md
+@@ -23521,6 +23521,12 @@
+    (clobber (reg:CC FLAGS_REG))]
+   "!TARGET_64BIT && TARGET_GNU_TLS"
+ {
++  /* The last local-dynamic TLS reference can be deleted after RA while
++     this insn survives (a dead spill store may still use the result).
++     Then '%&' has no symbol to print and nobody uses the base; only
++     define the result register.  */
++  if (!get_some_local_dynamic_name ())
++    return "xor{l}\t%0, %0";
+   output_asm_insn
+     ("lea{l}\t{%&@tlsldm(%1), %0|%0, %&@tlsldm[%1]}", operands);
+   if (TARGET_SUN_TLS)
+@@ -23560,6 +23566,12 @@
+    (clobber (match_operand:P 3 "register_operand" "=D"))]
+   "TARGET_64BIT"
+ {
++  /* The last local-dynamic TLS reference can be deleted after RA while
++     this insn survives (DCE doesn't delete calls in sched2, and a dead
++     spill store may still use the result).  Then '%&' has no symbol to
++     print and nobody uses the base; only define the result register.  */
++  if (!get_some_local_dynamic_name ())
++    return "xor{l}\t%k0, %k0";
+   output_asm_insn
+     ("lea{q}\t{%&@tlsld(%%rip), %q3|%q3, %&@tlsld[rip]}", operands);
+   if (TARGET_SUN_TLS)
+@@ -23585,6 +23597,12 @@
+    && GET_CODE (XEXP (operands[2], 0)) == UNSPEC
+    && XINT (XEXP (operands[2], 0), 1) == UNSPEC_PLTOFF"
+ {
++  /* The last local-dynamic TLS reference can be deleted after RA while
++     this insn survives (DCE doesn't delete calls in sched2, and a dead
++     spill store may still use the result).  Then '%&' has no symbol to
++     print and nobody uses the base; only define the result register.  */
++  if (!get_some_local_dynamic_name ())
++    return "xor{l}\t%k0, %k0";
+   output_asm_insn
+     ("lea{q}\t{%&@tlsld(%%rip), %4|%4, %&@tlsld[rip]}", operands);
+   output_asm_insn ("movabs{q}\t{%2, %%rax|rax, %2}", operands);
+diff --git a/gcc/testsuite/g++.target/i386/pr128437-1.C b/gcc/testsuite/g++.target/i386/pr128437-1.C
+new file mode 100644
+index 000000000000..78c5ac46e6f1
+--- /dev/null
++++ b/gcc/testsuite/g++.target/i386/pr128437-1.C
+@@ -0,0 +1,51 @@
++// PR target/128437
++// { dg-do compile { target { *-*-linux* && { ! ia32 } } } }
++// { dg-options "-O2 -fPIC -fvisibility=hidden -mtls-dialect=gnu" }
++// { dg-require-effective-target c++20 }
++
++template <typename _Tp> constexpr bool is_pointer_v = __is_pointer(_Tp);
++template <typename _Tp> constexpr bool is_function_v = __is_function(_Tp);
++void allocation_prefix();
++int is_pointer___trans_tmp_3;
++long bits_;
++struct {
++  static void *slot_load(void *) {
++    return is_pointer___trans_tmp_3 ? reinterpret_cast<void *>(bits_) : nullptr;
++  }
++} *entries_, source;
++void erase(void *slot) {
++  while (entries_)
++    if (entries_ == slot) {
++      entries_ = {};
++      return;
++    }
++}
++int thread_local current;
++void released(void *slot) {
++  if (current)
++    erase(slot);
++}
++template <class T>
++concept SlotValue = !is_function_v<T>;
++template <SlotValue T> void *allocation(T value) {
++  if constexpr (is_pointer_v<T>)
++    return value;
++  else
++    return T::slot_load(&value);
++}
++struct Reference {
++  int value_;
++  Reference() { released(&value_); }
++  void detach() { released(&value_); }
++};
++template <SlotValue T> void replace(T slot, Reference next) {
++  next.detach();
++  void *__trans_tmp_2 = allocation(slot);
++  if (__trans_tmp_2)
++    allocation_prefix();
++}
++int *views;
++void retire_owned() {
++  replace(source, {});
++  replace(views, {});
++}
+diff --git a/gcc/testsuite/g++.target/i386/pr128437.C b/gcc/testsuite/g++.target/i386/pr128437.C
+new file mode 100644
+index 000000000000..9a45d862c2ce
+--- /dev/null
++++ b/gcc/testsuite/g++.target/i386/pr128437.C
+@@ -0,0 +1,44 @@
++// PR target/128437
++// { dg-do compile { target { *-*-linux* && { ! ia32 } } } }
++// { dg-options "-O2 -fPIC -fvisibility=hidden -mtls-dialect=gnu" }
++// { dg-require-effective-target c++11 }
++
++void f ();
++void *p;
++struct { void *slot; } *entries;
++long capacity;
++
++void erase ()
++{
++  if (capacity)
++    return;
++  for (int i = 0; entries[i].slot; ++i)
++    if (!entries)
++      entries = {};
++}
++
++thread_local int current, x, y;
++
++void released (void *)
++{
++  if (current)
++    erase ();
++}
++
++struct Ref
++{
++  int v;
++  ~Ref () { released (&v); }
++};
++
++void replace (int, Ref)
++{
++  if (p)
++    f ();
++}
++
++void g ()
++{
++  replace (x, {});
++  replace (y, {});
++}

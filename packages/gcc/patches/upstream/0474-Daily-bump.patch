@@ -1,0 +1,95 @@
+From 75eb66ac4c0863fdd1b3ea2d54964499157267d9 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Tue, 17 Nov 2026 00:21:53 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 33 +++++++++++++++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/testsuite/ChangeLog | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 62 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 5140a0429a81..9286b5820dcd 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,36 @@
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-12  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128373
++	* config/i386/i386-d.cc (ix86_d_target_versions):
++	Define GNU_CET only when CF_BRANCH or CF_RETURN is set.
++	(ix86_d_handle_target_cf_protection): Return only
++	the CF_BRANCH and CF_RETURN bits.
++
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-09  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128437
++	* config/i386/i386.md (*tls_local_dynamic_base_32_gnu): Output
++	xor of the result register when no local-dynamic TLS symbol
++	is left.
++	(*tls_local_dynamic_base_64_<mode>): Ditto.
++	(*tls_local_dynamic_base_64_largepic): Ditto.
++
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-06  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/125932
++	* config/i386/i386-features.cc
++	(scalar_chain::analyze_register_chain): Abort the chain
++	when a non-convertible def is a jump insn.
++
+ 2026-11-14  liuhongt  <hongtao.liu@intel.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index dc488e80488e..86250b5c2569 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261116
++20261117
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index ef8f3e905cd7..8d64052656f5 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,31 @@
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-12  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128373
++	* gdc.dg/target/i386/targetinfo_CET.d: Check for
++	the exact value 3 and for GNU_CET.
++	* gdc.dg/target/i386/targetinfo_CET_check.d: New test.
++
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-09  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/128437
++	* g++.target/i386/pr128437.C: New test.
++	* g++.target/i386/pr128437-1.C: New test.
++
++2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
++
++	Backported from master:
++	2026-11-06  Uros Bizjak  <ubizjak@gmail.com>
++
++	PR target/125932
++	* gcc.target/i386/pr125932-1.c: New test.
++	* gcc.target/i386/pr125932-2.c: Ditto.
++
+ 2026-11-15  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	* gnat.dg/aggr36.adb: New test.

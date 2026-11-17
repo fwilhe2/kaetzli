@@ -1,0 +1,84 @@
+From ea8b1d902e71705f27d3905ab8b588eb0e8e7926 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Wed, 11 Nov 2026 07:27:55 +0000
+Subject: [PATCH] i386: Do not treat -fcf-protection=check as CET in D
+ [PR128373]
+
+-fcf-protection=check is ignored at compile time, but it sets
+flag_cf_protection to CF_CHECK | CF_SET.  The D front end therefore
+defined the GNU_CET version identifier and returned 8 from
+__traits(getTargetInfo, "CET") even though neither IBT nor SHSTK is
+enabled.
+
+Define GNU_CET only when CF_BRANCH or CF_RETURN is set, and return only
+those bits from getTargetInfo ("CET"), as already done for __CET__ in
+the C family front ends.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128373
+
+gcc/ChangeLog:
+
+	* config/i386/i386-d.cc (ix86_d_target_versions):
+	Define GNU_CET only when CF_BRANCH or CF_RETURN is set.
+	(ix86_d_handle_target_cf_protection): Return only
+	the CF_BRANCH and CF_RETURN bits.
+
+gcc/testsuite/ChangeLog:
+
+	* gdc.dg/target/i386/targetinfo_CET.d: Check for
+	the exact value 3 and for GNU_CET.
+	* gdc.dg/target/i386/targetinfo_CET_check.d: New test.
+
+(cherry picked from commit 443b39eb2e3dfa986faa1a5fa7576fd3c001dbd2)
+---
+ gcc/config/i386/i386-d.cc                               | 5 +++--
+ gcc/testsuite/gdc.dg/target/i386/targetinfo_CET.d       | 3 ++-
+ gcc/testsuite/gdc.dg/target/i386/targetinfo_CET_check.d | 4 ++++
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+ create mode 100644 gcc/testsuite/gdc.dg/target/i386/targetinfo_CET_check.d
+
+diff --git a/gcc/config/i386/i386-d.cc b/gcc/config/i386/i386-d.cc
+index a13a07dd1836..698339b227b7 100644
+--- a/gcc/config/i386/i386-d.cc
++++ b/gcc/config/i386/i386-d.cc
+@@ -45,7 +45,7 @@ ix86_d_target_versions (void)
+   else
+     d_add_builtin_version ("D_SoftFloat");
+ 
+-  if (flag_cf_protection != CF_NONE)
++  if (flag_cf_protection & (CF_BRANCH | CF_RETURN))
+     d_add_builtin_version ("GNU_CET");
+ }
+ 
+@@ -87,7 +87,8 @@ ix86_d_handle_target_object_format (void)
+ static tree
+ ix86_d_handle_target_cf_protection (void)
+ {
+-  return build_int_cst_type (uint32_type_node, flag_cf_protection & ~CF_SET);
++  return build_int_cst_type (uint32_type_node,
++			     flag_cf_protection & (CF_BRANCH | CF_RETURN));
+ }
+ 
+ /* Implement TARGET_D_REGISTER_CPU_TARGET_INFO.  */
+diff --git a/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET.d b/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET.d
+index ff178a36a65b..8514e5b2c518 100644
+--- a/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET.d
++++ b/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET.d
+@@ -1,3 +1,4 @@
+ // { dg-do compile }
+ // { dg-options "-fcf-protection" }
+-static assert(__traits(getTargetInfo, "CET") != 0);
++static assert(__traits(getTargetInfo, "CET") == 3);
++version (GNU_CET) {} else static assert(0);
+diff --git a/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET_check.d b/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET_check.d
+new file mode 100644
+index 000000000000..12ef0c84ac8b
+--- /dev/null
++++ b/gcc/testsuite/gdc.dg/target/i386/targetinfo_CET_check.d
+@@ -0,0 +1,4 @@
++// { dg-do compile }
++// { dg-options "-fcf-protection=check" }
++static assert(__traits(getTargetInfo, "CET") == 0);
++version (GNU_CET) static assert(0);
