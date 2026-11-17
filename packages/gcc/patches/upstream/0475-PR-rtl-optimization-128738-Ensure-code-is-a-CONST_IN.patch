@@ -1,0 +1,58 @@
+From efd02f0004242f6ad3a392c5259a9ea46be4d8ce Mon Sep 17 00:00:00 2001
+From: Jeff Law <jeffreyalaw@gmail.com>
+Date: Tue, 17 Nov 2026 06:59:15 -0700
+Subject: [PATCH] [PR rtl-optimization/128738] Ensure code is a CONST_INT
+ before extracting its INTVAL
+
+A simplify-rtx optimization added in the gcc-16 era can trip an RTL checking
+failure and possibly a code generation correctness bug by accessing a register
+node as a constant integer in a compiler without RTL checking.
+
+The optimization in question is only valid of that object is a known constant
+as we use the constant to create an adjusted mask, so require the object in
+question to be a CONST_INT.  All the right things just happen after that.
+
+Bootstrapped and regression tested on x86_64 and aarch64 overnight.
+
+Pushing to the trunk and given the nature of the fix, I'm going to push to
+gcc-16 now too.
+
+	PR rtl-optimization/128738
+gcc/
+	* simplify-rtx.cc (simplify_context::simplify_binary_operation_1):
+	For IOR of multiple single bit bitfields, ensure the second operand
+	of OP1's AND is a CONST_INT.
+
+gcc/testsuite
+	* gcc.dg/torture/pr128738.c: New test.
+
+(cherry picked from commit b6f87b7b2d286ef37c9179cb3b4c9490b8421cd7)
+---
+ gcc/simplify-rtx.cc                     | 3 ++-
+ gcc/testsuite/gcc.dg/torture/pr128738.c | 3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128738.c
+
+diff --git a/gcc/simplify-rtx.cc b/gcc/simplify-rtx.cc
+index e2c924f0205c..1454a19f12e0 100644
+--- a/gcc/simplify-rtx.cc
++++ b/gcc/simplify-rtx.cc
+@@ -3753,7 +3753,8 @@ simplify_context::simplify_binary_operation_1 (rtx_code code,
+ 	  && XEXP (op0, 1) == CONST1_RTX (mode)
+ 	  && XEXP (op1, 1) == CONST0_RTX (mode)
+ 	  /* Verify bit position. */
+-	  && CONST_INT_P (XEXP (XEXP (op0, 0), 1)))
++	  && CONST_INT_P (XEXP (XEXP (op0, 0), 1))
++	  && CONST_INT_P (XEXP (XEXP (op1, 0), 1)))
+ 	{
+ 	  unsigned HOST_WIDE_INT bitpos1 = INTVAL (XEXP (XEXP (op0, 0), 1));
+ 	  unsigned HOST_WIDE_INT mask
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128738.c b/gcc/testsuite/gcc.dg/torture/pr128738.c
+new file mode 100644
+index 000000000000..2090977e0737
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128738.c
+@@ -0,0 +1,3 @@
++/* { dg-do compile } */
++int f(int x, int m) { return ((x >> 1) & 1) | ((x & m) != 0); }
++

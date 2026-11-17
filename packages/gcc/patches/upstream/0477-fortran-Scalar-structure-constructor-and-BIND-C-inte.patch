@@ -1,0 +1,113 @@
+From d877055e73de7f41a5c933b7eb2ebeaac87410b9 Mon Sep 17 00:00:00 2001
+From: Harald Anlauf <anlauf@gmx.de>
+Date: Mon, 16 Nov 2026 22:07:07 +0100
+Subject: [PATCH] fortran: Scalar structure constructor and BIND(C) interface
+ [PR128664]
+
+Commit r16-4712 removed code that was erroneously thought to be dead, but
+it is needed for passing a reference to a temporary structure constructor.
+Revert this code and move it to gfc_conv_structure.
+
+	PR fortran/128664
+
+gcc/fortran/ChangeLog:
+
+	* trans-expr.cc (gfc_conv_structure): When a pointer to a temporary
+	structure constructor is requested, get address of the temporary.
+
+gcc/testsuite/ChangeLog:
+
+	* gfortran.dg/bind_c_assumed_rank.f90: New test.
+
+(cherry picked from commit 3a2432e858be496b52e661c7083c61859df0b246)
+---
+ gcc/fortran/trans-expr.cc                     |  5 ++
+ .../gfortran.dg/bind_c_assumed_rank.f90       | 63 +++++++++++++++++++
+ 2 files changed, 68 insertions(+)
+ create mode 100644 gcc/testsuite/gfortran.dg/bind_c_assumed_rank.f90
+
+diff --git a/gcc/fortran/trans-expr.cc b/gcc/fortran/trans-expr.cc
+index cd51e8068588..8adee5ed54bf 100644
+--- a/gcc/fortran/trans-expr.cc
++++ b/gcc/fortran/trans-expr.cc
+@@ -10534,6 +10534,11 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
+ 					se->want_coarray);
+       gfc_add_expr_to_block (&se->pre, tmp);
+       final_block = NULL;
++
++      /* Did we ask for a pointer to the structure temporary?  */
++      if (se->want_pointer && !POINTER_TYPE_P (TREE_TYPE (se->expr)))
++	se->expr = gfc_build_addr_expr (NULL, se->expr);
++
+       return;
+     }
+ 
+diff --git a/gcc/testsuite/gfortran.dg/bind_c_assumed_rank.f90 b/gcc/testsuite/gfortran.dg/bind_c_assumed_rank.f90
+new file mode 100644
+index 000000000000..23909b319464
+--- /dev/null
++++ b/gcc/testsuite/gfortran.dg/bind_c_assumed_rank.f90
+@@ -0,0 +1,63 @@
++! { dg-do run }
++! { dg-additional-options "-O2" }
++!
++! PR fortran/128664 - Scalar structure constructor and BIND(C) interface
++!
++! Reported by Martin Köhler < martin.pleissa at web.de >
++
++module m
++  use, intrinsic :: iso_c_binding, only: c_int16_t
++  implicit none
++
++  type, bind(c) :: t
++     integer(c_int16_t) :: value
++  end type t
++
++  type, bind(c) :: u
++     character :: value(4)
++  end type u
++
++  interface f
++     module function g(vec) bind(C) result(out)
++       type(t), intent(in) :: vec(..)
++       type(t) :: out
++     end function g
++
++     module function h(vec) bind(C) result(out)
++       type(u), intent(in) :: vec(..)
++       type(u) :: out
++     end function h
++  end interface f
++end module
++
++submodule(m) s
++contains
++  module function g(vec) bind(C) result(out)
++    type(t), intent(in) :: vec(..)
++    type(t) :: out
++    out%value = 0
++  end function g
++  module function h(vec) bind(C) result(out)
++    type(u), intent(in) :: vec(..)
++    type(u) :: out
++    out%value = ''
++  end function h
++end submodule
++
++program demo
++  use m
++  implicit none
++  type(t) :: r
++  type(t) :: t1 = t(1)
++  type(u) :: s
++  type(u) :: u1 = u('a')
++
++  r = f(t1)
++  if (r%value /= 0) stop 1
++  r = f(t(2.5))
++  if (r%value /= 0) stop 2
++  s = f(u1)
++  if (any (s%value /= '')) stop 3
++  s = f(u('b'))
++  if (any (s%value /= '')) stop 4
++end program demo
