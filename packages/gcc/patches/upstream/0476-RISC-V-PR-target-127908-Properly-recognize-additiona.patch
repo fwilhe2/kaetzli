@@ -1,0 +1,142 @@
+From bd8b78fd3408771080141785cbfd26aca882eba0 Mon Sep 17 00:00:00 2001
+From: Jeff Law <jeffreyalaw@gmail.com>
+Date: Sun, 1 Nov 2026 10:01:00 -0700
+Subject: [PATCH] [RISC-V][PR target/127908] Properly recognize additional
+ UNSPECs that may trap for RISC-v
+
+As noted in the BZ the RISC-V port has several UNSPECs with integer modes, but
+which can trigger FE_INVALID or other similar exceptions.
+
+Because the UNSPECs have an integer mode, the standard may-trap hooks return
+false and that allows the scheduler to move things around too aggressively
+speculate a trapping insn up past its controlling condition.
+
+This patch introduces a suitable target override which will detect the
+potentially trapping UNSPECs with integer modes which in turn avoids the
+invalid speculation.
+
+Tested on riscv32-elf and riscv64-elf.  Bootstrap on the K3 and c920 is in
+flight.  K1 is queued.  Pushing to the trunk.
+
+	PR target/127908
+gcc/
+	* config/riscv/riscv.cc (riscv_unspec_may_trap_p): New function.
+	(TARGET_UNSPEC_MAY_TRAP_P): Define.
+
+gcc/testsuite
+	* gcc.target/riscv/pr127908.c: New test.
+
+(cherry picked from commit 02018d606e8ae483cdf2f5ea3f222fc582ce3090)
+---
+ gcc/config/riscv/riscv.cc                 | 35 +++++++++++++++++
+ gcc/testsuite/gcc.target/riscv/pr127908.c | 48 +++++++++++++++++++++++
+ 2 files changed, 83 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.target/riscv/pr127908.c
+
+diff --git a/gcc/config/riscv/riscv.cc b/gcc/config/riscv/riscv.cc
+index 041cd80c80a3..018c9dc0b341 100644
+--- a/gcc/config/riscv/riscv.cc
++++ b/gcc/config/riscv/riscv.cc
+@@ -16540,6 +16540,38 @@ riscv_prefetch_offset_address_p (rtx x, machine_mode mode)
+   return true;
+ }
+ 
++/* Implement TARGET_UNSPEC_MAY_TRAP_P.  */
++
++static int
++riscv_unspec_may_trap_p (const_rtx x, unsigned flags)
++{
++  /* The default implementation catches things with an FP mode on the UNSPEC.
++     Thus we don't need to list all those.  We can focus on cases where the
++     UNSPEC has no mode or an integer/vector mode.  */
++  switch (XINT (x, 1))
++    {
++    case UNSPEC_LRINT:
++    case UNSPEC_ROUND:
++    case UNSPEC_FLOOR:
++    case UNSPEC_CEIL:
++    case UNSPEC_BTRUNC:
++    case UNSPEC_ROUNDEVEN:
++    case UNSPEC_NEARBYINT:
++    case UNSPEC_FLT_QUIET:
++    case UNSPEC_FLE_QUIET:
++    case UNSPEC_VFCVT:
++    case UNSPEC_UNSIGNED_VFCVT:
++      /* If FLAG_TRAPPING_MATH is active, then these potentially trap, otherwise
++	 fall into the default case.  */
++      if (flag_trapping_math)
++	return 1;
++    default:
++      break;
++    }
++
++  return default_unspec_may_trap_p (x, flags);
++}
++
+ /* Initialize the GCC target structure.  */
+ #undef TARGET_ASM_ALIGNED_HI_OP
+ #define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"
+@@ -16959,6 +16991,9 @@ riscv_prefetch_offset_address_p (rtx x, machine_mode mode)
+ #define TARGET_GET_FUNCTION_VERSIONS_DISPATCHER \
+   riscv_get_function_versions_dispatcher
+ 
++#undef TARGET_UNSPEC_MAY_TRAP_P
++#define TARGET_UNSPEC_MAY_TRAP_P riscv_unspec_may_trap_p
++
+ #undef TARGET_DOCUMENTATION_NAME
+ #define TARGET_DOCUMENTATION_NAME "RISC-V"
+ 
+diff --git a/gcc/testsuite/gcc.target/riscv/pr127908.c b/gcc/testsuite/gcc.target/riscv/pr127908.c
+new file mode 100644
+index 000000000000..a67d276d7cbe
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/riscv/pr127908.c
+@@ -0,0 +1,48 @@
++/* { dg-do run } */
++/* { dg-additional-options "-std=c11" } */
++
++#include <fenv.h>
++#include <math.h>
++
++#define DEF(NAME, FN, T)				\
++  __attribute__((noipa)) void				\
++  NAME (const T *s, T *d, long n)			\
++  {							\
++    for (; n > 0; --n, ++s, ++d)			\
++      *d = FN (*s);					\
++  }
++
++DEF (ceil_d, ceil, double)
++DEF (floor_d, floor, double)
++DEF (trunc_d, trunc, double)
++DEF (ceil_f, ceilf, float)
++DEF (floor_f, floorf, float)
++DEF (trunc_f, truncf, float)
++
++#define CHECK(NAME, T, IN)				\
++  do							\
++    for (int i = 0; i < 4; i++)				\
++      {							\
++	T out;						\
++	feclearexcept (FE_ALL_EXCEPT);			\
++	NAME (&(IN)[i], &out, 1);			\
++	if (fetestexcept (FE_INVALID))			\
++	  __builtin_abort ();				\
++      }							\
++  while (0)
++
++int
++main (void)
++{
++  const double in_d[] = { INFINITY, -INFINITY, 1e300, 2.5 };
++  const float in_f[] = { INFINITY, -INFINITY, 1e30f, 2.5f };
++
++  CHECK (ceil_d, double, in_d);
++  CHECK (floor_d, double, in_d);
++  CHECK (trunc_d, double, in_d);
++  CHECK (ceil_f, float, in_f);
++  CHECK (floor_f, float, in_f);
++  CHECK (trunc_f, float, in_f);
++
++  __builtin_exit (0);
++}
