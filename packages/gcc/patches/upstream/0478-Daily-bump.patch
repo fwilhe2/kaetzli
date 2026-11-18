@@ -1,0 +1,95 @@
+From c4b0d6df609061b67f94e2bf27ee8d154b4b5610 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Wed, 18 Nov 2026 00:21:35 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 19 +++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/fortran/ChangeLog   |  9 +++++++++
+ gcc/testsuite/ChangeLog | 24 ++++++++++++++++++++++++
+ 4 files changed, 53 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 9286b5820dcd..0abfefeab62a 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,22 @@
++2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-01  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR target/127908
++	* config/riscv/riscv.cc (riscv_unspec_may_trap_p): New function.
++	(TARGET_UNSPEC_MAY_TRAP_P): Define.
++
++2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR rtl-optimization/128738
++	* simplify-rtx.cc (simplify_context::simplify_binary_operation_1):
++	For IOR of multiple single bit bitfields, ensure the second operand
++	of OP1's AND is a CONST_INT.
++
+ 2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 86250b5c2569..0262007544f7 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261117
++20261118
+diff --git a/gcc/fortran/ChangeLog b/gcc/fortran/ChangeLog
+index fc3894728bf1..13bca0f7bfc8 100644
+--- a/gcc/fortran/ChangeLog
++++ b/gcc/fortran/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-17  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-11-16  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/128664
++	* trans-expr.cc (gfc_conv_structure): When a pointer to a temporary
++	structure constructor is requested, get address of the temporary.
++
+ 2026-11-12  Harald Anlauf  <anlauf@gmx.de>
+ 
+ 	Backported from master:
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 8d64052656f5..6a4405f8eb48 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,27 @@
++2026-11-17  Harald Anlauf  <anlauf@gmx.de>
++
++	Backported from master:
++	2026-11-16  Harald Anlauf  <anlauf@gmx.de>
++
++	PR fortran/128664
++	* gfortran.dg/bind_c_assumed_rank.f90: New test.
++
++2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-01  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR target/127908
++	* gcc.target/riscv/pr127908.c: New test.
++
++2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR rtl-optimization/128738
++	* gcc.dg/torture/pr128738.c: New test.
++
+ 2026-11-16  Uros Bizjak  <ubizjak@gmail.com>
+ 
+ 	Backported from master:
