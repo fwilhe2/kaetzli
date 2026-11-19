@@ -1,0 +1,84 @@
+From d461e099659f0d67befac017659776727a045b89 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Tue, 6 Oct 2026 10:06:40 +0100
+Subject: [PATCH] AArch64: Fix PCH PIE builds by using anchor [PR126063]
+
+The fix for PR123457 to fix PCH was only partial.  While it added the table
+pointers to GTY so they're tracked as roots, it didn't fix the pointers of the
+nested classes that are used as hashes for the object.
+
+This leads to the PCH tests all still crashing when the toolchain is configured
+with -PIE.
+
+There are three pointers being used in function_instance::hash ()
+
+const char *base_name;
+const function_base *base;
+const function_shape *shape;
+
+These points when PIE and PCH will be loaded into different offsets by each
+invocation of the compiler sharing the same PCH file since these pointer point
+into the compiler's executable and are no objects allocated by GGC.
+
+The documentation states that GTY((callback)) can only be used for function
+pointers so can't be used for data pointers.  The base class is marked
+GTY((user)) anyway.  The easiest fix is dropping the pointers from the
+calculation of the hash, however this weakens the hash function.
+
+Instead this patch registers the pointers with the walkers through
+gt_pch_note_callback and then instead of using the pointers in the hash it uses
+the stable ptr diff between an anchor and the pointer.
+
+The idea is that as the executable gets loaded into different addresses, since
+PCH enforced that it must be the exact same version of the binary that the
+offsets are constant.  So by storing the ptr - offset we get a stable "hash" ID.
+
+The anchor here is chosen to be the function_table itself which is being
+relocated by PCH.
+
+gcc/ChangeLog:
+
+	PR target/126063
+	* config/aarch64/aarch64-sve-builtins.cc (function_instance::hash):
+	Use ptr diff for hash instead of ptr.
+	(gt_pch_nx): Add the pointers to PCH tracking.
+
+(cherry picked from commit 11a9bf984b1a9824f6f1d7e522af23836a9f1419)
+---
+ gcc/config/aarch64/aarch64-sve-builtins.cc | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/gcc/config/aarch64/aarch64-sve-builtins.cc b/gcc/config/aarch64/aarch64-sve-builtins.cc
+index faff93ece733..1195aff7973e 100644
+--- a/gcc/config/aarch64/aarch64-sve-builtins.cc
++++ b/gcc/config/aarch64/aarch64-sve-builtins.cc
+@@ -1223,8 +1223,10 @@ function_instance::hash () const
+ {
+   inchash::hash h;
+   /* BASE uniquely determines BASE_NAME, so we don't need to hash both.  */
+-  h.add_ptr (base);
+-  h.add_ptr (shape);
++  /* FUNCTION_TABLE has a fixed address relative to BASE and SHAPE within
++     the compiler binary, even if PIE changes the binary's load address.  */
++  h.add_hwi ((uintptr_t) base - (uintptr_t) &function_table);
++  h.add_hwi ((uintptr_t) shape - (uintptr_t) &function_table);
+   h.add_int (mode_suffix_id);
+   h.add_int (type_suffix_ids[0]);
+   h.add_int (type_suffix_ids[1]);
+@@ -5350,8 +5352,14 @@ gt_pch_nx (function_instance *)
+ }
+ 
+ inline void
+-gt_pch_nx (function_instance *, gt_pointer_operator, void *)
+-{
++gt_pch_nx (function_instance *instance, gt_pointer_operator, void *)
++{
++  /* The instance is the first member of its containing GC object.  PCH
++     adjusts these pointers if the compiler has a different PIE load base.  */
++  static_assert (offsetof (registered_function, instance) == 0);
++  gt_pch_note_callback (&instance->base_name, instance);
++  gt_pch_note_callback (&instance->base, instance);
++  gt_pch_note_callback (&instance->shape, instance);
+ }
+ 
+ #include "gt-aarch64-sve-builtins.h"

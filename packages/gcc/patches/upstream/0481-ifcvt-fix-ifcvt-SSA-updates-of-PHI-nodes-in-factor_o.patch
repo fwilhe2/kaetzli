@@ -1,0 +1,84 @@
+From a6772e84ff2eaacdf8ac57a2bc7d5f199540ff70 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Mon, 26 Oct 2026 06:53:17 +0000
+Subject: [PATCH] ifcvt: fix ifcvt SSA updates of PHI nodes in
+ factor_out_operators [PR128095]
+
+There is an existing latent bug in ifcvt where factor_out_operators updates
+a PHI node by bypassing the normal PHI update functions.  It then calls
+update_stmt but as far as I can tell, this is a NOP on PHI nodes.
+
+Because of this my reduction patch ICEs because it checks if the accumulator
+is single use and with the SSA info wrong this check incorrectly passes.
+
+Fix it by using the proper way to update PHI nodes.
+
+gcc/ChangeLog:
+
+	PR tree-optimization/128095
+	* tree-if-conv.cc (factor_out_operators): Fix PHI update.
+
+gcc/testsuite/ChangeLog:
+
+	PR tree-optimization/128095
+	* gcc.dg/vect/pr128095.c: New test.
+
+(cherry picked from commit 58e696376aecf8b895bb952a99988538cf366479)
+---
+ gcc/testsuite/gcc.dg/vect/pr128095.c | 31 ++++++++++++++++++++++++++++
+ gcc/tree-if-conv.cc                  |  4 ++--
+ 2 files changed, 33 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/vect/pr128095.c
+
+diff --git a/gcc/testsuite/gcc.dg/vect/pr128095.c b/gcc/testsuite/gcc.dg/vect/pr128095.c
+new file mode 100644
+index 000000000000..cf4784c8e215
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/vect/pr128095.c
+@@ -0,0 +1,31 @@
++/* PR tree-optimization/128095 */
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++/* { dg-additional-options "-O3" } */
++
++int printf (const char *, ...);
++int a, b;
++
++void
++d (void)
++{
++  int e = -524288, f = 1, *g = &e;
++  do
++    {
++      if (f == 0)
++	{
++	  if (!a)
++	    e = 0;
++	  goto k;
++	}
++    j:
++      e = 5017 + *g;
++      f = a;
++    k:
++      if (!((long) e << 44 >> 44))
++	goto j;
++    }
++  while (238709 == 262143 - (-505837 ^ e));
++  b = *g;
++  printf ("%d", ((long) b << 44 >> 44));
++}
+diff --git a/gcc/tree-if-conv.cc b/gcc/tree-if-conv.cc
+index 1303b18cd180..67eb9f8c8ee5 100644
+--- a/gcc/tree-if-conv.cc
++++ b/gcc/tree-if-conv.cc
+@@ -2373,8 +2373,8 @@ again:
+ 
+   /* Update the phi node too. */
+   gimple_phi_set_result (phi, new_res);
+-  gimple_phi_arg (phi, 0)->def = new_arg0;
+-  gimple_phi_arg (phi, 1)->def = new_arg1;
++  SET_PHI_ARG_DEF (phi, 0, new_arg0);
++  SET_PHI_ARG_DEF (phi, 1, new_arg1);
+   update_stmt (phi);
+ 
+   goto again;

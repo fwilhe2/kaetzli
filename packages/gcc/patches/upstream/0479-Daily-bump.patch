@@ -1,0 +1,16 @@
+From 12b19bcf081b16701dfe34d9468fefd766a95965 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Thu, 19 Nov 2026 00:20:54 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/DATESTAMP | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 0262007544f7..ea3af1a16e2b 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261118
++20261119

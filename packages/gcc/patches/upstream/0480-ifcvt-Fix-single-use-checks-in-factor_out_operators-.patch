@@ -1,0 +1,66 @@
+From 52660d422321887e17e6939057c9983c7504f935 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Thu, 19 Nov 2026 15:56:07 +0000
+Subject: [PATCH] ifcvt: Fix single use checks in factor_out_operators
+ [PR128095]
+
+When backporting the fix of updating PHI arguments with SET_PHI_ARG_DEF
+in PR128095 test gcc.dg/vect/vect-reduc-cond-2.c started failing on the
+branch.
+
+It didn't fail on master because commit r17-1507-gc43fed44d9a changed
+the tests and so hid the problem.
+
+The code in factor_out_operators dealt with the broken SSA by having
+this variable "repeated" which first time around checked for
+has_single_use because SSA was up to date.  Then when it did the
+rewrite for subsequent passes checked has_zero_uses because the SSA
+wasn't single use anymore.
+
+But as far as I can tell, the optimization was always intended to
+only work on single use PHIs and the "repeated" thing was just a
+hack around the broken SSA.
+
+This removes the hack and the test now passes.
+
+gcc/ChangeLog:
+
+	PR tree-optimization/128095
+	* tree-if-conv.cc (factor_out_operators): Fix Checks.
+
+(cherry picked from commit c7a7934c60c7e0112352c20efe4677a34a5b0cb6)
+---
+ gcc/tree-if-conv.cc | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/gcc/tree-if-conv.cc b/gcc/tree-if-conv.cc
+index 2b8bad6dcaff..1303b18cd180 100644
+--- a/gcc/tree-if-conv.cc
++++ b/gcc/tree-if-conv.cc
+@@ -2263,7 +2263,6 @@ factor_out_operators (tree *res, gimple_stmt_iterator *gsi,
+ 		      tree *arg0, tree *arg1, gphi *phi)
+ {
+   gimple_match_op arg0_op, arg1_op;
+-  bool repeated = false;
+ 
+ again:
+   if (TREE_CODE (*arg0) != SSA_NAME || TREE_CODE (*arg1) != SSA_NAME)
+@@ -2274,9 +2273,7 @@ again:
+ 
+   /* If either args have > 1 use, then this transformation actually
+      increases the number of expressions evaluated at runtime.  */
+-  if (repeated
+-      ? (!has_zero_uses (*arg0) || !has_zero_uses (*arg1))
+-      : (!has_single_use (*arg0) || !has_single_use (*arg1)))
++  if (!has_single_use (*arg0) || !has_single_use (*arg1))
+     return;
+ 
+   gimple *arg0_def_stmt = SSA_NAME_DEF_STMT (*arg0);
+@@ -2380,7 +2377,6 @@ again:
+   gimple_phi_arg (phi, 1)->def = new_arg1;
+   update_stmt (phi);
+ 
+-  repeated = true;
+   goto again;
+ }
+ 

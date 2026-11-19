@@ -1,0 +1,168 @@
+From 0edf69d035fc9f381e775011ac7174a3f9e826a7 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Tue, 4 Aug 2026 15:27:12 +0100
+Subject: [PATCH] vect: simplify is_linear_load_p using vec_perm_builder and
+ reject invalid [PR126592]
+
+is_linear_load_p is supposed to test for valid permutations of lanes of complex
+arithmetic.  It was written as a manual loop that iteratively discredited
+what a permutation could be and returned the permute.
+
+However the code is a bit hard to prove correct and as PR1265992 points out it
+accepts at least one invalid permute [0 2 2 2].
+
+To fix this and simplify the code to prevent other issues I have rewritten it to
+use vec_perm_indices and use the convenient helper series_p ();
+
+gcc/ChangeLog:
+
+	PR tree-optimization/126592
+	* tree-vect-slp-patterns.cc (is_linear_load_p): Rewrite using
+	vec_perm_indices.
+
+gcc/testsuite/ChangeLog:
+
+	PR tree-optimization/126592
+	* gcc.target/aarch64/pr126592.c: New test.
+
+(cherry picked from commit c3ceac8d1e1645cb5e7a2502ff17d9effce70699)
+---
+ gcc/testsuite/gcc.target/aarch64/pr126592.c | 53 ++++++++++++++++++
+ gcc/tree-vect-slp-patterns.cc               | 59 ++++++++-------------
+ 2 files changed, 76 insertions(+), 36 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/pr126592.c
+
+diff --git a/gcc/testsuite/gcc.target/aarch64/pr126592.c b/gcc/testsuite/gcc.target/aarch64/pr126592.c
+new file mode 100644
+index 000000000000..00e82c1a7954
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/pr126592.c
+@@ -0,0 +1,53 @@
++/* { dg-do run { target arm_v8_3a_complex_neon_hw } } */
++/* { dg-require-effective-target aarch64_little_endian } */
++/* { dg-options "-O3 -march=armv8.3-a" } */
++
++#define N 64
++double a[N], b[N], c[N];
++
++__attribute__((noipa)) void
++mul (double *__restrict cc, double *__restrict aa, double *__restrict bb, int n)
++{
++  for (int i = 0; i < n; i += 4)
++    {
++      cc[i] = aa[i] * bb[i] - aa[i + 1] * bb[i + 1];
++      cc[i + 1] = aa[i + 2] * bb[i + 1] + aa[i + 1] * bb[i];
++      cc[i + 2] = aa[i + 2] * bb[i + 2] - aa[i + 3] * bb[i + 3];
++      cc[i + 3] = aa[i + 2] * bb[i + 3] + aa[i + 3] * bb[i + 2];
++    }
++}
++
++__attribute__((optimize (0))) void
++ref (double *__restrict cc, double *__restrict aa, double *__restrict bb, int n)
++{
++  for (int i = 0; i < n; i += 4)
++    {
++      cc[i] = aa[i] * bb[i] - aa[i + 1] * bb[i + 1];
++      cc[i + 1] = aa[i + 2] * bb[i + 1] + aa[i + 1] * bb[i];
++      cc[i + 2] = aa[i + 2] * bb[i + 2] - aa[i + 3] * bb[i + 3];
++      cc[i + 3] = aa[i + 2] * bb[i + 3] + aa[i + 3] * bb[i + 2];
++    }
++}
++
++int
++main (void)
++{
++  double e[N];
++
++  for (int i = 0; i < N; ++i)
++    {
++      a[i] = i + 1;
++      b[i] = i * 3 + 1;
++    }
++
++  mul (c, a, b, N);
++  ref (e, a, b, N);
++
++  for (int i = 0; i < N; ++i)
++    if (c[i] != e[i])
++      __builtin_abort ();
++
++  return 0;
++}
++
++/* { dg-final { scan-assembler-not {fcmla\t} } } */
+diff --git a/gcc/tree-vect-slp-patterns.cc b/gcc/tree-vect-slp-patterns.cc
+index 69eb6a21914d..9d561c04d0d7 100644
+--- a/gcc/tree-vect-slp-patterns.cc
++++ b/gcc/tree-vect-slp-patterns.cc
+@@ -138,47 +138,34 @@ is_linear_load_p (load_permutation_t loads)
+   if (loads.length() == 0)
+     return PERM_UNKNOWN;
+ 
+-  unsigned load, i;
+-  complex_perm_kinds_t candidates[4]
+-    = { PERM_ODDODD
+-      , PERM_EVENEVEN
+-      , PERM_EVENODD
+-      , PERM_ODDEVEN
+-      };
++  if (loads.length () == 1)
++    return loads[0] == 0 ? PERM_EVENEVEN : PERM_ODDODD;
+ 
+-  int valid_patterns = 4;
+-  FOR_EACH_VEC_ELT (loads, i, load)
++  vec_perm_builder builder;
++  builder.new_vector (loads.length (), loads.length (), 1);
++  for (unsigned load : loads)
+     {
+-      unsigned adj_load = load % 2;
+-      if (candidates[0] != PERM_UNKNOWN && adj_load != 1)
+-	{
+-	  candidates[0] = PERM_UNKNOWN;
+-	  valid_patterns--;
+-	}
+-      if (candidates[1] != PERM_UNKNOWN && adj_load != 0)
+-	{
+-	  candidates[1] = PERM_UNKNOWN;
+-	  valid_patterns--;
+-	}
+-      if (candidates[2] != PERM_UNKNOWN && load != i)
+-	{
+-	  candidates[2] = PERM_UNKNOWN;
+-	  valid_patterns--;
+-	}
+-      if (candidates[3] != PERM_UNKNOWN
+-	  && load != (i % 2 == 0 ? i + 1 : i - 1))
+-	{
+-	  candidates[3] = PERM_UNKNOWN;
+-	  valid_patterns--;
+-	}
+-
+-      if (valid_patterns == 0)
++      if (load >= loads.length ())
+ 	return PERM_UNKNOWN;
++      builder.quick_push (load);
+     }
+ 
+-  for (i = 0; i < sizeof(candidates); i++)
+-    if (candidates[i] != PERM_UNKNOWN)
+-      return candidates[i];
++  vec_perm_indices indices (builder, 1, loads.length ());
++
++  if (indices.series_p (0, 2, 1, 2)
++      && indices.series_p (1, 2, 1, 2))
++    return PERM_ODDODD;
++
++  if (indices.series_p (0, 2, 0, 2)
++      && indices.series_p (1, 2, 0, 2))
++    return PERM_EVENEVEN;
++
++  if (indices.series_p (0, 1, 0, 1))
++    return PERM_EVENODD;
++
++  if (indices.series_p (0, 2, 1, 2)
++      && indices.series_p (1, 2, 0, 2))
++    return PERM_ODDEVEN;
+ 
+   return PERM_UNKNOWN;
+ }

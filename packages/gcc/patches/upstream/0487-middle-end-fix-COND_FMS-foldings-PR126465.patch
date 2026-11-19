@@ -1,0 +1,308 @@
+From 7f89d4e2d6d84262001a9750e24cc896f9e8eb98 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Wed, 29 Jul 2026 14:16:52 +0100
+Subject: [PATCH] middle-end: fix COND_FMS foldings [PR126465]
+
+in r16-6508-g772b847d99d5e3 I made some typos
+
+1. I forgot to negate the else value
+2. one of the patterns was missing the mask.
+
+This fixes it. The patterns moving the COND inwards are still useful because
+they allow FMA forwarding as most micro-architectures don't forward FMA when
+there's a random instruction like fneg in between.
+
+Sorry for the mistakes. I added more tests to cover these now.
+
+gcc/ChangeLog:
+
+	PR tree-optimization/126465
+	* match.pd: Fix FMS patterns.
+
+gcc/testsuite/ChangeLog:
+
+	PR tree-optimization/126465
+	* gcc.target/aarch64/sve/cond_fma.c: New test.
+	* gcc.target/aarch64/sve/cond_fma_neg_addend.c: New test.
+	* gcc.target/aarch64/sve/cond_fms.c: New test.
+	* gcc.target/aarch64/sve/cond_fnma.c: New test.
+	* gcc.target/aarch64/sve/cond_fnms.c: New test.
+
+(cherry picked from commit e6e3290cddbf1da000bfc6fcd2a1e5a2b2cd27fb)
+---
+ gcc/match.pd                                  | 12 +++---
+ .../gcc.target/aarch64/sve/cond_fma.c         | 37 +++++++++++++++++++
+ .../aarch64/sve/cond_fma_neg_addend.c         | 34 +++++++++++++++++
+ .../gcc.target/aarch64/sve/cond_fms.c         | 37 +++++++++++++++++++
+ .../gcc.target/aarch64/sve/cond_fnma.c        | 37 +++++++++++++++++++
+ .../gcc.target/aarch64/sve/cond_fnms.c        | 37 +++++++++++++++++++
+ 6 files changed, 188 insertions(+), 6 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/sve/cond_fma.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/sve/cond_fma_neg_addend.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/sve/cond_fms.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/sve/cond_fnma.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/sve/cond_fnms.c
+
+diff --git a/gcc/match.pd b/gcc/match.pd
+index 135e17bbac37..21ebe3a0bf6a 100644
+--- a/gcc/match.pd
++++ b/gcc/match.pd
+@@ -10358,14 +10358,14 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
+    (IFN_COND_FNMA @3 @0 @1 @2 @4))
+   (simplify
+    (fmas @3 @0 @1 (negate @2) @4)
+-   (IFN_COND_FMS @0 @1 @2 @4))
++   (IFN_COND_FMS @3 @0 @1 @2 @4))
+   (simplify
+    (fmas:c @3 (negate @0) @1 (negate @2) @4)
+    (IFN_COND_FNMS @3 @0 @1 @2 @4))
+   (simplify
+    (negate (fmas@3 @4 @0 @1 @2 @5))
+    (if (!HONOR_SIGN_DEPENDENT_ROUNDING (type) && single_use (@3))
+-    (IFN_COND_FNMS @4 @0 @1 @2 @5))))
++    (IFN_COND_FNMS @4 @0 @1 @2 (negate @5)))))
+ 
+  (simplify
+   (IFN_COND_FMS:c @3 (negate @0) @1 @2 @4)
+@@ -10377,9 +10377,9 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
+   (IFN_COND_FMS:c @3 (negate @0) @1 (negate @2) @4)
+   (IFN_COND_FNMA @3 @0 @1 @2 @4))
+  (simplify
+-  (negate (IFN_FMS@3 @4 @0 @1 @2 @5))
++  (negate (IFN_COND_FMS@3 @4 @0 @1 @2 @5))
+    (if (!HONOR_SIGN_DEPENDENT_ROUNDING (type) && single_use (@3))
+-    (IFN_COND_FNMA @4 @0 @1 @2 @5)))
++    (IFN_COND_FNMA @4 @0 @1 @2 (negate @5))))
+ 
+  (simplify
+   (IFN_COND_FNMA:c @3 (negate @0) @1 @2 @4)
+@@ -10393,7 +10393,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
+  (simplify
+   (negate (IFN_COND_FNMA@3 @4 @0 @1 @2 @5))
+   (if (!HONOR_SIGN_DEPENDENT_ROUNDING (type) && single_use (@3))
+-   (IFN_COND_FMS @4 @0 @1 @2 @5)))
++   (IFN_COND_FMS @4 @0 @1 @2 (negate @5))))
+ 
+  (simplify
+   (IFN_COND_FNMS:c @3 (negate @0) @1 @2 @4)
+@@ -10407,7 +10407,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
+  (simplify
+   (negate (IFN_COND_FNMS@3 @4 @0 @1 @2 @5))
+   (if (!HONOR_SIGN_DEPENDENT_ROUNDING (type) && single_use (@3))
+-   (IFN_COND_FMA @4 @0 @1 @2 @5))))
++   (IFN_COND_FMA @4 @0 @1 @2 (negate @5)))))
+ 
+ /* CLZ simplifications.  */
+ (for clz (CLZ)
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve/cond_fma.c b/gcc/testsuite/gcc.target/aarch64/sve/cond_fma.c
+new file mode 100644
+index 000000000000..e4bc381a193d
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/sve/cond_fma.c
+@@ -0,0 +1,37 @@
++/* { dg-do run { target aarch64_sve_hw } } */
++/* { dg-options "-O2 -ftree-vectorize" } */
++
++float a[256], b[256], c[256], d[256], r[256];
++
++__attribute__((noipa)) void
++f (int n)
++{
++  for (int i = 0; i < n; i++)
++    {
++      float t = d[i] > 0.f ? __builtin_fmaf (a[i], b[i], c[i]) : d[i];
++      r[i] = -t;
++    }
++}
++
++int
++main (void)
++{
++  for (int i = 0; i < 256; i++)
++    {
++      a[i] = 2.f;
++      b[i] = 3.f;
++      c[i] = 5.f;
++      d[i] = i & 1 ? 4.f : -7.f;
++      r[i] = 0.f;
++    }
++
++  f (256);
++  for (int i = 0; i < 256; i++)
++    {
++      float expected = d[i] > 0.f ? -11.f : 7.f;
++      if (r[i] != expected)
++	__builtin_abort ();
++    }
++
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve/cond_fma_neg_addend.c b/gcc/testsuite/gcc.target/aarch64/sve/cond_fma_neg_addend.c
+new file mode 100644
+index 000000000000..e2c9dd1a6806
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/sve/cond_fma_neg_addend.c
+@@ -0,0 +1,34 @@
++/* { dg-do run { target aarch64_sve_hw } } */
++/* { dg-options "-O2 -ftree-vectorize" } */
++
++float a[256], b[256], c[256], d[256], r[256];
++
++__attribute__((noipa)) void
++f (int n)
++{
++  for (int i = 0; i < n; i++)
++    r[i] = d[i] > 0.f ? __builtin_fmaf (a[i], b[i], -c[i]) : d[i];
++}
++
++int
++main (void)
++{
++  for (int i = 0; i < 256; i++)
++    {
++      a[i] = 2.f;
++      b[i] = 3.f;
++      c[i] = 5.f;
++      d[i] = i & 1 ? 4.f : -7.f;
++      r[i] = 0.f;
++    }
++
++  f (256);
++  for (int i = 0; i < 256; i++)
++    {
++      float expected = d[i] > 0.f ? 1.f : -7.f;
++      if (r[i] != expected)
++	__builtin_abort ();
++    }
++
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve/cond_fms.c b/gcc/testsuite/gcc.target/aarch64/sve/cond_fms.c
+new file mode 100644
+index 000000000000..e383d8eba025
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/sve/cond_fms.c
+@@ -0,0 +1,37 @@
++/* { dg-do run { target aarch64_sve_hw } } */
++/* { dg-options "-O2 -ftree-vectorize" } */
++
++float a[256], b[256], c[256], d[256], r[256];
++
++__attribute__((noipa)) void
++f (int n)
++{
++  for (int i = 0; i < n; i++)
++    {
++      float t = d[i] > 0.f ? __builtin_fmaf (a[i], b[i], -c[i]) : d[i];
++      r[i] = -t;
++    }
++}
++
++int
++main (void)
++{
++  for (int i = 0; i < 256; i++)
++    {
++      a[i] = 2.f;
++      b[i] = 3.f;
++      c[i] = 5.f;
++      d[i] = i & 1 ? 4.f : -7.f;
++      r[i] = 0.f;
++    }
++
++  f (256);
++  for (int i = 0; i < 256; i++)
++    {
++      float expected = d[i] > 0.f ? -1.f : 7.f;
++      if (r[i] != expected)
++	__builtin_abort ();
++    }
++
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve/cond_fnma.c b/gcc/testsuite/gcc.target/aarch64/sve/cond_fnma.c
+new file mode 100644
+index 000000000000..dcee73c0c2e3
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/sve/cond_fnma.c
+@@ -0,0 +1,37 @@
++/* { dg-do run { target aarch64_sve_hw } } */
++/* { dg-options "-O2 -ftree-vectorize" } */
++
++float a[256], b[256], c[256], d[256], r[256];
++
++__attribute__((noipa)) void
++f (int n)
++{
++  for (int i = 0; i < n; i++)
++    {
++      float t = d[i] > 0.f ? __builtin_fmaf (-a[i], b[i], c[i]) : d[i];
++      r[i] = -t;
++    }
++}
++
++int
++main (void)
++{
++  for (int i = 0; i < 256; i++)
++    {
++      a[i] = 2.f;
++      b[i] = 3.f;
++      c[i] = 5.f;
++      d[i] = i & 1 ? 4.f : -7.f;
++      r[i] = 0.f;
++    }
++
++  f (256);
++  for (int i = 0; i < 256; i++)
++    {
++      float expected = d[i] > 0.f ? 1.f : 7.f;
++      if (r[i] != expected)
++	__builtin_abort ();
++    }
++
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve/cond_fnms.c b/gcc/testsuite/gcc.target/aarch64/sve/cond_fnms.c
+new file mode 100644
+index 000000000000..c2951bc5aae8
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/sve/cond_fnms.c
+@@ -0,0 +1,37 @@
++/* { dg-do run { target aarch64_sve_hw } } */
++/* { dg-options "-O2 -ftree-vectorize" } */
++
++float a[256], b[256], c[256], d[256], r[256];
++
++__attribute__((noipa)) void
++f (int n)
++{
++  for (int i = 0; i < n; i++)
++    {
++      float t = d[i] > 0.f ? __builtin_fmaf (-a[i], b[i], -c[i]) : d[i];
++      r[i] = -t;
++    }
++}
++
++int
++main (void)
++{
++  for (int i = 0; i < 256; i++)
++    {
++      a[i] = 2.f;
++      b[i] = 3.f;
++      c[i] = 5.f;
++      d[i] = i & 1 ? 4.f : -7.f;
++      r[i] = 0.f;
++    }
++
++  f (256);
++  for (int i = 0; i < 256; i++)
++    {
++      float expected = d[i] > 0.f ? 11.f : 7.f;
++      if (r[i] != expected)
++	__builtin_abort ();
++    }
++
++  return 0;
++}
