@@ -1,0 +1,119 @@
+From c812629d18c86eca77b633fce2c20988de0022e5 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Tue, 22 Sep 2026 07:23:41 +0100
+Subject: [PATCH] libstdc++: Inline simple regex repeating matches in DFS
+ [PR126274]
+
+Optimize the common DFS NFA shape repeat -> match -> repeat, which is produced
+by repeated character classes such as [\w]+, [^\s?#]+, and #+.
+
+Since the second patch the DFS continuation already avoids pushing a separate
+_S_fopcode_next frame for many states.  This patch adds a small improvement
+for greedy repeats.
+
+After creating the same fallback and repeat bookkeeping frames as before, if
+the repeated body is a single match state that returns to the repeat state,
+consume that match state immediately and continue at the repeat.
+
+Backtracking behavior is unchanged.  _M_rep_once_more still creates the
+restore/decrement frames, and the repeat exit fallback is still saved before
+trying the body.  If the body match fails, the helper returns
+_S_invalid_state_id so the normal frame loop restores repeat state and tries
+pending fallbacks.
+
+Benchmarks improvements compared to GCC previous patch in series:
+
+ at -O2:
+
+  email: +4.7%
+  URI: +5.1%
+  IPv4 -1.1%
+
+ at -O3:
+
+  email: +4.5%,
+  URI: +4.1%
+  IPv4: -0.2%
+
+And finally gets us better than GCC 15.
+
+I outlined the helper into _M_match_simple_repeat_body since that
+looks more readable.
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/126274
+	* include/bits/regex_executor.h (_M_match_simple_repeat_body): New.
+	* include/bits/regex_executor.tcc (_M_dfs_next): Inline consume matches
+	on _S_opcode_repeat.
+	(_M_match_simple_repeat_body): New.
+
+(cherry picked from commit a0b77a14fed845f742ef378d6cb911c8d78ed625)
+---
+ libstdc++-v3/include/bits/regex_executor.h   |  3 ++
+ libstdc++-v3/include/bits/regex_executor.tcc | 31 +++++++++++++++++++-
+ 2 files changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/libstdc++-v3/include/bits/regex_executor.h b/libstdc++-v3/include/bits/regex_executor.h
+index 65a2d62183e4..51de0f521133 100644
+--- a/libstdc++-v3/include/bits/regex_executor.h
++++ b/libstdc++-v3/include/bits/regex_executor.h
+@@ -140,6 +140,9 @@ _GLIBCXX_BEGIN_INLINE_ABI_NAMESPACE(_V2)
+       _StateIdT
+       _M_rep_once_more(_Match_mode __match_mode, _StateIdT);
+ 
++      _StateIdT
++      _M_match_simple_repeat_body(_StateIdT, _StateIdT);
++
+       template<_Search_mode __search_mode>
+       _StateIdT
+       _M_handle_repeat(_Match_mode, _StateIdT);
+diff --git a/libstdc++-v3/include/bits/regex_executor.tcc b/libstdc++-v3/include/bits/regex_executor.tcc
+index 747c9c3d3253..d4f7a2a4bd57 100644
+--- a/libstdc++-v3/include/bits/regex_executor.tcc
++++ b/libstdc++-v3/include/bits/regex_executor.tcc
+@@ -378,6 +378,31 @@ namespace __detail
+       return _S_invalid_state_id;
+     }
+ 
++  // Try to consume the common repeat body shape
++  //   repeat -> match -> repeat
++  // without going through the generic state dispatch again.
++  template<typename _BiIter, typename _Alloc, typename _TraitsT>
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
++    _M_match_simple_repeat_body(_StateIdT __next, _StateIdT __repeat)
++    {
++      if (__next == _S_invalid_state_id)
++	return _S_invalid_state_id;
++
++      const auto& __state = _M_nfa[__next];
++      if (__state._M_opcode() != _S_opcode_match
++	  || __state._M_next != __repeat)
++	return __next;
++
++      if (_M_current == _M_end || !__state._M_matches(*_M_current))
++	return _S_invalid_state_id;
++
++      ++_M_current;
++      return __repeat;
++    }
++
+   // _M_alt branch is "match once more", while _M_next is "get me out
+   // of this quantifier". Executing _M_next first or _M_alt first don't
+   // mean the same thing, and we need to choose the correct order under
+@@ -400,7 +425,11 @@ namespace __detail
+ 				   _M_current);
+ 	  else
+ 	    _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
+-	  return _M_rep_once_more(__match_mode, __i);
++	  _StateIdT __next = _M_rep_once_more(__match_mode, __i);
++	  if constexpr (__search_mode == _Search_mode::_Dfs)
++	    return _M_match_simple_repeat_body(__next, __i);
++	  else
++	    return __next;
+ 	}
+       else // Non-greedy mode
+ 	{

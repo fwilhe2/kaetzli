@@ -1,0 +1,611 @@
+From 9dce8a9da962b54751c447ba15dac49607cc9428 Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Tue, 22 Sep 2026 07:19:56 +0100
+Subject: [PATCH] libstdc++: Continue with regex DFS traversals without next
+ frames [PR126274]
+
+The change in r16-7193-g158ad5f96954da5fa24d5c2a91ae92417fb62e20 changed
+the recursive implementation with an iterative one using an explicit heap.
+
+However one benefit of the previous implementation is that the frame did
+not have to be saved and popped when the match is supposed to continue.
+
+This means that on hot paths we now have additional memory accesses and
+need additional instructions to calculate the memref addresses.
+
+For DFS matching this is clearly suboptimal since when _M_rep_once_more
+then we push and pop the same state but there is enough other acceses
+in between the push and pop that we get a lot of cache misses.
+
+This makes all the private _m_handle_* methods return a _StateIdT which allows
+the caller to deal with the value, so that for DFS we can avoid pushing the
+frame if needed.
+
+For DFS we try to consume the state immediately until we're told to
+stop.
+
+For this to work the methods have to me marked always inline, because a key part
+of the optimization is to keep the values in registers rather than passing
+through stack and the function call overheads and AAPCS requirements would
+negate the benefits.
+
+The __dfs_mode changes are because the constexpr patch still gave a big boost so
+it prepares to apply it.
+
+There is still a regression until the end of the series and each patch
+will chip away at it.
+
+Also note that with none of these changes do I see an increase heap or stack
+usage that the original fix fixed.  RSS stays about the same.
+
+PS. thanks for the link to the algorithm in the source, it was useful to
+understand how the machinery works!
+
+Benchmark improvements vs GCC 16:
+
+ at -O2:
+
+  email: +36.1%
+  URI: +36.5%
+  IPv4 +33.0%
+
+ at -O3:
+
+  email: +45.5%,
+  URI: +44.9%
+  IPv4: +43.0%
+
+On Neoverse-V1
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/126274
+	* include/bits/regex_executor.h (_Executor): Reserve frame space.
+	(_M_rep_once_more, _M_handle_repeat, _M_handle_subexpr_begin,
+	_M_handle_subexpr_end, _M_handle_line_begin_assertion,
+	_M_handle_line_end_assertion, _M_handle_word_boundary,
+	_M_handle_subexpr_lookahead, _M_handle_match, _M_handle_backref,
+	_M_node): return StateIdT.
+	(_M_visited): Mark inline.
+	* include/bits/regex_executor.tcc (_M_rep_once_more, _M_handle_repeat,
+	_M_handle_subexpr_begin, _M_handle_subexpr_end,
+	_M_handle_line_begin_assertion, _M_handle_line_end_assertion,
+	_M_handle_word_boundary, _M_handle_subexpr_lookahead, _M_handle_match,
+	_M_handle_backref): Return state, mark always inline.
+	(_M_node): Return StateIdT and also decide what to do with the value
+	after return.
+	(_M_dfs): Traverse states iteratively for _S_fopcode_next,
+	_S_fopcode_fallback_next, _S_fopcode_fallback_rep_once_more
+	and _S_fopcode_rep_once_more.
+	* include/bits/regex.h (class _Executor): Move to V2 ABI.
+
+(cherry picked from commit dc65d88cdf15f3538fdcfd1d174c845474989533)
+---
+ libstdc++-v3/include/bits/regex.h            |   2 +
+ libstdc++-v3/include/bits/regex_executor.h   |  30 +--
+ libstdc++-v3/include/bits/regex_executor.tcc | 183 ++++++++++++-------
+ 3 files changed, 139 insertions(+), 76 deletions(-)
+
+diff --git a/libstdc++-v3/include/bits/regex.h b/libstdc++-v3/include/bits/regex.h
+index 0e815ca086eb..dce420251db0 100644
+--- a/libstdc++-v3/include/bits/regex.h
++++ b/libstdc++-v3/include/bits/regex.h
+@@ -61,8 +61,10 @@ namespace __detail
+ 		      _RegexExecutorPolicy		   __policy,
+ 		      bool				   __match_mode);
+ 
++_GLIBCXX_BEGIN_INLINE_ABI_NAMESPACE(_V2)
+   template<typename, typename, typename>
+     class _Executor;
++_GLIBCXX_END_INLINE_ABI_NAMESPACE(_V2)
+ 
+   template<typename _Tp>
+     struct __is_contiguous_iter : false_type { };
+diff --git a/libstdc++-v3/include/bits/regex_executor.h b/libstdc++-v3/include/bits/regex_executor.h
+index 797ad702784b..eccf12c5a087 100644
+--- a/libstdc++-v3/include/bits/regex_executor.h
++++ b/libstdc++-v3/include/bits/regex_executor.h
+@@ -44,6 +44,7 @@ namespace __detail
+   template<typename _BiIter, bool _Trivial = is_trivially_copyable<_BiIter>::value>
+     struct _ExecutorFrame;
+ 
++_GLIBCXX_BEGIN_INLINE_ABI_NAMESPACE(_V2)
+   /**
+    * @brief Takes a regex and an input string and does the matching.
+    *
+@@ -113,43 +114,43 @@ namespace __detail
+       _M_search();
+ 
+     private:
+-      void
++      _StateIdT
+       _M_rep_once_more(_Match_mode __match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_repeat(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_subexpr_begin(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_subexpr_end(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_line_begin_assertion(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_line_end_assertion(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_word_boundary(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_subexpr_lookahead(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_match(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_backref(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_accept(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_handle_alternative(_Match_mode, _StateIdT);
+ 
+-      void
++      _StateIdT
+       _M_node(_Match_mode, _StateIdT);
+ 
+       void
+@@ -247,7 +248,7 @@ namespace __detail
+ 	return (_M_re._M_automaton->_M_options() & __m) == __m;
+       }
+ 
+-      bool
++      inline bool
+       _M_visited(_StateIdT __i)
+       {
+ 	if (_M_visited_states)
+@@ -283,6 +284,7 @@ namespace __detail
+       // Do we have a solution so far?
+       bool                                                  _M_has_sol;
+     };
++_GLIBCXX_END_INLINE_ABI_NAMESPACE(_V2)
+ 
+  ///@} regex-detail
+ } // namespace __detail
+diff --git a/libstdc++-v3/include/bits/regex_executor.tcc b/libstdc++-v3/include/bits/regex_executor.tcc
+index 167a7a345300..9361c27d4c5b 100644
+--- a/libstdc++-v3/include/bits/regex_executor.tcc
++++ b/libstdc++-v3/include/bits/regex_executor.tcc
+@@ -250,8 +250,14 @@ namespace __detail
+   // infinite loop by refusing to continue when it's already been
+   // visited more than twice. It's `twice` instead of `once` because
+   // we need to spare one more time for potential group capture.
++  //
++  // If the node cannot be re-entered anymore from the current state then return
++  // _S_invalid_state_id otherwise return the current state without going
++  // through a vector, allowing the caller to decide what to do with the state
++  // This is beneficial for DFS since DFS can continue with the next state
++  // immediately
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++    _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_rep_once_more(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+@@ -263,7 +269,7 @@ namespace __detail
+ 	  _M_frames.back()._M_count = __rep_count.second;
+ 	  __rep_count.first = _M_current;
+ 	  __rep_count.second = 1;
+-	  _M_frames.emplace_back(_S_fopcode_next, __state._M_alt);
++	  return __state._M_alt;
+ 	}
+       else
+ 	{
+@@ -271,9 +277,10 @@ namespace __detail
+ 	    {
+ 	      __rep_count.second++;
+ 	      _M_frames.emplace_back(_S_fopcode_decrement_rep_count, __i);
+-	      _M_frames.emplace_back(_S_fopcode_next, __state._M_alt);
++	      return __state._M_alt;
+ 	    }
+ 	}
++      return _S_invalid_state_id;
+     }
+ 
+   // _M_alt branch is "match once more", while _M_next is "get me out
+@@ -281,8 +288,11 @@ namespace __detail
+   // mean the same thing, and we need to choose the correct order under
+   // given greedy mode.
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
+-    _M_handle_repeat(_Match_mode, _StateIdT __i)
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
++    _M_handle_repeat(_Match_mode __match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       // Greedy.
+@@ -294,7 +304,7 @@ namespace __detail
+ 				   _M_current);
+ 	  else
+ 	    _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
+-	  _M_frames.emplace_back(_S_fopcode_rep_once_more, __i);
++	  return _M_rep_once_more(__match_mode, __i);
+ 	}
+       else // Non-greedy mode
+ 	{
+@@ -303,7 +313,7 @@ namespace __detail
+ 	      // vice-versa.
+ 	      _M_frames.emplace_back(_S_fopcode_fallback_rep_once_more, __i,
+ 				     _M_current);
+-	      _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	      return __state._M_next;
+ 	    }
+ 	  else
+ 	    {
+@@ -316,97 +326,122 @@ namespace __detail
+ 		  // accepted state *must* be better than a solution that
+ 		  // matches a non-greedy quantifier one more time.
+ 		  _M_frames.emplace_back(_S_fopcode_fallback_rep_once_more, __i);
+-		  _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++		  return __state._M_next;
+ 		}
+ 	    }
+ 	}
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_subexpr_begin(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       auto& __res = _M_cur_results[__state._M_subexpr];
+-      _M_frames.emplace_back(_S_fopcode_restore_cur_results,
+-			     static_cast<_StateIdT>(__state._M_subexpr),
+-			     __res.first);
++      if (_M_nfa._M_has_backref
++	  || __state._M_subexpr != 0
++	  || _M_search_mode != _Search_mode::_DFS)
++	_M_frames.emplace_back(_S_fopcode_restore_cur_results,
++			       static_cast<_StateIdT>(__state._M_subexpr),
++			       __res.first);
+       __res.first = _M_current;
+-      _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++      return __state._M_next;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_subexpr_end(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       auto& __res = _M_cur_results[__state._M_subexpr];
+-      _M_frames.emplace_back(_S_fopcode_restore_cur_results,
+-			     static_cast<_StateIdT>(__state._M_subexpr),
+-			     __res.second);
+-      _M_frames.back()._M_subexpr_end = true;
+-      _M_frames.back()._M_matched = __res.matched;
++      if (_M_nfa._M_has_backref
++	  || __state._M_subexpr != 0
++	  || _M_search_mode != _Search_mode::_DFS)
++	{
++	  _M_frames.emplace_back(_S_fopcode_restore_cur_results,
++				 static_cast<_StateIdT>(__state._M_subexpr),
++				 __res.second);
++	  _M_frames.back()._M_subexpr_end = true;
++	  _M_frames.back()._M_matched = __res.matched;
++	}
++
+       __res.second = _M_current;
+       __res.matched = true;
+-      _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++      return __state._M_next;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    inline void _Executor<_BiIter, _Alloc, _TraitsT>::
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_line_begin_assertion(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       if (_M_at_begin())
+-	_M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	return __state._M_next;
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    inline void _Executor<_BiIter, _Alloc, _TraitsT>::
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_line_end_assertion(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       if (_M_at_end())
+-	_M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	return __state._M_next;
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    inline void _Executor<_BiIter, _Alloc, _TraitsT>::
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_word_boundary(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       if (_M_word_boundary() == !__state._M_neg)
+-	_M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	return __state._M_next;
++      return _S_invalid_state_id;
+     }
+ 
+   // Here __state._M_alt offers a single start node for a sub-NFA.
+   // We recursively invoke our algorithm to match the sub-NFA.
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++    _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_subexpr_lookahead(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       if (_M_lookahead(__state._M_alt) == !__state._M_neg)
+-	_M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	return __state._M_next;
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_match(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+       if (_M_current == _M_end)
+-	return;
++	return _S_invalid_state_id;
+       if (_M_search_mode == _Search_mode::_DFS)
+ 	{
+ 	  if (__state._M_matches(*_M_current))
+ 	    {
+ 	      ++_M_current;
+-	      _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	      return __state._M_next;
+ 	    }
+ 	}
+       else
+ 	if (__state._M_matches(*_M_current))
+ 	  _M_match_queue.emplace_back(__state._M_next, _M_cur_results);
++
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _TraitsT>
+@@ -462,7 +497,7 @@ namespace __detail
+   // (_M_current, _M_current + (__submatch.second - __submatch.first)).
+   // If matched, keep going; else just return and try another state.
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++    _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_backref(_Match_mode, _StateIdT __i)
+     {
+       __glibcxx_assert(_M_search_mode == _Search_mode::_DFS);
+@@ -470,7 +505,7 @@ namespace __detail
+       const auto& __state = _M_nfa[__i];
+       auto& __submatch = _M_cur_results[__state._M_backref_index];
+       if (!__submatch.matched)
+-	return;
++	return _S_invalid_state_id;
+       auto __last = _M_current;
+       for (auto __tmp = __submatch.first;
+ 	   __last != _M_end && __tmp != __submatch.second;
+@@ -482,12 +517,17 @@ namespace __detail
+ 		  __submatch.first, __submatch.second, _M_current, __last))
+ 	{
+ 	  _M_current = __last;
+-	  _M_frames.emplace_back(_S_fopcode_next, __state._M_next);
++	  return __state._M_next;
+ 	}
++
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_accept(_Match_mode __match_mode, _StateIdT)
+     {
+       if (_M_search_mode == _Search_mode::_DFS)
+@@ -528,7 +568,7 @@ namespace __detail
+ 	{
+ 	  if (_M_current == _M_begin
+ 	      && (_M_flags & regex_constants::match_not_null))
+-	    return;
++	    return _S_invalid_state_id;
+ 	  if (__match_mode == _Match_mode::_Prefix || _M_current == _M_end)
+ 	    if (!_M_has_sol)
+ 	      {
+@@ -536,10 +576,14 @@ namespace __detail
+ 		_M_results = _M_cur_results;
+ 	      }
+ 	}
++      return _S_invalid_state_id;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+-    void _Executor<_BiIter, _Alloc, _TraitsT>::
++#ifdef __OPTIMIZE__
++    [[__gnu__::__always_inline__]]
++#endif
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_handle_alternative(_Match_mode, _StateIdT __i)
+     {
+       const auto& __state = _M_nfa[__i];
+@@ -549,7 +593,7 @@ namespace __detail
+ 	  // Pick lhs if it matches. Only try rhs if it doesn't.
+ 	  _M_frames.emplace_back(_S_fopcode_fallback_next, __state._M_next,
+ 				 _M_current);
+-	  _M_frames.emplace_back(_S_fopcode_next, __state._M_alt);
++	  return __state._M_alt;
+ 	}
+       else
+ 	{
+@@ -557,7 +601,7 @@ namespace __detail
+ 	  // See "case _S_opcode_accept:" handling above.
+ 	  _M_frames.emplace_back(_S_fopcode_posix_alternative, __state._M_next,
+ 				 _M_current);
+-	  _M_frames.emplace_back(_S_fopcode_next, __state._M_alt);
++	  return __state._M_alt;
+ 	}
+     }
+ 
+@@ -565,54 +609,69 @@ namespace __detail
+ #ifdef __OPTIMIZE__
+     [[__gnu__::__always_inline__]]
+ #endif
+-    inline void _Executor<_BiIter, _Alloc, _TraitsT>::
++    inline _StateIdT _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_node(_Match_mode __match_mode, _StateIdT __i)
+     {
+-      if (_M_visited(__i))
+-	return;
++      // DFS has no _M_visited implementation as such don't even have the branch
++      // or the check in the call graph.
++      if (_M_search_mode == _Search_mode::_BFS)
++	if (_M_visited(__i))
++	  return _S_invalid_state_id;
+ 
++      _StateIdT __next = _S_invalid_state_id;
+       switch (_M_nfa[__i]._M_opcode())
+ 	{
+ 	case _S_opcode_repeat:
+-	  _M_handle_repeat(__match_mode, __i); break;
++	  __next = _M_handle_repeat(__match_mode, __i); break;
+ 	case _S_opcode_subexpr_begin:
+-	  _M_handle_subexpr_begin(__match_mode, __i); break;
++	  __next = _M_handle_subexpr_begin(__match_mode, __i);
++	  break;
+ 	case _S_opcode_subexpr_end:
+-	  _M_handle_subexpr_end(__match_mode, __i); break;
++	  __next = _M_handle_subexpr_end(__match_mode, __i);
++	  break;
+ 	case _S_opcode_line_begin_assertion:
+-	  _M_handle_line_begin_assertion(__match_mode, __i); break;
++	  __next = _M_handle_line_begin_assertion(__match_mode, __i); break;
+ 	case _S_opcode_line_end_assertion:
+-	  _M_handle_line_end_assertion(__match_mode, __i); break;
++	  __next = _M_handle_line_end_assertion(__match_mode, __i); break;
+ 	case _S_opcode_word_boundary:
+-	  _M_handle_word_boundary(__match_mode, __i); break;
++	  __next = _M_handle_word_boundary(__match_mode, __i); break;
+ 	case _S_opcode_subexpr_lookahead:
+-	  _M_handle_subexpr_lookahead(__match_mode, __i); break;
++	  __next = _M_handle_subexpr_lookahead(__match_mode, __i); break;
+ 	case _S_opcode_match:
+-	  _M_handle_match(__match_mode, __i); break;
++	  __next = _M_handle_match(__match_mode, __i); break;
+ 	case _S_opcode_backref:
+ 	  if (_M_search_mode == _Search_mode::_DFS)
+-	    _M_handle_backref(__match_mode, __i);
++	    __next = _M_handle_backref(__match_mode, __i);
+ 	  else
+ 	    __builtin_unreachable();
+ 	  break;
+ 	case _S_opcode_accept:
+-	  _M_handle_accept(__match_mode, __i); break;
++	  __next = _M_handle_accept(__match_mode, __i); break;
+ 	case _S_opcode_alternative:
+-	  _M_handle_alternative(__match_mode, __i); break;
++	  __next = _M_handle_alternative(__match_mode, __i); break;
+ 	default:
+ 	  __glibcxx_assert(false);
+ 	}
++      return __next;
+     }
+ 
+   template<typename _BiIter, typename _Alloc, typename _TraitsT>
+     void _Executor<_BiIter, _Alloc, _TraitsT>::
+     _M_dfs(_Match_mode __match_mode, _StateIdT __start)
+     {
+-      const bool __dfs_mode = (_M_search_mode == _Search_mode::_DFS);
+-      _M_frames.emplace_back(_S_fopcode_next, __start);
++      _StateIdT __next = __start;
+ 
+-      while (!_M_frames.empty())
++      while (true)
+ 	{
++	  // Follow immediate successors without re-entering the frame
++	  // loop until we fail.  This avoids the needless state save and
++	  // restore through memory.
++	  while (__next != _S_invalid_state_id)
++	    __next = _M_node(__match_mode, __next);
++
++	  if (_M_frames.empty())
++	    break;
++
+ 	  _ExecutorFrame<_BiIter> __frame = std::move(_M_frames.back());
+ 	  _M_frames.pop_back();
+ 
+@@ -621,27 +680,27 @@ namespace __detail
+ 	    case _S_fopcode_fallback_next:
+ 	      if (_M_has_sol)
+ 		break;
+-	      if (__dfs_mode)
++	      if (_M_search_mode == _Search_mode::_DFS)
+ 		_M_current = __frame._M_pos;
+ 	      [[__fallthrough__]];
+ 	    case _S_fopcode_next:
+-	      _M_node(__match_mode, __frame._M_state_id);
++	      __next = __frame._M_state_id;
+ 	      break;
+ 
+ 	    case _S_fopcode_fallback_rep_once_more:
+ 	      if (_M_has_sol)
+ 		break;
+-	      if (__dfs_mode)
++	      if (_M_search_mode == _Search_mode::_DFS)
+ 		_M_current = __frame._M_pos;
+ 	      [[__fallthrough__]];
+ 	    case _S_fopcode_rep_once_more:
+-	      _M_rep_once_more(__match_mode, __frame._M_state_id);
++	      __next = _M_rep_once_more(__match_mode, __frame._M_state_id);
+ 	      break;
+ 
+ 	    case _S_fopcode_posix_alternative:
+ 	      _M_frames.emplace_back(_S_fopcode_merge_sol, 0, _M_has_sol);
+-	      _M_frames.emplace_back(_S_fopcode_next, __frame._M_state_id);
+-	      if (__dfs_mode)
++	      __next = __frame._M_state_id;
++	      if (_M_search_mode == _Search_mode::_DFS)
+ 		_M_current = __frame._M_pos;
+ 	      _M_has_sol = false;
+ 	      break;

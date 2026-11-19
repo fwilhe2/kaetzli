@@ -1,0 +1,359 @@
+From 94e7b5ae4598d7c238e24090daeab1a7f4ba1c2c Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Sat, 24 Oct 2026 11:41:35 +0100
+Subject: [PATCH] AArch64: have -mcpu=native make educated guess on minimum
+ arch level
+
+When -mcpu=native encounters a CPU whose MIDR we don't recognize, we currently
+fall back to generic-armv8-a and add the extensions reported in /proc/cpuinfo.
+
+For a CPU reporting SVE2, we can make a better guess and use generic-armv9-a as
+the starting point.  This patch uses the detected extensions to choose between
+the two generic CPUs.  The -march=native path uses the architecture of that CPU,
+and unknown heterogeneous systems use the same fallback.
+
+The important detail is that SVE2 doesn't establish all the other features
+enabled by the Armv9 baseline.  For example, if cpuinfo reports SVE2 but doesn't
+report atomics, we still need to turn off LSE.  The existing extension-string
+handling already does this for features with cpuinfo tokens.
+
+There is also a less obvious case: PREDRES is part of the Armv9 baseline but has
+no cpuinfo token. For a known CPU we can use the architecture from the CPU table
+to establish support.  For an unknown CPU we only have the inferred baseline, so
+inheriting PREDRES from it would be an unsupported assumption.
+
+This patch therefore limits the unreported features we inherit for unknown CPUs
+to the Armv8-A baseline.  The extension-string handling then adds the reported
+extensions and disables unverified defaults from the inferred architecture.
+
+For example, an unknown CPU reporting SVE2 and all the reportable Armv9-A
+baseline features gives
+
+  -mcpu=generic-armv9-a+crc+nopredres
+
+Here PREDRES remains disabled because cpuinfo cannot establish it.  With fewer
+reported features, the option string also disables the missing baseline
+extensions.  Without SVE2 we continue to select generic-armv8-a.
+
+The lookup includes extensions that depend on SVE2, so later SVE2 versions can
+also guide the selection even though the parsed feature flags aren't
+transitively closed.
+
+The tests cover unknown single-core and heterogeneous systems, both native CPU
+and architecture selection, the fallback without SVE2, and the case with all
+reportable Armv9-A baseline features present.
+
+gcc/ChangeLog:
+
+	* config/aarch64/driver-aarch64.cc (DEFAULT_ARCH, DEFAULT_CPU):
+	Remove.
+	(get_cpu_from_ext): New function.  Select a generic CPU using
+	SVE2 and extensions that depend on it.
+	(host_detect_local_cpu): Use the inferred generic CPU and its
+	architecture for unknown CPUs, including heterogeneous systems.
+	Limit inherited features without cpuinfo tokens to the Armv8-A
+	baseline when the CPU is unknown.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/aarch64/cpunative/native_cpu_16.c: Update the expected
+	architecture and extensions for the generic Armv9 fallback.
+	* gcc.target/aarch64/cpunative/native_cpu_17.c: Likewise.
+	* gcc.target/aarch64/cpunative/native_cpu_34.c: Likewise.
+	* gcc.target/aarch64/cpunative/info_37: New cpuinfo fixture for an
+	unknown CPU with SVE2.1 and missing Armv9 baseline features.
+	* gcc.target/aarch64/cpunative/info_38: New cpuinfo fixture for an
+	unknown CPU without SVE2.
+	* gcc.target/aarch64/cpunative/info_41: New cpuinfo fixture for an
+	unknown CPU with SVE2 and all reportable Armv9-A baseline features.
+	* gcc.target/aarch64/cpunative/native_cpu_37.c: New test.
+	* gcc.target/aarch64/cpunative/native_cpu_38.c: New test.
+	* gcc.target/aarch64/cpunative/native_cpu_39.c: New test.
+	* gcc.target/aarch64/cpunative/native_cpu_40.c: New test.
+	* gcc.target/aarch64/cpunative/native_cpu_41.c: New test.
+
+(cherry picked from commit 818745a862daee49a02a54202f26972f7cf622cd)
+---
+ gcc/config/aarch64/driver-aarch64.cc          | 35 ++++++++++++-------
+ .../gcc.target/aarch64/cpunative/info_37      |  8 +++++
+ .../gcc.target/aarch64/cpunative/info_38      |  9 +++++
+ .../gcc.target/aarch64/cpunative/info_41      |  9 +++++
+ .../aarch64/cpunative/native_cpu_16.c         |  2 +-
+ .../aarch64/cpunative/native_cpu_17.c         |  2 +-
+ .../aarch64/cpunative/native_cpu_34.c         |  2 +-
+ .../aarch64/cpunative/native_cpu_37.c         | 12 +++++++
+ .../aarch64/cpunative/native_cpu_38.c         | 12 +++++++
+ .../aarch64/cpunative/native_cpu_39.c         | 12 +++++++
+ .../aarch64/cpunative/native_cpu_40.c         | 12 +++++++
+ .../aarch64/cpunative/native_cpu_41.c         | 13 +++++++
+ 12 files changed, 112 insertions(+), 16 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/info_37
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/info_38
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/info_41
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_37.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_38.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_39.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_40.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_41.c
+
+diff --git a/gcc/config/aarch64/driver-aarch64.cc b/gcc/config/aarch64/driver-aarch64.cc
+index 3eaacd8091cb..baf8851dabd8 100644
+--- a/gcc/config/aarch64/driver-aarch64.cc
++++ b/gcc/config/aarch64/driver-aarch64.cc
+@@ -58,9 +58,6 @@ struct aarch64_core_data
+ #define INVALID_IMP ((unsigned char) -1)
+ #define INVALID_CORE ((unsigned)-1)
+ #define ALL_VARIANTS ((unsigned)-1)
+-/* Default architecture to use if -mcpu=native did not detect a known CPU.  */
+-#define DEFAULT_ARCH "8A"
+-#define DEFAULT_CPU "generic-armv8-a"
+ 
+ #define AARCH64_CORE(CORE_NAME, CORE_IDENT, SCHED, ARCH, FLAGS, COSTS, IMP, PART, VARIANT) \
+   { CORE_NAME, #ARCH, IMP, PART, unsigned(VARIANT), feature_deps::cpu_##CORE_IDENT },
+@@ -71,7 +68,6 @@ static CONSTEXPR const aarch64_core_data aarch64_cpu_data[] =
+   { NULL, NULL, INVALID_IMP, INVALID_CORE, ALL_VARIANTS, 0 }
+ };
+ 
+-
+ struct aarch64_arch_driver_info
+ {
+   const char* id;
+@@ -119,7 +115,16 @@ get_cpu_from_id (const char* name)
+   return NULL;
+ }
+ 
+-/* Check wether the CORE array is the same as the big.LITTLE BL_CORE.
++/* Choose a generic CPU for unknown cores using FLAGS.  Include extensions
++   that require SVE2, since cpuinfo flags aren't transitively closed.  */
++static const aarch64_core_data *
++get_cpu_from_ext (aarch64_feature_flags flags)
++{
++  return get_cpu_from_id (flags & feature_deps::get_flags_off (AARCH64_FL_SVE2)
++			  ? "generic-armv9-a" : "generic-armv8-a");
++}
++
++/* Check whether the CORE array is the same as the big.LITTLE BL_CORE.
+    For an example CORE={0xd08, 0xd03} and
+    BL_CORE=AARCH64_BIG_LITTLE (0xd08, 0xd03) will return true.  */
+ 
+@@ -428,12 +433,13 @@ host_detect_local_cpu (int argc, const char **argv)
+                 || variants[0] == aarch64_cpu_data[i].variant))
+ 	  break;
+ 
++      auto cpu_info = (aarch64_cpu_data[i].name
++			   ? &aarch64_cpu_data[i]
++			   : get_cpu_from_ext (extension_flags));
++      gcc_assert (cpu_info);
+       if (arch)
+ 	{
+-	  const char *arch_id = (aarch64_cpu_data[i].name
+-				 ? aarch64_cpu_data[i].arch
+-				 : DEFAULT_ARCH);
+-	  auto arch_info = get_arch_from_id (arch_id);
++	  auto arch_info = get_arch_from_id (cpu_info->arch);
+ 
+ 	  /* We got some arch indentifier that's not in aarch64-arches.def?  */
+ 	  if (!arch_info)
+@@ -444,9 +450,6 @@ host_detect_local_cpu (int argc, const char **argv)
+ 	}
+       else if (cpu || aarch64_cpu_data[i].name)
+ 	{
+-	  auto cpu_info = (aarch64_cpu_data[i].name
+-			   ? &aarch64_cpu_data[i]
+-			   : get_cpu_from_id (DEFAULT_CPU));
+ 	  default_flags = cpu_info->flags;
+ 	  res = concat ("-m",
+ 			cpu ? "cpu" : "tune", "=",
+@@ -476,7 +479,7 @@ host_detect_local_cpu (int argc, const char **argv)
+ 	 the feature flags from any of the cpus.  */
+       if (cpu && aarch64_cpu_data[i].name == NULL)
+ 	{
+-	  auto cpu_info = get_cpu_from_id (DEFAULT_CPU);
++	  auto cpu_info = get_cpu_from_ext (extension_flags);
+ 
+ 	  gcc_assert (cpu_info);
+ 
+@@ -491,6 +494,12 @@ host_detect_local_cpu (int argc, const char **argv)
+   if (tune)
+     return res;
+ 
++  /* An inferred architecture does not establish support for features that
++     cpuinfo cannot report.  Only retain the Armv8-A baseline in that case;
++     the extension string below disables other unverified defaults.  */
++  if (aarch64_cpu_data[i].name == NULL)
++    unchecked_extension_flags &= feature_deps::V8A ().enable;
++
+   /* Add any features that should be present, but can't be verified using
+      the /proc/cpuinfo "Features" list.  */
+   extension_flags |= unchecked_extension_flags & default_flags;
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/info_37 b/gcc/testsuite/gcc.target/aarch64/cpunative/info_37
+new file mode 100644
+index 000000000000..d7e1912c15da
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/info_37
+@@ -0,0 +1,8 @@
++processor	: 0
++BogoMIPS	: 100.00
++Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 asimddp sve sve2 sve2p1 fphp asimdhp fcma
++CPU implementer	: 0xfe
++CPU architecture: 8
++CPU variant	: 0x0
++CPU part	: 0xd08
++CPU revision	: 2
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/info_38 b/gcc/testsuite/gcc.target/aarch64/cpunative/info_38
+new file mode 100644
+index 000000000000..78659e0f63a4
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/info_38
+@@ -0,0 +1,9 @@
++processor	: 0
++BogoMIPS	: 100.00
++Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 asimddp
++CPU implementer	: 0xfe
++CPU architecture: 8
++CPU variant	: 0x0
++CPU part	: 0xd08
++CPU revision	: 2
++
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/info_41 b/gcc/testsuite/gcc.target/aarch64/cpunative/info_41
+new file mode 100644
+index 000000000000..f05956856578
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/info_41
+@@ -0,0 +1,9 @@
++processor	: 0
++BogoMIPS	: 100.00
++Features	: fp asimd atomics crc32 asimdrdm paca pacg lrcpc fcma jscvt asimdfhm asimddp flagm ilrcpc sb ssbs frint flagm2 fphp asimdhp sve sve2
++CPU implementer	: 0xfe
++CPU architecture: 8
++CPU variant	: 0x0
++CPU part	: 0xd08
++CPU revision	: 2
++
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_16.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_16.c
+index 649e48e7e0b7..a24ca4ddbd9c 100644
+--- a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_16.c
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_16.c
+@@ -7,6 +7,6 @@ int main()
+   return 0;
+ }
+ 
+-/* { dg-final { scan-assembler {\.arch armv8-a\+dotprod\+crc\+crypto\+sve2\n} } } */
++/* { dg-final { scan-assembler {\.arch armv9-a\+crc\+crypto\+noflagm\+nolse\+nordma\+nofp16fml\+nojscvt\+norcpc\+nofrintts\+nosb\+nopredres\+nossbs\+nopauth\n} } } */
+ 
+ /* Test a normal looking procinfo.  */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_17.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_17.c
+index 078d7bc899cc..c13715349e57 100644
+--- a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_17.c
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_17.c
+@@ -7,6 +7,6 @@ int main()
+   return 0;
+ }
+ 
+-/* { dg-final { scan-assembler {\.arch armv8-a\+dotprod\+crc\+crypto\+sve2\n} } } */
++/* { dg-final { scan-assembler {\.arch armv9-a\+crc\+crypto\+noflagm\+nolse\+nordma\+nofp16fml\+nojscvt\+norcpc\+nofrintts\+nosb\+nopredres\+nossbs\+nopauth\n} } } */
+ 
+ /* Test a normal looking procinfo.  */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_34.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_34.c
+index 168140002a0f..60564652245e 100644
+--- a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_34.c
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_34.c
+@@ -7,6 +7,6 @@ int main()
+   return 0;
+ }
+ 
+-/* { dg-final { scan-assembler {\.arch armv8-a\+dotprod\+crc\+crypto\+sve2\n} } } */
++/* { dg-final { scan-assembler {\.arch armv9-a\+crc\+crypto\+noflagm\+nolse\+nordma\+nofp16fml\+nojscvt\+norcpc\+nofrintts\+nosb\+nopredres\+nossbs\+nopauth\n} } } */
+ 
+ /* Test a normal looking procinfo.  */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_37.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_37.c
+new file mode 100644
+index 000000000000..72d8a1d92042
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_37.c
+@@ -0,0 +1,12 @@
++/* { dg-do compile { target { { aarch64*-*-linux*} && native } } } */
++/* { dg-set-compiler-env-var GCC_CPUINFO "$srcdir/gcc.target/aarch64/cpunative/info_37" } */
++/* Force the architecture detection path with an unknown MIDR.  SVE2
++   suggests Armv9, but does not establish its other baseline features.  */
++/* { dg-additional-options "-march=native -mtune=cortex-a34" } */
++
++int main()
++{
++  return 0;
++}
++
++/* { dg-final { scan-assembler {\.arch armv9-a\+crc\+crypto\+sve2p1\+noflagm\+nolse\+nordma\+nofp16fml\+nojscvt\+norcpc\+nofrintts\+nosb\+nopredres\+nossbs\+nopauth\n} } } */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_38.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_38.c
+new file mode 100644
+index 000000000000..15de18ce5120
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_38.c
+@@ -0,0 +1,12 @@
++/* Check the inferred CPU as well as the ISA for an unknown SVE2 core.  */
++/* { dg-do compile { target { { aarch64*-*-linux* } && native } } } */
++/* { dg-set-compiler-env-var GCC_CPUINFO "$srcdir/gcc.target/aarch64/cpunative/info_37" } */
++/* { dg-additional-options "-mcpu=native -###" } */
++
++int main ()
++{
++  return 0;
++}
++
++/* { dg-message "-mcpu=generic-armv9-a\\+crc\\+crypto\\+sve2p1.*\\+nopredres" "note" { target *-*-* } 0 } */
++/* { dg-excess-errors "" } */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_39.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_39.c
+new file mode 100644
+index 000000000000..a6042b4f5cb6
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_39.c
+@@ -0,0 +1,12 @@
++/* An unknown CPU without SVE2 uses the generic Armv8 CPU.  */
++/* { dg-do compile { target { { aarch64*-*-linux* } && native } } } */
++/* { dg-set-compiler-env-var GCC_CPUINFO "$srcdir/gcc.target/aarch64/cpunative/info_38" } */
++/* { dg-additional-options "-mcpu=native -###" } */
++
++int main ()
++{
++  return 0;
++}
++
++/* { dg-message "-mcpu=generic-armv8-a\\+dotprod\\+crc\\+crypto" "note" { target *-*-* } 0 } */
++/* { dg-excess-errors "" } */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_40.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_40.c
+new file mode 100644
+index 000000000000..0b7590817693
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_40.c
+@@ -0,0 +1,12 @@
++/* Unknown heterogeneous cores use the detected features for the fallback.  */
++/* { dg-do compile { target { { aarch64*-*-linux* } && native } } } */
++/* { dg-set-compiler-env-var GCC_CPUINFO "$srcdir/gcc.target/aarch64/cpunative/info_35" } */
++/* { dg-additional-options "-mcpu=native -###" } */
++
++int main ()
++{
++  return 0;
++}
++
++/* { dg-message "-mcpu=generic-armv9-a\\+crc\\+crypto.*\\+nopredres" "note" { target *-*-* } 0 } */
++/* { dg-excess-errors "" } */
+diff --git a/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_41.c b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_41.c
+new file mode 100644
+index 000000000000..45df4f5ee201
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/cpunative/native_cpu_41.c
+@@ -0,0 +1,13 @@
++/* An unknown CPU reports SVE2 and all reportable Armv9-A baseline features.
++   None of those features should be disabled.  PREDRES has no cpuinfo token
++   and must still be disabled rather than inferred from SVE2.  */
++/* { dg-do compile { target { { aarch64*-*-linux* } && native } } } */
++/* { dg-set-compiler-env-var GCC_CPUINFO "$srcdir/gcc.target/aarch64/cpunative/info_41" } */
++/* { dg-additional-options "-mcpu=native" } */
++
++int main ()
++{
++  return 0;
++}
++
++/* { dg-final { scan-assembler {\.arch armv9-a\+crc\+nopredres\n} } } */

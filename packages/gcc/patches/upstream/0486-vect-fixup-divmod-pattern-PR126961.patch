@@ -1,0 +1,91 @@
+From b6053cc84e7c3b9dc3adf55316e6850743eb1d2d Mon Sep 17 00:00:00 2001
+From: Tamar Christina <tamar.christina@arm.com>
+Date: Thu, 20 Aug 2026 12:54:39 +0100
+Subject: [PATCH] vect: fixup divmod pattern [PR126961]
+
+Running the pr104116 tests with SVE2 which implements IFN_DIV_POW2 results in
+
+FAIL: gcc.dg/vect/pr104116-ceil-div-2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-div-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-mod-2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-mod-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-udiv-2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-udiv-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-umod-2.c execution test
+FAIL: gcc.dg/vect/pr104116-ceil-umod-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-floor-div-2.c execution test
+FAIL: gcc.dg/vect/pr104116-floor-div-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-floor-mod-2.c execution test
+FAIL: gcc.dg/vect/pr104116-floor-mod-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-div-2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-div-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-mod-2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-mod-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-udiv-2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-udiv-pow2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-umod-2.c execution test
+FAIL: gcc.dg/vect/pr104116-round-umod-pow2.c execution test
+
+The first part is that add_code_for_floorceilround_divmod expects that the 6th
+parameter be the remainder.  This is passed correctly for most uses except for
+one where instead the shifted quotient is passed instead which causes a
+miscompile.
+
+Secondly IFN_DIV_POW2 is defined for only signed types.
+
+DEF_INTERNAL_OPTAB_FN (DIV_POW2, ECF_CONST | ECF_NOTHROW, sdiv_pow2, binary)
+
+and the documentation says
+
+@itemx @samp{sdiv_pow2@var{m}3}
+Signed division by power-of-2 immediate. Equivalent to:
+
+However the code does not actually check that the type is signed.
+So we end up using the IFN for unsigned division as well resulting in the
+failures for the unsigned testcases.
+
+gcc/ChangeLog:
+
+	PR tree-optimization/126961
+	* tree-vect-patterns.cc (vect_recog_divmod_pattern): Fix remainder use
+	and add signedness check.
+
+(cherry picked from commit fc58b1fc537f0b8cad5762f70809678d22dd3c80)
+---
+ gcc/tree-vect-patterns.cc | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/gcc/tree-vect-patterns.cc b/gcc/tree-vect-patterns.cc
+index f191ed753d99..8136b1ddcee5 100644
+--- a/gcc/tree-vect-patterns.cc
++++ b/gcc/tree-vect-patterns.cc
+@@ -5297,7 +5297,8 @@ vect_recog_divmod_pattern (vec_info *vinfo,
+ 
+       /* Check if the target supports this internal function.  */
+       internal_fn ifn = IFN_DIV_POW2;
+-      if (direct_internal_fn_supported_p (ifn, vectype, OPTIMIZE_FOR_SPEED))
++      if (!TYPE_UNSIGNED (itype)
++	  && direct_internal_fn_supported_p (ifn, vectype, OPTIMIZE_FOR_SPEED))
+ 	{
+ 	  tree shift = build_int_cst (itype, tree_log2 (oprnd1));
+ 
+@@ -5311,16 +5312,15 @@ vect_recog_divmod_pattern (vec_info *vinfo,
+ 	      def_stmt
+ 		= gimple_build_assign (t1, LSHIFT_EXPR, var_div, shift);
+ 	      append_pattern_def_seq (vinfo, stmt_vinfo, def_stmt);
+-	      pattern_stmt
+-		= gimple_build_assign (vect_recog_temp_ssa_var (itype, NULL),
+-				       MINUS_EXPR, oprnd0, t1);
++	      tree r = vect_recog_temp_ssa_var (itype, NULL);
++	      pattern_stmt = gimple_build_assign (r, MINUS_EXPR, oprnd0, t1);
+ 	      if (is_flclrd_moddiv_p)
+ 		{
+ 		  append_pattern_def_seq (vinfo, stmt_vinfo, pattern_stmt);
+ 		  pattern_stmt
+ 		    = add_code_for_floorceilround_divmod (vectype, vinfo,
+ 							  stmt_vinfo, rhs_code,
+-							  var_div, t1, oprnd0,
++							  var_div, r, oprnd0,
+ 							  oprnd1, itype);
+ 		  if (pattern_stmt == NULL)
+ 		    return NULL;
