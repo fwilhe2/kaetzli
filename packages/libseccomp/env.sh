@@ -6,12 +6,12 @@
 #
 # Maintained (2.6.x, 2026), and the one implementation: every distribution ships it, and
 # Docker's and podman's default profiles are written against it.
-VERSION="2.6.1"
+VERSION="2.6.2"
 PACKAGE="libseccomp-${VERSION}"
 TARBALL="$PACKAGE.tar.gz"
 URL="https://github.com/seccomp/libseccomp/releases/download/v${VERSION}/${TARBALL}"
 SIG_URL="${URL}.asc"
-SHA256="501f66c667225d53791b97e1d7cf85ab764c297d04881f60f38f451c4b0ee1be"
+SHA256="6b845d352c6d7887d8d134c43d86850d40f5dcee11ad1675c18197ae4d869d42"
 LICENSE="LGPL-2.1-only"
 CPE="cpe:2.3:a:libseccomp_project:libseccomp:${VERSION}:*:*:*:*:*:*:*"
 UPSTREAM_GITHUB="seccomp/libseccomp"
