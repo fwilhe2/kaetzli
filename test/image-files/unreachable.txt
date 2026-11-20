@@ -13,3 +13,4 @@ absent usr/bin/gawkbug
 present usr/bin/nft
 present usr/lib/libexpat.so.1
 present usr/bin/gawk
+present usr/bin/awk
