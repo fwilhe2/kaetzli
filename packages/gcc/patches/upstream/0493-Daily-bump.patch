@@ -1,0 +1,253 @@
+From 74d2eb1715bd02219b0690f22b85bb5351f4b491 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Fri, 20 Nov 2026 00:21:13 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 84 +++++++++++++++++++++++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/testsuite/ChangeLog | 65 +++++++++++++++++++++++++++++++
+ libstdc++-v3/ChangeLog  | 61 ++++++++++++++++++++++++++++++
+ 4 files changed, 211 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 0abfefeab62a..fef16531aff5 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,87 @@
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-10-24  Tamar Christina  <tamar.christina@arm.com>
++
++	* config/aarch64/driver-aarch64.cc (DEFAULT_ARCH, DEFAULT_CPU):
++	Remove.
++	(get_cpu_from_ext): New function.  Select a generic CPU using
++	SVE2 and extensions that depend on it.
++	(host_detect_local_cpu): Use the inferred generic CPU and its
++	architecture for unknown CPUs, including heterogeneous systems.
++	Limit inherited features without cpuinfo tokens to the Armv8-A
++	baseline when the CPU is unknown.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-07-29  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126465
++	* match.pd: Fix FMS patterns.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-08-20  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126961
++	* tree-vect-patterns.cc (vect_recog_divmod_pattern): Fix remainder use
++	and add signedness check.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-08-04  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126592
++	* tree-vect-slp-patterns.cc (is_linear_load_p): Rewrite using
++	vec_perm_indices.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-08-04  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126593
++	* tree-vect-slp-patterns.cc (compatible_complex_nodes_p): Check def
++	stmts of real and imag pairs.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-11-12  Tamar Christina  <tamar.christina@arm.com>
++
++	PR target/128665
++	* config/aarch64/aarch64-simd.md (vec_cbranch_any,
++	vec_cbranch_all): Correct mask.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-10-06  Tamar Christina  <tamar.christina@arm.com>
++
++	PR target/126063
++	* config/aarch64/aarch64-sve-builtins.cc (function_instance::hash):
++	Use ptr diff for hash instead of ptr.
++	(gt_pch_nx): Add the pointers to PCH tracking.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-10-26  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/128095
++	* tree-if-conv.cc (factor_out_operators): Fix PHI update.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/128095
++	* tree-if-conv.cc (factor_out_operators): Fix Checks.
++
+ 2026-11-17  Jeff Law  <jeffreyalaw@gmail.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index ea3af1a16e2b..d6b1ffb7138f 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261119
++20261120
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 6a4405f8eb48..24c8b5c7ae8e 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,68 @@
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-10-24  Tamar Christina  <tamar.christina@arm.com>
++
++	* gcc.target/aarch64/cpunative/native_cpu_16.c: Update the expected
++	architecture and extensions for the generic Armv9 fallback.
++	* gcc.target/aarch64/cpunative/native_cpu_17.c: Likewise.
++	* gcc.target/aarch64/cpunative/native_cpu_34.c: Likewise.
++	* gcc.target/aarch64/cpunative/info_37: New cpuinfo fixture for an
++	unknown CPU with SVE2.1 and missing Armv9 baseline features.
++	* gcc.target/aarch64/cpunative/info_38: New cpuinfo fixture for an
++	unknown CPU without SVE2.
++	* gcc.target/aarch64/cpunative/info_41: New cpuinfo fixture for an
++	unknown CPU with SVE2 and all reportable Armv9-A baseline features.
++	* gcc.target/aarch64/cpunative/native_cpu_37.c: New test.
++	* gcc.target/aarch64/cpunative/native_cpu_38.c: New test.
++	* gcc.target/aarch64/cpunative/native_cpu_39.c: New test.
++	* gcc.target/aarch64/cpunative/native_cpu_40.c: New test.
++	* gcc.target/aarch64/cpunative/native_cpu_41.c: New test.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-07-29  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126465
++	* gcc.target/aarch64/sve/cond_fma.c: New test.
++	* gcc.target/aarch64/sve/cond_fma_neg_addend.c: New test.
++	* gcc.target/aarch64/sve/cond_fms.c: New test.
++	* gcc.target/aarch64/sve/cond_fnma.c: New test.
++	* gcc.target/aarch64/sve/cond_fnms.c: New test.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-08-04  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126592
++	* gcc.target/aarch64/pr126592.c: New test.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-08-04  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/126593
++	* gcc.target/aarch64/pr126593.c: New test.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-11-12  Tamar Christina  <tamar.christina@arm.com>
++
++	PR target/128665
++	* gcc.target/aarch64/sve/vect-revectorize-ptest-1.c: New test.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-10-26  Tamar Christina  <tamar.christina@arm.com>
++
++	PR tree-optimization/128095
++	* gcc.dg/vect/pr128095.c: New test.
++
+ 2026-11-17  Harald Anlauf  <anlauf@gmx.de>
+ 
+ 	Backported from master:
+diff --git a/libstdc++-v3/ChangeLog b/libstdc++-v3/ChangeLog
+index ab9f1853c694..89bd7317806b 100644
+--- a/libstdc++-v3/ChangeLog
++++ b/libstdc++-v3/ChangeLog
+@@ -1,3 +1,64 @@
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-09-22  Tamar Christina  <tamar.christina@arm.com>
++
++	PR libstdc++/126274
++	* include/bits/regex_executor.h (_M_match_simple_repeat_body): New.
++	* include/bits/regex_executor.tcc (_M_dfs_next): Inline consume matches
++	on _S_opcode_repeat.
++	(_M_match_simple_repeat_body): New.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-09-22  Tamar Christina  <tamar.christina@arm.com>
++
++	PR libstdc++/126274
++	PR libstdc++/88947
++	* include/bits/regex_executor.h (_M_search_from_first): Avoid needless
++	recursions.
++	(_M_maybe_start_match): New.
++	* include/bits/regex_executor.tcc (_M_maybe_start_match): New.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-09-22  Tamar Christina  <tamar.christina@arm.com>
++
++	PR libstdc++/126274
++	* include/bits/regex_executor.h (_Search_mode): Move to top level.
++	(_M_handle_repeat, _M_handle_match, _M_handle_accept, _M_node, _M_dfs):
++	Add template parameter.
++	(_M_visited): Add inline keyword.
++	* include/bits/regex_executor.tcc (_M_handle_repeat, _M_handle_match,
++	_M_handle_accept, _M_node, _M_dfs): Use template parameter.
++
++2026-11-19  Tamar Christina  <tamar.christina@arm.com>
++
++	Backported from master:
++	2026-09-22  Tamar Christina  <tamar.christina@arm.com>
++
++	PR libstdc++/126274
++	* include/bits/regex_executor.h (_Executor): Reserve frame space.
++	(_M_rep_once_more, _M_handle_repeat, _M_handle_subexpr_begin,
++	_M_handle_subexpr_end, _M_handle_line_begin_assertion,
++	_M_handle_line_end_assertion, _M_handle_word_boundary,
++	_M_handle_subexpr_lookahead, _M_handle_match, _M_handle_backref,
++	_M_node): return StateIdT.
++	(_M_visited): Mark inline.
++	* include/bits/regex_executor.tcc (_M_rep_once_more, _M_handle_repeat,
++	_M_handle_subexpr_begin, _M_handle_subexpr_end,
++	_M_handle_line_begin_assertion, _M_handle_line_end_assertion,
++	_M_handle_word_boundary, _M_handle_subexpr_lookahead, _M_handle_match,
++	_M_handle_backref): Return state, mark always inline.
++	(_M_node): Return StateIdT and also decide what to do with the value
++	after return.
++	(_M_dfs): Traverse states iteratively for _S_fopcode_next,
++	_S_fopcode_fallback_next, _S_fopcode_fallback_rep_once_more
++	and _S_fopcode_rep_once_more.
++	* include/bits/regex.h (class _Executor): Move to V2 ABI.
++
+ 2026-11-06  Jonathan Wakely  <jwakely@redhat.com>
+ 
+ 	Backported from master:
