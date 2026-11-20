@@ -309,13 +309,16 @@ ln -s ../lib/dir/libx.so.1 "$hyg/usr/bin/through-dir"
 ln -s /run/systemd/resolve/stub-resolv.conf "$hyg/etc/resolv.conf"
 ln -s /dev/null "$hyg/etc/masked.service"
 ln -s var/home "$hyg/home"
-# Every #! the image may have: the shell under either path, through env (with -S), and
-# nftables' rulesets, which are configuration rather than a language.
+# Every #! the image may have: the shell under either path, through env (with -S),
+# nftables' rulesets, which are configuration rather than a language, and awk, which
+# POSIX requires (gawk's usr/share/awk library has #! lines).
 printf '#!/bin/sh\n'                  > "$hyg/usr/bin/a-sh"
 printf '#!/usr/bin/bash -e\n'         > "$hyg/usr/bin/a-bash"
 printf '#!/usr/bin/env bash\n'        > "$hyg/usr/bin/an-env-bash"
 printf '#! /usr/bin/env -S bash -e\n' > "$hyg/usr/bin/an-env-s-bash"
 printf '#!/usr/sbin/nft -f\n'         > "$hyg/etc/rules.nft"
+printf '#!/usr/bin/gawk -f\n'        > "$hyg/usr/bin/a-gawk"
+printf '#!/usr/bin/awk -f\n'         > "$hyg/usr/bin/an-awk"
 chmod 755 "$hyg"/usr/bin/a-* "$hyg"/usr/bin/an-*
 expect pass "tree-hygiene: a tree with only resolvable links, a sticky /tmp and bash scripts passes" "" \
     ./test/check-tree-hygiene.sh "$hyg"

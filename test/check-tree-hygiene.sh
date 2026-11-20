@@ -21,8 +21,10 @@
 # Interpreted: constraint 5 (CLAUDE.md), bash is the image's one interpreter. By the #!
 # line of every file, executable or not, so a script named without an extension is seen
 # (iproute2's routel is python, OpenSSL's c_rehash perl), which interpreters.txt's
-# extensions cannot. sh and bash are allowed, directly or through env, and nft, whose -f
-# rulesets are configuration rather than a language. A make install that brings one is
+# extensions cannot. sh and bash are allowed, directly or through env; nft, whose -f
+# rulesets are configuration rather than a language; and awk (gawk), which POSIX requires
+# beside sed and grep and the image ships for that (packages/gawk), whose library in
+# usr/share/awk has #! lines. A make install that brings one is
 # fixed in that package's build.sh (drop_installed), with an absent line.
 set -euo pipefail
 
@@ -91,7 +93,7 @@ interpreted=$(cd "$tree" && find . -xdev -type f -exec env LC_ALL=C awk '
             n = split(line, w, /[ \t]+/); i = w[1]
             if (i ~ /(^|\/)env$/) { k = 2; while (k <= n && w[k] ~ /^-/) k++; i = w[k] }
             b = i; sub(/.*\//, "", b)
-            if (b != "sh" && b != "bash" && b != "nft") {
+            if (b != "sh" && b != "bash" && b != "nft" && b != "awk" && b != "gawk") {
                 f = FILENAME; sub(/^\.\//, "", f); print f ": #!" line
             }
         }
