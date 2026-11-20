@@ -35,5 +35,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
   and SBOM features adapted from Talos, LinuxKit, Flatcar and podman-machine-os.
 - [Host-side scripts](proposals/host-scripting.md): which tests and tools move from bash
   to Python, and in what order.
+- [Persistent volumes](proposals/persistent-volumes.md): storage for PersistentVolumeClaims
+  on Kubernetes nodes, which a cluster has none of today.
 
 Host architecture and tool requirements are summarized in the [project README](../README.md#host-requirements).
