@@ -1,0 +1,93 @@
+From f1f2228159e146811666f18226432125ecb37e01 Mon Sep 17 00:00:00 2001
+From: Hongyu Wang <hongyu.wang@intel.com>
+Date: Sun, 15 Nov 2026 22:42:15 -0800
+Subject: [PATCH] i386: Only use VCOMX for FP EQ/NE when NaNs are honored
+ [PR128770]
+
+Without NaNs, COMI already tests EQ/NE with ZF alone, and the
+UNSPEC_OPTCOMX wrapper hides the compare from if-conversion, so
+selects become GPR cmov instead of vcmp+blend.
+
+gcc/ChangeLog:
+
+	PR target/128770
+	* config/i386/i386-expand.cc (ix86_expand_fp_compare): Use
+	UNSPEC_OPTCOMX only if HONOR_NANS.
+
+gcc/testsuite/ChangeLog:
+
+	PR target/128770
+	* gcc.target/i386/pr128770.c: New test.
+
+(cherry picked from commit 3d528cfb4b7952d6bb506a60314966e465a31944)
+---
+ gcc/config/i386/i386-expand.cc           |  4 ++-
+ gcc/testsuite/gcc.target/i386/pr128770.c | 42 ++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128770.c
+
+diff --git a/gcc/config/i386/i386-expand.cc b/gcc/config/i386/i386-expand.cc
+index a4439c57eb3f..6d47527fd075 100644
+--- a/gcc/config/i386/i386-expand.cc
++++ b/gcc/config/i386/i386-expand.cc
+@@ -2944,9 +2944,11 @@ ix86_expand_fp_compare (enum rtx_code code, rtx op0, rtx op1)
+     {
+     case IX86_FPCMP_COMI:
+       tmp = gen_rtx_COMPARE (CCFPmode, op0, op1);
+-      /* VCOMX/VUCOMX only have DF/SF/HF mode instructions.  */
++      /* VCOMX/VUCOMX only have DF/SF/HF mode instructions, and only
++	 help when NaNs are honored.  */
+       if (TARGET_AVX10_2
+ 	  && (code == EQ || code == NE)
++	  && HONOR_NANS (op_mode)
+ 	  && (op_mode == HFmode || op_mode == SFmode || op_mode == DFmode))
+ 	tmp = gen_rtx_UNSPEC (CCFPmode, gen_rtvec (1, tmp), UNSPEC_OPTCOMX);
+       /* We only have vcomisbf16, No vcomubf16 nor vcomxbf16 */
+diff --git a/gcc/testsuite/gcc.target/i386/pr128770.c b/gcc/testsuite/gcc.target/i386/pr128770.c
+new file mode 100644
+index 000000000000..52a0a069082b
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128770.c
+@@ -0,0 +1,42 @@
++/* { dg-do compile } */
++/* { dg-options "-O2 -ffinite-math-only -march=x86-64-v3 -mavx10.2 -mfpmath=sse" } */
++/* { dg-final { scan-assembler-not "comx" } } */
++/* { dg-final { scan-assembler-times "vcmp\[a-z_\]*s\[sd\]" 4 } } */
++/* { dg-final { scan-assembler-times "vblendvp\[sd\]" 4 } } */
++/* { dg-final { scan-assembler-not "cmov" } } */
++
++float
++sel_eq_ss (float a, float b, float c, float d)
++{
++  return a == b ? c : d;
++}
++
++float
++sel_ne_ss (float a, float b, float c, float d)
++{
++  return a != b ? c : d;
++}
++
++double
++sel_eq_sd (double a, double b, double c, double d)
++{
++  return a == b ? c : d;
++}
++
++double
++sel_ne_sd (double a, double b, double c, double d)
++{
++  return a != b ? c : d;
++}
++
++_Float16
++sel_eq_sh (_Float16 a, _Float16 b, _Float16 c, _Float16 d)
++{
++  return a == b ? c : d;
++}
++
++_Float16
++sel_ne_sh (_Float16 a, _Float16 b, _Float16 c, _Float16 d)
++{
++  return a != b ? c : d;
++}

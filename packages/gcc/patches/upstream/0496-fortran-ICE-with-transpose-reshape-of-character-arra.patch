@@ -1,0 +1,87 @@
+From 71b1c265e9ae32b292b3c8c001060e42a413a890 Mon Sep 17 00:00:00 2001
+From: "Steven G. Kargl" <kargl@gcc.gnu.org>
+Date: Thu, 19 Nov 2026 21:07:19 +0100
+Subject: [PATCH] fortran: ICE with transpose(reshape()) of character array
+ ctor [PR128682]
+
+TRANSPOSE(RESHAPE()) of a character implied-do array constructor did ICE
+because the determination of the character length needs to look through
+the function.
+
+	PR fortran/128682
+
+gcc/fortran/ChangeLog:
+
+	* trans-expr.cc (gfc_get_expr_charlen): Get character length also
+	from functions.
+
+gcc/testsuite/ChangeLog:
+
+	* gfortran.dg/transpose_reshape_char.f90: New test.
+
+(cherry picked from commit 427be8a054a5f41bb3f0e6c28324f9a9ec8dd262)
+---
+ gcc/fortran/trans-expr.cc                     | 10 +++----
+ .../gfortran.dg/transpose_reshape_char.f90    | 28 +++++++++++++++++++
+ 2 files changed, 32 insertions(+), 6 deletions(-)
+ create mode 100644 gcc/testsuite/gfortran.dg/transpose_reshape_char.f90
+
+diff --git a/gcc/fortran/trans-expr.cc b/gcc/fortran/trans-expr.cc
+index 8adee5ed54bf..d44ab0813382 100644
+--- a/gcc/fortran/trans-expr.cc
++++ b/gcc/fortran/trans-expr.cc
+@@ -2380,16 +2380,14 @@ tree
+ gfc_get_expr_charlen (gfc_expr *e)
+ {
+   gfc_ref *r;
+-  tree length;
++  tree length = NULL_TREE;
+   tree previous = NULL_TREE;
+   gfc_se se;
+ 
+-  gcc_assert (e->expr_type == EXPR_VARIABLE
+-	      && e->ts.type == BT_CHARACTER);
++  gcc_assert (e->ts.type == BT_CHARACTER);
+ 
+-  length = NULL; /* To silence compiler warning.  */
+-
+-  if (is_subref_array (e) && e->ts.u.cl->length)
++  if ((is_subref_array (e) || e->expr_type == EXPR_FUNCTION)
++      && e->ts.u.cl->length)
+     {
+       gfc_se tmpse;
+       gfc_init_se (&tmpse, NULL);
+diff --git a/gcc/testsuite/gfortran.dg/transpose_reshape_char.f90 b/gcc/testsuite/gfortran.dg/transpose_reshape_char.f90
+new file mode 100644
+index 000000000000..99d876e6c30a
+--- /dev/null
++++ b/gcc/testsuite/gfortran.dg/transpose_reshape_char.f90
+@@ -0,0 +1,28 @@
++! { dg-do run }
++! PR fortran/128682
++!
++! ICE with transpose(reshape()) of character implied-do array constructor
++! as actual argument
++!
++! Contributed by Fred Jones
++
++program p
++  implicit none(type, external)
++  character(len=6)   :: blk = 'ab#.#.'
++  integer, parameter :: w = 2, h = 3
++  integer :: i
++  character, allocatable :: ref(:,:)
++  ref = transpose (reshape ([(blk(i:i), i=1, len(blk))], [w, h]))
++  call show ( transpose (reshape ([(blk(i:i), i=1, len(blk))], [w, h])))
++  call show ((transpose (reshape ([(blk(i:i), i=1, len(blk))], [w, h]))))
++  call show ( reshape ([(blk(i:i), i=1, len(blk))], [h, w], order=[2,1]))
++  deallocate (ref)
++contains
++  subroutine show (g)
++    character, intent(in) :: g(:, :)
++    if (any (g /= ref)) then
++       print '(a)', g
++       stop 1
++    end if
++  end subroutine show
++end program p

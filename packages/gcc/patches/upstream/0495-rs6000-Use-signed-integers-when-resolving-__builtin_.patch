@@ -1,0 +1,515 @@
+From 04a71db17257f5e61efacc1e9a01f5f2cc2face6 Mon Sep 17 00:00:00 2001
+From: Avinash Jayakar <avinashd@linux.ibm.com>
+Date: Mon, 2 Nov 2026 14:08:33 +0530
+Subject: [PATCH] rs6000: Use signed integers when resolving
+ __builtin_ppc_atomic_cas_local
+
+The __builtin_ppc_atomic_cas_local builtin was incorrectly casting
+pointer arguments to unsigned integer types in the overload
+resolution handler, while the actual builtin definitions expected
+signed types. This caused C++ compilation to fail with "invalid
+conversion" errors due to C++'s stricter type checking, while C
+compilation succeeded due to its more permissive pointer
+conversion rules.
+
+The fix changes the intermediate casting types in rs6000-c.cc to
+use signed types that match the builtin signatures in
+rs6000-builtins.def.
+
+This patch also adds cc and cpp extensions to powerpc.exp to accept
+c++ tests.
+
+2026-11-05  Avinash Jayakar  <avinashd@linux.ibm.com>
+
+gcc/ChangeLog:
+	* config/rs6000/rs6000-c.cc (altivec_resolve_overloaded_builtin): Use
+	signed types intead of unsigned for atomic_cas_local builtin casts.
+
+gcc/testsuite/ChangeLog:
+	* gcc.target/powerpc/acmp-tst.cc: New test.
+	* gcc.target/powerpc/acmp-tst-32bit.cc: New test.
+	* gcc.target/powerpc/acmp-tst-indexed.cc: New test.
+	* gcc.target/powerpc/powerpc.exp: Accept c++ tests.
+
+(cherry picked from commit 2175b27369e5104c124c275e5681260f10c20edc)
+---
+ gcc/config/rs6000/rs6000-c.cc                 |  10 +-
+ .../gcc.target/powerpc/acmp-tst-32bit.cc      |  61 ++++++
+ .../gcc.target/powerpc/acmp-tst-indexed.cc    | 165 ++++++++++++++++
+ gcc/testsuite/gcc.target/powerpc/acmp-tst.cc  | 176 ++++++++++++++++++
+ gcc/testsuite/gcc.target/powerpc/powerpc.exp  |   2 +-
+ 5 files changed, 408 insertions(+), 6 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/powerpc/acmp-tst-32bit.cc
+ create mode 100644 gcc/testsuite/gcc.target/powerpc/acmp-tst-indexed.cc
+ create mode 100644 gcc/testsuite/gcc.target/powerpc/acmp-tst.cc
+
+diff --git a/gcc/config/rs6000/rs6000-c.cc b/gcc/config/rs6000/rs6000-c.cc
+index 4984ec1c35a6..0665d267121d 100644
+--- a/gcc/config/rs6000/rs6000-c.cc
++++ b/gcc/config/rs6000/rs6000-c.cc
+@@ -1792,19 +1792,19 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
+ 	{
+ 	case 1:
+ 	  target_fcode = RS6000_BIF_PPC_ATOMIC_CAS_QI;
+-	  int_type = unsigned_char_type_node;
++	  int_type = signed_char_type_node;
+ 	  break;
+ 	case 2:
+ 	  target_fcode = RS6000_BIF_PPC_ATOMIC_CAS_HI;
+-	  int_type = short_unsigned_type_node;
++	  int_type = short_integer_type_node;
+ 	  break;
+ 	case 4:
+ 	  target_fcode = RS6000_BIF_PPC_ATOMIC_CAS_SI;
+-	  int_type = unsigned_intSI_type_node;
++	  int_type = intSI_type_node;
+ 	  break;
+ 	case 8:
+ 	  target_fcode = RS6000_BIF_PPC_ATOMIC_CAS_DI;
+-	  int_type = long_long_unsigned_type_node;
++	  int_type = long_long_integer_type_node;
+ 	  break;
+ 	case 16:
+ 	  if (!TARGET_QUAD_MEMORY_ATOMIC)
+@@ -1815,7 +1815,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
+ 	      return error_mark_node;
+ 	    }
+ 	  target_fcode = RS6000_BIF_PPC_ATOMIC_CAS_TI;
+-	  int_type = unsigned_intTI_type_node;
++	  int_type = intTI_type_node;
+ 	  break;
+ 	default:
+ 	  if (complain)
+diff --git a/gcc/testsuite/gcc.target/powerpc/acmp-tst-32bit.cc b/gcc/testsuite/gcc.target/powerpc/acmp-tst-32bit.cc
+new file mode 100644
+index 000000000000..79f646a4f274
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/powerpc/acmp-tst-32bit.cc
+@@ -0,0 +1,61 @@
++/* { dg-do compile } */
++/* { dg-require-effective-target ilp32 } */
++
++/* { dg-options "-O2 -mdejagnu-cpu=power8" } */
++
++bool
++word_exchange_qi (signed char *ptr, signed char *expected, signed char *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uqi (unsigned char *ptr, unsigned char *expected,
++                   unsigned char *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_hi (short *ptr, short *expected, short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_shi (signed short *ptr, signed short *expected,
++                   signed short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uhi (unsigned short *ptr, unsigned short *expected,
++                   unsigned short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_si (int *ptr, int *expected, int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_ssi (signed int *ptr, signed int *expected, signed int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_usi (unsigned int *ptr, unsigned int *expected,
++                   unsigned int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++
++/* { dg-final { scan-assembler-times {\mlbarx +[0-9]+,[0-9]+,[0-9]+,1} 2 } } */
++/* { dg-final { scan-assembler-times {\mlharx +[0-9]+,[0-9]+,[0-9]+,1} 3 } } */
++/* { dg-final { scan-assembler-times {\mlwarx +[0-9]+,[0-9]+,[0-9]+,1} 3 } } */
+diff --git a/gcc/testsuite/gcc.target/powerpc/acmp-tst-indexed.cc b/gcc/testsuite/gcc.target/powerpc/acmp-tst-indexed.cc
+new file mode 100644
+index 000000000000..c0d2bf3dcb30
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/powerpc/acmp-tst-indexed.cc
+@@ -0,0 +1,165 @@
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++
++// Need power8 for l<b,h,q>arx
++/* { dg-options "-O2 -mdejagnu-cpu=power8" } */
++
++typedef struct udt_1
++{
++  char *a;
++} udt_1t;
++typedef struct udt_2
++{
++  char a;
++  char b;
++} udt_2t;
++typedef struct udt_4
++{
++  short a;
++  short b;
++} udt_4t;
++typedef struct udt_8
++{
++  int a;
++  int b;
++} udt_8t;
++bool
++word_exchange_nqi (char *ptr, char *expected, char *desired,
++		   unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_qi (signed char *ptr, signed char *expected, signed char *desired,
++		  unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uqi (unsigned char *ptr, unsigned char *expected,
++                   unsigned char *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_hi (short *ptr, short *expected, short *desired,
++		  unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_shi (signed short *ptr, signed short *expected,
++                   signed short *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uhi (unsigned short *ptr, unsigned short *expected,
++                   unsigned short *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_si (int *ptr, int *expected, int *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_ssi (signed int *ptr, signed int *expected, signed int *desired,
++		   unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_usi (unsigned int *ptr, unsigned int *expected,
++                   unsigned int *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_di (long long *ptr, long long *expected, long long *desired,
++		  unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_sdi (signed long long *ptr, signed long long *expected,
++                   signed long long *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udi (unsigned long long *ptr, unsigned long long *expected,
++                   unsigned long long *desired, unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_f32 (float *ptr, float *expected, float *desired,
++		   unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_f64 (double *ptr, double *expected, double *desired,
++		   unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_1 (udt_1t *ptr, udt_1t *expected, udt_1t *desired,
++		     unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_2 (udt_2t *ptr, udt_2t *expected, udt_2t *desired,
++		     unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_4 (udt_4t *ptr, udt_4t *expected, udt_4t *desired,
++		     unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_8 (udt_8t *ptr, udt_8t *expected, udt_8t *desired,
++		     unsigned long long n)
++{
++  return __builtin_ppc_atomic_cas_local (ptr+n, expected+n, desired+n, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++
++/* Test if indexed mode addresses are used, r6 must be used which corresponds
++   to the argument n in all functions.  */
++
++/* { dg-final { scan-assembler-times {\mlbarx +[0-9]+,[0-9]+,6,1} 3 } } */
++/* { dg-final { scan-assembler-times {\mstbcx. +[0-9]+,[0-9]+,6} 3 } } */
++
++/* { dg-final { scan-assembler-times {\mlharx +[0-9]+,[0-9]+,6,1} 4 } } */
++/* { dg-final { scan-assembler-times {\msthcx. +[0-9]+,[0-9]+,6} 4 } } */
++
++/* { dg-final { scan-assembler-times {\mlwarx +[0-9]+,[0-9]+,6,1} 5 } } */
++/* { dg-final { scan-assembler-times {\mstwcx. +[0-9]+,[0-9]+,6} 5 } } */
++
++/* { dg-final { scan-assembler-times {\mldarx +[0-9]+,[0-9]+,6,1} 6 } } */
++/* { dg-final { scan-assembler-times {\mstdcx. +[0-9]+,[0-9]+,6} 6 } } */
+diff --git a/gcc/testsuite/gcc.target/powerpc/acmp-tst.cc b/gcc/testsuite/gcc.target/powerpc/acmp-tst.cc
+new file mode 100644
+index 000000000000..bb15805819f2
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/powerpc/acmp-tst.cc
+@@ -0,0 +1,176 @@
++/* { dg-do compile } */
++/* { dg-require-effective-target lp64 } */
++
++// Need power8 for l<b,h,q>arx
++/* { dg-options "-O2 -mdejagnu-cpu=power8" } */
++
++typedef struct udt_1
++{
++  char *a;
++} udt_1t;
++typedef struct udt_2
++{
++  char a;
++  char b;
++} udt_2t;
++typedef struct udt_4
++{
++  short a;
++  short b;
++} udt_4t;
++typedef struct udt_8
++{
++  int a;
++  int b;
++} udt_8t;
++typedef struct udt_16
++{
++  long long a;
++  long long b;
++} udt_16t;
++bool
++word_exchange_nqi (char *ptr, char *expected, char *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_qi (signed char *ptr, signed char *expected, signed char *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uqi (unsigned char *ptr, unsigned char *expected,
++                   unsigned char *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_hi (short *ptr, short *expected, short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_shi (signed short *ptr, signed short *expected,
++                   signed short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uhi (unsigned short *ptr, unsigned short *expected,
++                   unsigned short *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_si (int *ptr, int *expected, int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_ssi (signed int *ptr, signed int *expected, signed int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_usi (unsigned int *ptr, unsigned int *expected,
++                   unsigned int *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_di (long long *ptr, long long *expected, long long *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_sdi (signed long long *ptr, signed long long *expected,
++                   signed long long *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udi (unsigned long long *ptr, unsigned long long *expected,
++                   unsigned long long *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_sti (signed __int128 *ptr, signed __int128 *expected,
++                   signed __int128 *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_uti (unsigned __int128 *ptr, unsigned __int128 *expected,
++                   unsigned __int128 *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_f32 (float *ptr, float *expected, float *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_f64 (double *ptr, double *expected, double *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_f128 (__ieee128 *ptr, __ieee128 *expected, __ieee128 *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_1 (udt_1t *ptr, udt_1t *expected, udt_1t *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_2 (udt_2t *ptr, udt_2t *expected, udt_2t *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_4 (udt_4t *ptr, udt_4t *expected, udt_4t *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_8 (udt_8t *ptr, udt_8t *expected, udt_8t *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++bool
++word_exchange_udt_16 (udt_16t *ptr, udt_16t *expected, udt_16t *desired)
++{
++  return __builtin_ppc_atomic_cas_local (ptr, expected, desired, 0,
++					 __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE);
++}
++
++/* { dg-final { scan-assembler-times {\mlbarx +[0-9]+,[0-9]+,[0-9]+,1} 3 } } */
++/* { dg-final { scan-assembler-times {\mlharx +[0-9]+,[0-9]+,[0-9]+,1} 4 } } */
++/* { dg-final { scan-assembler-times {\mlwarx +[0-9]+,[0-9]+,[0-9]+,1} 5 } } */
++/* { dg-final { scan-assembler-times {\mldarx +[0-9]+,[0-9]+,[0-9]+,1} 6 } } */
++/* { dg-final { scan-assembler-times {\mlqarx +[0-9]+,[0-9]+,[0-9]+,1} 4 } } */
+diff --git a/gcc/testsuite/gcc.target/powerpc/powerpc.exp b/gcc/testsuite/gcc.target/powerpc/powerpc.exp
+index 245df49f2433..d96182f69e3c 100644
+--- a/gcc/testsuite/gcc.target/powerpc/powerpc.exp
++++ b/gcc/testsuite/gcc.target/powerpc/powerpc.exp
+@@ -35,7 +35,7 @@ if ![info exists DEFAULT_CFLAGS] then {
+ dg-init
+ 
+ # Main loop.
+-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]] \
++dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.{\[cS\],cc,cpp}]] \
+ 	"" $DEFAULT_CFLAGS
+ 
+ set SAVRES_TEST_OPTS [list -Os -O2 {-Os -mno-multiple} {-O2 -mno-multiple}]
