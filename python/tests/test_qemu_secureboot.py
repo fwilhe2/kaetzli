@@ -162,3 +162,16 @@ def test_without_a_sealed_file_extensions_are_refused(sb):
     extension(sb)
     with pytest.raises(Refused, match=r"sign-uki\.sh --ext"):
         machine(sb, sysexts=["podman"])
+
+
+def test_no_tpm_unless_asked(sb):
+    argv = machine(sb).argv()
+    assert "-tpmdev" not in argv and "-chardev" not in argv
+
+
+def test_a_tpm_is_swtpm_behind_a_crb_device(sb, tmp_path):
+    sock = str(tmp_path / "swtpm.sock")
+    argv = machine(sb, tpm_socket=sock).argv()
+    assert after(argv, "-chardev") == [f"socket,id=chrtpm,path={sock}"]
+    assert after(argv, "-tpmdev") == ["emulator,id=tpm0,chardev=chrtpm"]
+    assert "tpm-crb,tpmdev=tpm0" in after(argv, "-device")

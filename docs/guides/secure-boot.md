@@ -2,7 +2,7 @@
 
 **Status: implemented for amd64 under qemu (OVMF), with a persistent `/var` and
 extensions: the launcher (`kaetzli start --secure-boot`) needs no key, and you can sign
-the UKI with your own.** Not yet: arm64. Out of reach by design: VMMs that boot without
+the UKI with your own; PCR 11 is predicted and published per release.** Not yet: arm64. Out of reach by design: VMMs that boot without
 firmware (Firecracker, Virtualization.framework).
 
 ## Why
@@ -117,6 +117,31 @@ and needs no key at all. A key is for firmware whose variables outlive one boot 
 you do not rewrite: sign the UKI with yours (`tools/sign-uki.sh --key K.pem --cert C.pem`)
 and enroll its certificate. That key is then the only secret, and it is yours.
 
+## Measured boot
+
+Under a TPM the UKI's stub measures each of its sections (kernel, command line with the
+root hash, os-release, `.uname`, `.sbat`) into **PCR 11**, and nothing in the booted
+system extends it further. Each release publishes the value as `uki-<arch>.pcr.json`
+(shaped like `systemd-measure calculate --json`; written by `image/pcr.py` at assembly,
+`kaetzli.pcr.json` beside a build's `kaetzli.efi`), so a running machine can show which
+release it booted:
+
+```sh
+cat /sys/class/tpm/tpm0/pcr-sha256/11     # in the guest; compare with uki-<arch>.pcr.json
+```
+
+Give qemu a vTPM with swtpm (`swtpm socket --tpm2 --tpmstate dir=D --ctrl
+type=unixio,path=D/sock`, then `-chardev socket,id=chrtpm,path=D/sock -tpmdev
+emulator,id=tpm0,chardev=chrtpm -device tpm-crb,tpmdev=tpm0`). Signing does not change
+the value; sealing extensions' tables into the command line (`--ext`) does, so such a UKI
+has its own (`image/pcr.py` on it gives it).
+
+What it proves depends on who runs the TPM. With your own qemu and swtpm, you could also
+read the image's files: it adds little beyond Secure Boot. Its use is a vTPM someone else
+vouches for — a cloud's — where a TPM quote of PCR 11 proves to a third party what booted.
+There is no `tpm2-tss` in the image, so no quoting in the guest yet, and no self-bootable
+disk for a cloud ([image variants](../proposals/image-variants.md)); those come first.
+
 ## What is checked
 
 CI's boot job (amd64) also boots the launcher with `--secure-boot --ext podman` on the
@@ -129,7 +154,9 @@ image's root hash and not the injected argument, the credentials arrived, and `/
 the attached disk with its machine ID; then the
 unsigned UKI under the same firmware never starts Linux; and, as the control, the signed
 UKI with Secure Boot off (`ovmf-vars-off.fd`) does take the injected `init=` and gives a
-shell, so the sealed command line of the first boot is Secure Boot's doing.
+shell, so the sealed command line of the first boot is Secure Boot's doing. The signed
+boot has a swtpm vTPM, and its PCR 11 must be what `image/pcr.py` predicts for that UKI
+and, sealed without extensions, the image's published `kaetzli.pcr.json`.
 
 ## Not yet
 

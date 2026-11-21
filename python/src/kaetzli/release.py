@@ -313,6 +313,8 @@ def collect(artifacts: Path, out: Path, arch: str, extensions: list[str]) -> Col
     # The kernel and that command line sealed in one EFI binary, unsigned: what a user
     # signs with their own key for Secure Boot (docs/guides/secure-boot.md).
     take(rootfs / "kaetzli.efi", f"uki-{arch}.efi")
+    # The PCR 11 that UKI measures into under a TPM (image/pcr.py).
+    take(rootfs / "kaetzli.pcr.json", f"uki-{arch}.pcr.json")
 
     kernel = out / f"kernel-{arch}"
     if _kernel(artifacts / f"package-kernel-{arch}/kernel.tar", kernel):
@@ -614,6 +616,7 @@ def notes(
         "longer swap the root hash (`tools/sign-uki.sh --key K.pem --cert C.pem`, amd64 for "
         "now; "
         f"[docs/guides/secure-boot.md](https://github.com/{repo}/blob/{sha}/docs/guides/secure-boot.md)).",
+        "`uki-<arch>.pcr.json` is the PCR 11 it measures into under a TPM.",
         "",
     ]
     lines.append(

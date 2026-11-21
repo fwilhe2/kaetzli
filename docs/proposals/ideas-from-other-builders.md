@@ -505,9 +505,10 @@ done with it, not before.
   and `tools/fetch-image.sh` already do with verification. Every file CI builds on main
   carries a signed attestation, which `fetch-image.sh` verifies.
 - **UKI, Secure Boot and TPM measurement** (Talos `internal/pkg/uki`, `internal/pkg/secureboot`,
-  `internal/pkg/measure`; Flatcar `build_library/sbsign_util.sh`): they need firmware boot,
-  an ESP and a bootloader, all deliberately absent. Revisit only with a self-bootable disk
-  ([image variants](image-variants.md)).
+  `internal/pkg/measure`; Flatcar `build_library/sbsign_util.sh`): rejected here when the
+  image had no firmware boot; since done without an ESP or bootloader, qemu handing OVMF
+  the UKI ([secure-boot.md](../guides/secure-boot.md), including PCR 11). Quoting it in the
+  guest waits for a self-bootable disk ([image variants](image-variants.md)).
 - **Metadata and userdata agents** (LinuxKit `pkg/metadata`, `docs/metadata.md`; Ignition;
   cloud-init): systemd credentials over the kernel command line and qemu's fw_cfg already
   carry per-machine configuration, without a guest agent.

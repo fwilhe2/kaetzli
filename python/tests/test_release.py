@@ -141,6 +141,7 @@ def artifacts(root: Path, arch: str, exts=("podman", "debug"), confexts=("podman
     w(f"rootfs.erofs-{arch}/rootfs.erofs", "erofs")
     w(f"rootfs.erofs-{arch}/rootfs.cmdline", "root=/dev/dm-0")
     w(f"rootfs.erofs-{arch}/kaetzli.efi", "MZ")
+    w(f"rootfs.erofs-{arch}/kaetzli.pcr.json", '{"sha256": []}')
     kernel_tar(root / f"package-kernel-{arch}/kernel.tar")
     for e in exts:
         w(f"extensions-{arch}/extensions/{e}.raw")
@@ -176,6 +177,7 @@ def test_collect_names_every_asset_by_arch(tmp_path):
         "sbom-ext-podman-amd64.json",
         "sbom-oci-amd64.json",
         "uki-amd64.efi",
+        "uki-amd64.pcr.json",
         "vex-amd64.json",
     ]
     assert (tmp_path / "out/kernel-amd64").read_bytes() == b"kernel"

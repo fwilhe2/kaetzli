@@ -529,11 +529,13 @@ jobs:
         with:
           name: rootfs.erofs-${{ matrix.arch }}
           # The image and the command line carrying its root hash: neither boots alone.
-          # kaetzli.efi seals the two with the kernel, unsigned (docs/guides/secure-boot.md).
+          # kaetzli.efi seals the two with the kernel, unsigned (docs/guides/secure-boot.md);
+          # kaetzli.pcr.json is the PCR 11 that UKI measures into.
           path: |
             output/rootfs.erofs
             output/rootfs.cmdline
             output/kaetzli.efi
+            output/kaetzli.pcr.json
 
       - name: Upload OCI image
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -566,6 +568,7 @@ jobs:
             entry output/rootfs.erofs "rootfs.erofs-$ARCH/rootfs.erofs"
             entry output/rootfs.cmdline "rootfs.erofs-$ARCH/rootfs.cmdline"
             entry output/kaetzli.efi "rootfs.erofs-$ARCH/kaetzli.efi"
+            entry output/kaetzli.pcr.json "rootfs.erofs-$ARCH/kaetzli.pcr.json"
             entry "artifacts/package-kernel-$ARCH/kernel.tar" "package-kernel-$ARCH/kernel.tar"
             find output/extensions output/confexts -type f | LC_ALL=C sort | while read -r f; do
               entry "$f" "extensions-$ARCH/${f#output/}"
@@ -630,7 +633,7 @@ jobs:
 
       - name: Check the images are reproducible
         run: |
-          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli.efi output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
+          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli.efi output/kaetzli.pcr.json output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
           outputs+=" $(ls output/extensions/*.raw output/confexts/*.raw)"
           sha256sum $outputs > first.sha256
           # The same name the rootfs job assembled with: it is in os-release.
@@ -683,14 +686,15 @@ jobs:
 
       # qemu-system-arm is the package with qemu-system-aarch64. virtiofsd, socat and
       # vhost_vsock are test/vmm.py's, which skips what the host cannot provide. ovmf is
-      # the Secure Boot firmware the launcher finds through qemu's firmware descriptors.
+      # the Secure Boot firmware the launcher finds through qemu's firmware descriptors,
+      # swtpm the vTPM test/secureboot.py reads PCR 11 from.
       - name: Install qemu
         run: |
           sudo apt-get -o Acquire::Retries=5 update
           if [ "${{ matrix.arch }}" = arm64 ]; then
             sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-arm ipxe-qemu qemu-efi-aarch64
           else
-            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf
+            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf swtpm
           fi
           sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true

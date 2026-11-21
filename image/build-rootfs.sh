@@ -883,6 +883,11 @@ if [ "$flavour" = erofs ]; then
         --os-release @"$IMAGE/usr/lib/os-release" \
         --output /usr/local/output/kaetzli.efi
 
+    # What the stub will measure that UKI into: PCR 11, which a guest with a vTPM reports
+    # at /sys/class/tpm/tpm0/pcr-sha256/11 (image/pcr.py; test/secureboot.py compares).
+    pcr.py /usr/local/output/kaetzli.efi > /usr/local/output/kaetzli.pcr.json
+    cat /usr/local/output/kaetzli.pcr.json
+
     echo "disk $(stat -c %s "$erofs")" >> "$report"
 
     cat "$report"

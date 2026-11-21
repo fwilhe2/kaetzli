@@ -68,6 +68,9 @@ class Machine:
     # credentials, no extensions yet: their arguments ride the command line the UKI seals.
     secureboot: str = ""
     secureboot_vars: str = "ovmf-vars.fd"  # the variable store in it to boot with
+    # swtpm's control socket, for a TPM 2.0 (CRB) in a Secure Boot machine: the stub then
+    # measures the UKI into PCR 11 (test/secureboot.py). The caller runs swtpm.
+    tpm_socket: str = ""
     # What qemu_ssh_setup adds.
     nic_extra: str = ""
     append_extra: str = ""
@@ -342,6 +345,12 @@ class Machine:
             "-drive", f"if=pflash,format=raw,unit=1,file={vars_copy}",
             *creds,
         ]  # fmt: skip
+        if self.tpm_socket:
+            firmware += [
+                "-chardev", f"socket,id=chrtpm,path={self.tpm_socket}",
+                "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
+                "-device", "tpm-crb,tpmdev=tpm0",
+            ]  # fmt: skip
         return str(d / "kaetzli.efi"), firmware
 
     # qemu_argv

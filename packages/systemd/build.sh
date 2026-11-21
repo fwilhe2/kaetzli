@@ -22,7 +22,10 @@ systemd_opts=(
     -Dsbat-distro-summary=Kaetzli -Dsbat-distro-pkgname=systemd -Dsbat-distro-version="$KAETZLI_VERSION"
     -Dsbat-distro-url=https://github.com/fwilhe2/kaetzli
     -Dkernel-install=false -Dukify=disabled
-    -Dtpm=false -Dtpm2=disabled
+    # -Dtpm is the stub's: under a TPM it measures the UKI's sections into PCR 11
+    # (image/pcr.py predicts the value). -Dtpm2 is userspace's tpm2-tss, not shipped, so
+    # nothing in the booted system extends PCR 11 further.
+    -Dtpm=true -Dtpm2=disabled
 
     # Hardware a VM does not have, or that only matters on a laptop.
     -Dbacklight=false -Drfkill=false -Dhibernate=false -Dquotacheck=false
