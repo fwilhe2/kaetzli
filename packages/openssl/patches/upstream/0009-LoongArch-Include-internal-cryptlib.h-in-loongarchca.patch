@@ -1,0 +1,32 @@
+From 6f2f39ab531b4f0e90f3b5c0875ffeef7e8fe41c Mon Sep 17 00:00:00 2001
+From: Julian Zhu <jz531210@gmail.com>
+Date: Thu, 6 Aug 2026 15:07:35 +0800
+Subject: [PATCH] LoongArch: Include internal/cryptlib.h in loongarchcap.c
+
+It declares OPENSSL_cpuid_setup(). Without it, a --strict-warnings
+build fails with -Werror=missing-prototypes.
+
+Fixes #32984
+
+Signed-off-by: Julian Zhu <jz531210@gmail.com>
+Reviewed-by: Mounir Idrassi <mounir.idrassi@idrix.fr>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Fri Oct  2 08:19:33 2026
+Merged-from: https://github.com/openssl/openssl/pull/32985
+(cherry picked from commit d91e23d7663db115676ebd0d7b789011b551e915)
+---
+ crypto/loongarchcap.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/crypto/loongarchcap.c b/crypto/loongarchcap.c
+index 9772a9809036..0dfe5a275453 100644
+--- a/crypto/loongarchcap.c
++++ b/crypto/loongarchcap.c
+@@ -7,6 +7,7 @@
+  * https://www.openssl.org/source/license.html
+  */
+ #include <sys/auxv.h>
++#include "internal/cryptlib.h"
+ #include "loongarch_arch.h"
+ 
+ unsigned int OPENSSL_loongarch_hwcap_P = 0;

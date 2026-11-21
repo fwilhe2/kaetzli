@@ -1,0 +1,89 @@
+From 7862dc1ececdaff112a604204b97d7dfa3b6c3e3 Mon Sep 17 00:00:00 2001
+From: Richard Levitte <levitte@openssl.foundation>
+Date: Thu, 22 Oct 2026 15:07:58 +0200
+Subject: [PATCH] test/testutil/provider.c: allow white space in FIPSversion
+ operator
+
+fips_provider_version_match() splits the gate value on whitespace
+and treats every token as an independent constraint.  A spaced operator
+form such as "FIPSversion = >= 3.4.0" was therefore read as two
+constraints, ">= 3.4.0" and "== 3.4.0", degenerating the gate
+to an exact version match: tests gated that way ran only on a FIPS
+module of exactly that version and were silently skipped on any newer
+one.
+
+A lone operator token now consumes the version token that follows it,
+so the spaced form means what it says; both spellings exist across
+the test data files.  fips_version_test coverage is extended
+to the spaced form.
+
+With the gate meaning ">=", long-skipped test vectors start running
+again on newer FIPS modules; any that bit-rotted while skipped
+will be repaired separately.
+
+Resolves: https://github.com/openssl/openssl/issues/33318
+Complements: e1289d90d006 "With fips provider 3.0.0 skip tests related to explicit curves handling"
+Assisted-by: Pi:moonshotai/kimi-k3
+Signed-off-by: Richard Levitte <levitte@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Merge-date: Tue Nov 10 15:17:55 2026
+Merged-from: https://github.com/openssl/openssl/pull/33323
+(cherry picked from commit 2008aae1984638097d9a5d65c1506e510ef0cb1c)
+---
+ test/recipes/03-test_fipsinstall.t | 8 +++++++-
+ test/testutil/provider.c           | 5 +++--
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/test/recipes/03-test_fipsinstall.t b/test/recipes/03-test_fipsinstall.t
+index 3dcbe67c6d55..c056951a1137 100644
+--- a/test/recipes/03-test_fipsinstall.t
++++ b/test/recipes/03-test_fipsinstall.t
+@@ -63,7 +63,7 @@ my @commandline =
+         ( 'x942kdf_key_check',              'x942kdf-key-check' )
+     );
+ 
+-plan tests => 41 + (scalar @pedantic_okay) + (scalar @pedantic_fail)
++plan tests => 43 + (scalar @pedantic_okay) + (scalar @pedantic_fail)
+               + 4 * (scalar @commandline);
+ 
+ my $infile = bldtop_file('providers', platform->dso('fips'));
+@@ -164,6 +164,12 @@ ok(run(app(['openssl', 'fipsinstall', '-in', 'fips.cnf', '-module', $infile,
+             '-section_name', 'fips_sect', '-verify'])),
+    "fipsinstall verify");
+ 
++# A spaced FIPSversion gate must mean the same as the no-space form
++ok(run(test(["fips_version_test", "-config", $provconf, ">= 3.0.0"])),
++   "spaced '>= 3.0.0' gate matches like '>=3.0.0'");
++ok(!run(test(["fips_version_test", "-config", $provconf, "< 3.0.0"])),
++   "spaced '< 3.0.0' gate rejects like '<3.0.0'");
++
+ # Test that default options for fipsinstall output the 'install-status' for
+ # FIPS 140-2 providers.
+ SKIP: {
+diff --git a/test/testutil/provider.c b/test/testutil/provider.c
+index 9d91e804fdc5..c5961446089a 100644
+--- a/test/testutil/provider.c
++++ b/test/testutil/provider.c
+@@ -171,7 +171,7 @@ int fips_provider_version_ge(OSSL_LIB_CTX *libctx, int major, int minor, int pat
+ int fips_provider_version_match(OSSL_LIB_CTX *libctx, const char *versions)
+ {
+     const char *p;
+-    int major, minor, patch, r;
++    int major, minor, patch, n, r = 0;
+     enum {
+         MODE_EQ,
+         MODE_NE,
+@@ -212,10 +212,11 @@ int fips_provider_version_match(OSSL_LIB_CTX *libctx, const char *versions)
+             TEST_info("Error matching FIPS version: mode %s\n", p);
+             return -1;
+         }
+-        if (sscanf(p, "%d.%d.%d", &major, &minor, &patch) != 3) {
++        if (sscanf(p, " %d.%d.%d%n", &major, &minor, &patch, &n) != 3) {
+             TEST_info("Error matching FIPS version: version %s\n", p);
+             return -1;
+         }
++        versions = p + n;
+         switch (mode) {
+         case MODE_EQ:
+             r = fips_provider_version_eq(libctx, major, minor, patch);

@@ -1,0 +1,63 @@
+From b8fc1d5a6912789d7daca9171fa1746695ef492e Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@openssl.org>
+Date: Tue, 15 Sep 2026 09:25:11 -0400
+Subject: [PATCH] Increase BIO_dgram_pair ring buffer size on AIX for quic
+ tests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+AIX has a unique definition of struct sockaddr_un (AF_UNIX addresses).
+Whereas most unixes define the structure to have a sun_path field of 108
+bytes, AIX defines sun_path to be an array of 1023 bytes.  Because
+BIO_dgram_pairs use two BIO_ADDR's (which are a union containing
+sockaddr_un) to define a pseudo UDP header, any dgram pair with a fixed
+ring buffer size is likely to be unable to transmit a complete frame if
+the ring buffer is sized with less than sizeof(BIO_ADDR)*2 + 1200 bytes
+allocated on AIX.
+
+Fix it by increasing the ring buffer size for such tests
+
+Fixes #32506
+
+Reviewed-by: Saša Nedvědický <sashan@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Norbert Pocs <norbertp@openssl.org>
+Reviewed-by: Andrew Dinh <andrewd@openssl.org>
+Merge-date: Thu Oct  1 19:13:27 2026
+Merged-from: https://github.com/openssl/openssl/pull/32838
+(cherry picked from commit 7ef69a722c129fe446d7a1fef52ff8f12ccb010b)
+---
+ test/helpers/quictestlib.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/test/helpers/quictestlib.c b/test/helpers/quictestlib.c
+index c73431338d9e..9822b2a4b7b7 100644
+--- a/test/helpers/quictestlib.c
++++ b/test/helpers/quictestlib.c
+@@ -1446,6 +1446,7 @@ static int create_dgram_pair(BIO **c_bio_p, BIO **s_bio_p)
+     struct in_addr ina;
+     int bio_flags = 0;
+     int ok;
++    size_t ring_buf_size = 1500;
+ 
+     ina.s_addr = htonl(0x7f000001);
+     bio_flags |= BIO_DGRAM_CAP_HANDLES_DST_ADDR
+@@ -1455,7 +1456,16 @@ static int create_dgram_pair(BIO **c_bio_p, BIO **s_bio_p)
+ 
+     c_bio = NULL;
+     s_bio = NULL;
+-    ok = BIO_new_bio_dgram_pair(&c_bio, 1500, &s_bio, 1500);
++#if defined(_AIX)
++    /*
++     * AIX has a struct sockaddr_un definition that greatly inflates the size of the
++     * BIO_ADDR structure, two of which are used to form a pseudo udp header in bio
++     * dgram pair BIO's.  We need to increase the size of the pair ring buffers here
++     * to prevent test failures stemming from inability to transmit such large headers
++     */
++    ring_buf_size = 4096;
++#endif
++    ok = BIO_new_bio_dgram_pair(&c_bio, ring_buf_size, &s_bio, ring_buf_size);
+     if (ok == 0) {
+         TEST_info("%s BIO_new_bio_dgram_pair() error", OPENSSL_FUNC);
+         goto done;

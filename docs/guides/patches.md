@@ -79,6 +79,10 @@ UPSTREAM_PATCH_BRANCH="release/${VERSION}/master"
 UPSTREAM_PATCH_BASE="glibc-${VERSION}"
 ```
 
+OpenSSL follows `openssl-3.5` the same way. Its tarball is `git archive` of the tag, so
+`UPSTREAM_PATCH_ARCHIVE=1` leaves out what that omits (`.github/`, submodules, the
+`export-ignore` paths): a CI-only commit drops out of the series instead of failing to apply.
+
 `sync-patches.sh` records commits after the base tag as a format-patch series. A glibc
 series update rebuilds all packages because they use the glibc sysroot.
 
@@ -91,6 +95,10 @@ example:
 ```text
 CVE: CVE-2026-12345
 ```
+
+Where upstream marks fixes with a trailer, `UPSTREAM_PATCH_CVE_TRAILER` in `env.sh` makes
+that the only source for `upstream/`: OpenSSL's `Fixes: CVE-2026-88823` counts, while its
+"fix typos in CVE-…" and "Add test for CVE-…" commits do not.
 
 The build records these fixes in the package's SBOM. `test/cve-scan.py` converts them to
 OpenVEX statements for grype, so fixed CVEs are reported as patched rather than open. The

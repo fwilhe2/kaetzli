@@ -1,0 +1,60 @@
+From 710ba5a0a7bc679ea090bd6237f8b33333bea798 Mon Sep 17 00:00:00 2001
+From: openssl-machine <openssl-machine@openssl.org>
+Date: Tue, 29 Sep 2026 14:05:10 +0000
+Subject: [PATCH] Prepare for 3.5.10
+
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Tue Sep 29 14:05:10 2026
+Release: yes
+---
+ CHANGES.md  | 4 ++++
+ NEWS.md     | 4 ++++
+ VERSION.dat | 6 +++---
+ 3 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/CHANGES.md b/CHANGES.md
+index 64385e4fc228..a604b4af84c9 100644
+--- a/CHANGES.md
++++ b/CHANGES.md
+@@ -28,6 +28,10 @@ OpenSSL Releases
+ OpenSSL 3.5
+ -----------
+ 
++### Changes between 3.5.9 and 3.5.10 [xx XXX xxxx]
++
++ * none yet
++
+ ### Changes between 3.5.8 and 3.5.9 [29 Sep 2026]
+ 
+  * Fixed DTLS retransmissions of handshake messages from a stale buffer offset.
+diff --git a/NEWS.md b/NEWS.md
+index 157587f0f524..5ecab6c700db 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -23,6 +23,10 @@ OpenSSL Releases
+ OpenSSL 3.5
+ -----------
+ 
++### Major changes between OpenSSL 3.5.9 and OpenSSL 3.5.10 [under development]
++
++  * none
++
+ ### Major changes between OpenSSL 3.5.8 and OpenSSL 3.5.9 [29 Sep 2026]
+ 
+ OpenSSL 3.5.9 is a security patch release.  The most severe CVE fixed
+diff --git a/VERSION.dat b/VERSION.dat
+index 5a9d96f9a633..c7ee048cba2c 100644
+--- a/VERSION.dat
++++ b/VERSION.dat
+@@ -1,7 +1,7 @@
+ MAJOR=3
+ MINOR=5
+-PATCH=9
+-PRE_RELEASE_TAG=
++PATCH=10
++PRE_RELEASE_TAG=dev
+ BUILD_METADATA=
+-RELEASE_DATE="29 Sep 2026"
++RELEASE_DATE=""
+ SHLIB_VERSION=3

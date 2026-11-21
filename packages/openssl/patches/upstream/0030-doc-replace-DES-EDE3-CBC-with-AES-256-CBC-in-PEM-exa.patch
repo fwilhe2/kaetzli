@@ -1,0 +1,60 @@
+From e7960a4d919ca549099b3584c03591c48839cc2d Mon Sep 17 00:00:00 2001
+From: JWWTSL <167396168+JWWTSL@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 11:35:07 +0800
+Subject: [PATCH] doc: replace DES-EDE3-CBC with AES-256-CBC in PEM examples
+
+The EXAMPLES section of PEM_read_bio_PrivateKey still showed
+EVP_des_ede3_cbc() for encrypting private keys, but 3DES is
+deprecated in OpenSSL 3.x. Replace with EVP_aes_256_cbc() to
+show a modern cipher, consistent with other man pages.
+
+The DEK-Info header in the file format example is left as-is
+since it documents the actual PEM file structure.
+
+Fixes #28665
+
+CLA: trivial
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Reviewed-by: Paul Dale <paul.dale@oracle.com>
+Reviewed-by: Shane Lontis <shane.lontis@oracle.com>
+Merge-date: Fri Oct 23 12:44:52 2026
+Merged-from: https://github.com/openssl/openssl/pull/33228
+(cherry picked from commit 1b02949afd9ddba89ef4f133ecb3c4e9de8c223d)
+---
+ doc/man3/PEM_read_bio_PrivateKey.pod | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/doc/man3/PEM_read_bio_PrivateKey.pod b/doc/man3/PEM_read_bio_PrivateKey.pod
+index 4a3d7ae74044..38f7ebd0d83b 100644
+--- a/doc/man3/PEM_read_bio_PrivateKey.pod
++++ b/doc/man3/PEM_read_bio_PrivateKey.pod
+@@ -444,7 +444,7 @@ the function.
+ 
+ The pseudo code to derive the key would look similar to:
+ 
+- EVP_CIPHER* cipher = EVP_des_ede3_cbc();
++ EVP_CIPHER* cipher = EVP_aes_256_cbc();
+  EVP_MD* md = EVP_md5();
+ 
+  unsigned int nkey = EVP_CIPHER_get_key_length(cipher);
+@@ -517,15 +517,15 @@ Write a certificate to a BIO:
+      /* Error */
+ 
+ Write a private key (using traditional format) to a BIO using
+-triple DES encryption, the pass phrase is prompted for:
++AES-256-CBC encryption, the pass phrase is prompted for:
+ 
+- if (!PEM_write_bio_PrivateKey(bp, key, EVP_des_ede3_cbc(), NULL, 0, 0, NULL))
++ if (!PEM_write_bio_PrivateKey(bp, key, EVP_aes_256_cbc(), NULL, 0, 0, NULL))
+      /* Error */
+ 
+-Write a private key (using PKCS#8 format) to a BIO using triple
+-DES encryption, using the pass phrase "hello":
++Write a private key (using PKCS#8 format) to a BIO using
++AES-256-CBC encryption, using the pass phrase "hello":
+ 
+- if (!PEM_write_bio_PKCS8PrivateKey(bp, key, EVP_des_ede3_cbc(),
++ if (!PEM_write_bio_PKCS8PrivateKey(bp, key, EVP_aes_256_cbc(),
+                                     NULL, 0, 0, "hello"))
+      /* Error */
+ 

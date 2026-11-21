@@ -1,0 +1,35 @@
+From 06faad3e79a201d98ef847b0c8c3054db8262f2f Mon Sep 17 00:00:00 2001
+From: mkpark <minkyungp@unist.ac.kr>
+Date: Sat, 5 Sep 2026 18:19:08 +0900
+Subject: [PATCH] doc/man3/EC_GROUP_new.pod: document
+ EC_GROUP_get_ecpkparameters function
+
+Added EC_GROUP_get_ecpkparameters() function description and usage details.
+
+Complements: 60b350a3ef96 "RT3676: Expose ECgroup i2d functions"
+Reviewed-by: Jakub Zelenka <jakub.zelenka@openssl.foundation>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Sun Oct 18 15:26:52 2026
+Merged-from: https://github.com/openssl/openssl/pull/32169
+(cherry picked from commit f7b2254eeebdc68bd4e57a3147606590b8188ab1)
+---
+ doc/man3/EC_GROUP_new.pod | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/doc/man3/EC_GROUP_new.pod b/doc/man3/EC_GROUP_new.pod
+index 6c6b61af8aa3..5e9a94e3572a 100644
+--- a/doc/man3/EC_GROUP_new.pod
++++ b/doc/man3/EC_GROUP_new.pod
+@@ -125,6 +125,11 @@ specified I<params> and
+ EC_GROUP_new_from_ecpkparameters() will create a group from the specific PK
+ I<params>.
+ 
++EC_GROUP_get_ecpkparameters() creates an ECPKPARAMETERS object for the given
++I<group>.  If I<params> is NULL a new object is allocated, otherwise
++I<params> is filled in and returned.  Please note that I<params> is freed on
++failure and must not be used or freed by the caller in such case.
++
+ EC_GROUP_set_curve() sets the curve parameters I<p>, I<a> and I<b>. For a curve
+ over Fp I<p> is the prime for the field. For a curve over F2^m I<p> represents
+ the irreducible polynomial - each bit represents a term in the polynomial.

@@ -1,0 +1,41 @@
+From 5b754c414119316762095fbdedf743d7a6bba4db Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@openssl.org>
+Date: Tue, 29 Sep 2026 14:20:39 -0400
+Subject: [PATCH] use proper loop index when building new cid in packet
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 596baa5b032dc4bc3f89f97f4b57ae63c56d5f93 added a test that builds
+a series of packets with connection ids in them, using the index i for
+the outer packet loop, and index j for the inner WPACKET_memcpy_u8 loop
+to copy the cid into the packet.  However the i index was used to index
+the cid id array, and so after 8 packets (the length of a connection
+id), we started indexing off the end of the array, which triggered an
+msan issue in CI.
+
+Use the proper loop index j for the copy loop of the cid.
+
+Fixes openssl/project#2066
+
+Reviewed-by: Saša Nedvědický <sashan@openssl.org>
+Reviewed-by: Bob Beck <beck@openssl.org>
+Merge-date: Tue Sep 29 20:40:18 2026
+Merged-from: https://github.com/openssl/openssl/pull/33040
+---
+ test/radix/quic_tests.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test/radix/quic_tests.c b/test/radix/quic_tests.c
+index 60919dacd860..921510593d2d 100644
+--- a/test/radix/quic_tests.c
++++ b/test/radix/quic_tests.c
+@@ -835,7 +835,7 @@ static int inject_new_cids(RADIX_FAULT *fault, QUIC_PKT_HDR *hdr,
+         retire_prior_to++;
+ 
+         for (j = 0; j < new_cid.id_len && i < OSSL_NELEM(new_cid.id); ++j)
+-            if (!TEST_true(WPACKET_put_bytes_u8(&wpkt, new_cid.id[i])))
++            if (!TEST_true(WPACKET_put_bytes_u8(&wpkt, new_cid.id[j])))
+                 goto err;
+ 
+         for (; j < new_cid.id_len; ++j)

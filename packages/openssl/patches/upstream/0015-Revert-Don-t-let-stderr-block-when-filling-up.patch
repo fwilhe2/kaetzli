@@ -1,0 +1,57 @@
+From 5619a9110798872be93f94da170323c04bdcce77 Mon Sep 17 00:00:00 2001
+From: Mounir IDRASSI <mounir.idrassi@idrix.fr>
+Date: Fri, 2 Oct 2026 20:40:45 +0900
+Subject: [PATCH] Revert "Don't let stderr block when filling up."
+
+This reverts commit 0fff0090507a205e6d37072d6ea151b68d0f74b6.
+
+That commit discarded command stderr without an explicit redirection
+under the default non-verbose harness. This hides diagnostics, including
+LeakSanitizer reports from failing commands in sanitizer CI jobs.
+
+Restore command stderr to the harness's existing reporting path, retaining
+the VMS-only null-device redirection and explicit recipe redirections.
+The harness can then show diagnostics for failed assertions, including
+when a command succeeds but an assertion about its captured stdout fails.
+Passing full-suite runs produced no additional diagnostic output.
+
+This depends on the preceding callback fix. Without it, restoring stderr
+also restores quadratic processing of that output. On Linux, the fix
+removes a slowdown with the blocked-writer signature reported in #32128.
+Native OpenBSD and macOS confirmation remains outstanding.
+
+Assisted-by: Claude Code:claude-opus-5-5
+Assisted-by: Codex:gpt-6-astra
+Reviewed-by: Jakub Zelenka <jakub.zelenka@openssl.foundation>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Tue Oct  6 16:04:02 2026
+Merged-from: https://github.com/openssl/openssl/pull/33078
+(cherry picked from commit 6e03d305580a57160466cdf4a22e2a59c1dd3aa5)
+---
+ util/perl/OpenSSL/Test.pm | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/util/perl/OpenSSL/Test.pm b/util/perl/OpenSSL/Test.pm
+index 3381369875fd..9d75396adf72 100644
+--- a/util/perl/OpenSSL/Test.pm
++++ b/util/perl/OpenSSL/Test.pm
+@@ -1288,13 +1288,11 @@ sub __decorate_cmd {
+ 
+     my $display_cmd = "$cmdstr$stdin$stdout$stderr";
+ 
+-    # Under a non-verbose harness nothing drains the command's stderr, so a
+-    # chatty command can fill the pipe buffer and then block forever waiting
+-    # for a reader that never comes.  Send it to the null device unless the
+-    # recipe asked for a specific redirection.  On VMS this also keeps
+-    # program output from escaping TAP::Parser.
+-    $stderr=" 2> ".$null
+-        unless $stderr || !$ENV{HARNESS_ACTIVE} || $ENV{HARNESS_VERBOSE};
++    # VMS program output escapes TAP::Parser
++    if ($^O eq 'VMS') {
++        $stderr=" 2> ".$null
++            unless $stderr || !$ENV{HARNESS_ACTIVE} || $ENV{HARNESS_VERBOSE};
++    }
+ 
+     $cmdstr .= "$stdin$stdout$stderr";
+ 

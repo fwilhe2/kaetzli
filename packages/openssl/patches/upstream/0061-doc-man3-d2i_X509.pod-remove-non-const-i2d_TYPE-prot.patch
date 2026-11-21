@@ -1,0 +1,38 @@
+From 40f426c6c560dedf02d438d85fd5e0e4e7c1e057 Mon Sep 17 00:00:00 2001
+From: ylfeid <261695633+ylfeid@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 21:11:58 +0200
+Subject: [PATCH] doc/man3/d2i_X509.pod: remove non-const i2d_TYPE prototypes
+ from SYNOPSIS
+
+Since OpenSSL 3.0 the i2d_TYPE(), i2d_TYPE_fp() and i2d_TYPE_bio()
+functions take a const TYPE argument.  The SYNOPSIS still listed
+the old non-const prototypes alongside the const ones, so each function
+appeared twice.  Drop the stale non-const lines.
+
+Resolves: https://github.com/openssl/openssl/issues/33182
+CLA: trivial
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Merge-date: Sun Nov  1 15:25:01 2026
+Merged-from: https://github.com/openssl/openssl/pull/33336
+(cherry picked from commit 5331430606c1c6a79ec236337ec04ccaba7da0e6)
+---
+ doc/man3/d2i_X509.pod | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/doc/man3/d2i_X509.pod b/doc/man3/d2i_X509.pod
+index 9f0589a87e4c..2f020fe18f13 100644
+--- a/doc/man3/d2i_X509.pod
++++ b/doc/man3/d2i_X509.pod
+@@ -453,11 +453,8 @@ i2d_X509_VAL,
+  TYPE *d2i_TYPE_fp(FILE *fp, TYPE **a);
+ 
+  int i2d_TYPE(const TYPE *a, unsigned char **ppout);
+- int i2d_TYPE(TYPE *a, unsigned char **ppout);
+  int i2d_TYPE_fp(FILE *fp, const TYPE *a);
+- int i2d_TYPE_fp(FILE *fp, TYPE *a);
+  int i2d_TYPE_bio(BIO *bp, const TYPE *a);
+- int i2d_TYPE_bio(BIO *bp, TYPE *a);
+ 
+ =head1 DESCRIPTION
+ 

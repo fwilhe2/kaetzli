@@ -1,0 +1,57 @@
+From db02a3ba88cf62275bfc7adb02ab498f8f2965da Mon Sep 17 00:00:00 2001
+From: jdymitarai <o10040115@gmail.com>
+Date: Tue, 13 Oct 2026 13:46:03 +0900
+Subject: [PATCH] test/cmp_vfy_test.c: prevent memory leak in
+ test_msg_check_update_malicious_sender
+
+In test_msg_check_update_malicious_sender(), expected and actual
+were allocated via X509_NAME_new() prior to SETUP_TEST_FIXTURE().
+If set_up() failed, SETUP_TEST_FIXTURE() returned early, leaking
+both allocated X509_NAME objects.
+
+Defer allocation until after SETUP_TEST_FIXTURE(), initialize both
+pointers to NULL, and allocate them safely within the TEST_ptr()
+validation chain.  On setup or validation failure, both pointers
+and the test fixture are freed cleanly.
+
+Resolves: https://github.com/openssl/openssl/issues/33200
+Fixes: 9d838f67fec7 "Add test for CVE-2026-63073"
+CLA: trivial
+Signed-off-by: jdymitarai <o10040115@gmail.com>
+Reviewed-by: Neil Horman <nhorman@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Merge-date: Thu Oct 15 11:51:16 2026
+Merged-from: https://github.com/openssl/openssl/pull/33203
+(cherry picked from commit 6d76833d61fad07a171219d9cb1444bc37f88b8f)
+---
+ test/cmp_vfy_test.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/test/cmp_vfy_test.c b/test/cmp_vfy_test.c
+index 2705b571cb24..30f77a300158 100644
+--- a/test/cmp_vfy_test.c
++++ b/test/cmp_vfy_test.c
+@@ -590,16 +590,13 @@ static int execute_msg_check_update_malicious_sender(CMP_VFY_TEST_FIXTURE *fixtu
+ static int test_msg_check_update_malicious_sender(void)
+ {
+     OSSL_CMP_PKIHEADER *hdr;
+-    X509_NAME *expected = X509_NAME_new();
+-    X509_NAME *actual = X509_NAME_new();
+-    SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+-
+-    if (expected == NULL || actual == NULL) {
+-        X509_NAME_free(expected);
+-        return 0;
+-    }
++    X509_NAME *expected = NULL;
++    X509_NAME *actual = NULL;
+ 
+-    if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
++    SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
++    if (!TEST_ptr(expected = X509_NAME_new())
++        || !TEST_ptr(actual = X509_NAME_new())
++        || !TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
+         || !TEST_ptr(hdr = OSSL_CMP_MSG_get0_header(fixture->msg))
+         || !TEST_int_eq(X509_NAME_add_entry_by_txt(expected, "CN", MBSTRING_ASC,
+                             (unsigned char *)"%n", -1, -1, 0),

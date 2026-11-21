@@ -1,0 +1,51 @@
+From 7c0b7dfe397a51d8c120bf354753c644371c728d Mon Sep 17 00:00:00 2001
+From: Tomas Mraz <tomas@openssl.foundation>
+Date: Mon, 26 Oct 2026 15:14:59 +0100
+Subject: [PATCH] test/quicapitest.c: Skip tests requiring X25519MLKEM768 with
+ old fips providers
+
+Fixes: c69b5af10a75 "QUIC: resend the whole ClientHello after a Retry"
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Reviewed-by: Milan Broz <mbroz@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Mon Oct 26 14:45:36 2026
+Merged-from: https://github.com/openssl/openssl/pull/33404
+(cherry picked from commit bbb301ae5692f1b7ff197338a60745914a3833ce)
+---
+ test/quicapitest.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/test/quicapitest.c b/test/quicapitest.c
+index 1b9b435d8d4b..37e77bbea745 100644
+--- a/test/quicapitest.c
++++ b/test/quicapitest.c
+@@ -3492,6 +3492,9 @@ static int test_quic_retry_split_client_hello(void)
+     uint64_t cwnd = 0, init_cwnd;
+     int testresult = 0, i, ret;
+ 
++    if (is_fips && fips_provider_version_match(libctx, "<3.5.0"))
++        return TEST_skip("FIPS provider does not support X25519MLKEM768");
++
+     if (!TEST_ptr(sctx = create_server_ctx())
+         || !TEST_ptr(cctx = create_client_ctx()))
+         goto err;
+@@ -3620,6 +3623,9 @@ static int test_quic_retry_after_version_neg(void)
+     struct initial_version iv = { 0 };
+     int testresult = 0, i, ret;
+ 
++    if (is_fips && fips_provider_version_match(libctx, "<3.5.0"))
++        return TEST_skip("FIPS provider does not support X25519MLKEM768");
++
+     if (!TEST_ptr(sctx = create_server_ctx())
+         || !TEST_ptr(cctx = create_client_ctx()))
+         goto err;
+@@ -3703,6 +3709,9 @@ static int test_quic_version_neg_split_client_hello(int idx)
+     struct initial_version iv = { 0 };
+     int testresult = 0, i, ret;
+ 
++    if (is_fips && fips_provider_version_match(libctx, "<3.5.0"))
++        return TEST_skip("FIPS provider does not support X25519MLKEM768");
++
+     if (!TEST_ptr(sctx = create_server_ctx())
+         || !TEST_ptr(cctx = create_client_ctx()))
+         goto err;

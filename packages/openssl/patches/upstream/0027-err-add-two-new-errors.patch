@@ -1,0 +1,64 @@
+From c30fc084c61a398f31844d78fd5c1b05036d9b3f Mon Sep 17 00:00:00 2001
+From: Pauli <paul.dale@oracle.com>
+Date: Mon, 5 Oct 2026 11:34:49 +1100
+Subject: [PATCH] err: add two new errors
+
+Reviewed-by: Mounir Idrassi <mounir.idrassi@idrix.fr>
+Reviewed-by: Simo Sorce <simo@redhat.com>
+Merge-date: Mon Oct 19 01:19:53 2026
+Merged-from: https://github.com/openssl/openssl/pull/33100
+(cherry picked from commit c882093e70be163f8eac1274d9e27e21dbe96a08)
+---
+ crypto/err/openssl.txt          | 4 ++++
+ include/openssl/proverr.h       | 2 ++
+ providers/common/provider_err.c | 4 ++++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/crypto/err/openssl.txt b/crypto/err/openssl.txt
+index be65c1767ec6..17436e65e797 100644
+--- a/crypto/err/openssl.txt
++++ b/crypto/err/openssl.txt
+@@ -1062,8 +1062,12 @@ PROV_R_COFACTOR_REQUIRED:236:cofactor required
+ PROV_R_DERIVATION_FUNCTION_INIT_FAILED:205:derivation function init failed
+ PROV_R_DIGEST_NOT_ALLOWED:174:digest not allowed
+ PROV_R_EMS_NOT_ENABLED:233:ems not enabled
++PROV_R_ENTROPY_SOURCE_FAILED_APT_CONTINUOUS_TEST:261:\
++	entropy source failed apt continuous test
+ PROV_R_ENTROPY_SOURCE_FAILED_CONTINUOUS_TESTS:244:\
+ 	entropy source failed continuous tests
++PROV_R_ENTROPY_SOURCE_FAILED_RCT_CONTINUOUS_TEST:262:\
++	entropy source failed rct continuous test
+ PROV_R_ENTROPY_SOURCE_STRENGTH_TOO_WEAK:186:entropy source strength too weak
+ PROV_R_ERROR_INSTANTIATING_DRBG:188:error instantiating drbg
+ PROV_R_ERROR_RETRIEVING_ENTROPY:189:error retrieving entropy
+diff --git a/include/openssl/proverr.h b/include/openssl/proverr.h
+index 3dff4b75482f..c3ab1f97542b 100644
+--- a/include/openssl/proverr.h
++++ b/include/openssl/proverr.h
+@@ -32,7 +32,9 @@
+ #define PROV_R_DERIVATION_FUNCTION_INIT_FAILED 205
+ #define PROV_R_DIGEST_NOT_ALLOWED 174
+ #define PROV_R_EMS_NOT_ENABLED 233
++#define PROV_R_ENTROPY_SOURCE_FAILED_APT_CONTINUOUS_TEST 261
+ #define PROV_R_ENTROPY_SOURCE_FAILED_CONTINUOUS_TESTS 244
++#define PROV_R_ENTROPY_SOURCE_FAILED_RCT_CONTINUOUS_TEST 262
+ #define PROV_R_ENTROPY_SOURCE_STRENGTH_TOO_WEAK 186
+ #define PROV_R_ERROR_INSTANTIATING_DRBG 188
+ #define PROV_R_ERROR_RETRIEVING_ENTROPY 189
+diff --git a/providers/common/provider_err.c b/providers/common/provider_err.c
+index 170bb7f63af8..298178b8f22b 100644
+--- a/providers/common/provider_err.c
++++ b/providers/common/provider_err.c
+@@ -35,8 +35,12 @@ static const ERR_STRING_DATA PROV_str_reasons[] = {
+     { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_DIGEST_NOT_ALLOWED),
+         "digest not allowed" },
+     { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_EMS_NOT_ENABLED), "ems not enabled" },
++    { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_ENTROPY_SOURCE_FAILED_APT_CONTINUOUS_TEST),
++        "entropy source failed apt continuous test" },
+     { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_ENTROPY_SOURCE_FAILED_CONTINUOUS_TESTS),
+         "entropy source failed continuous tests" },
++    { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_ENTROPY_SOURCE_FAILED_RCT_CONTINUOUS_TEST),
++        "entropy source failed rct continuous test" },
+     { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_ENTROPY_SOURCE_STRENGTH_TOO_WEAK),
+         "entropy source strength too weak" },
+     { ERR_PACK(ERR_LIB_PROV, 0, PROV_R_ERROR_INSTANTIATING_DRBG),

@@ -1,0 +1,41 @@
+From f7975a59a0425e83b437ae59a664100d16fa03a0 Mon Sep 17 00:00:00 2001
+From: Richard Levitte <levitte@openssl.foundation>
+Date: Tue, 22 Sep 2026 14:58:58 +0200
+Subject: [PATCH] cipher_aes_gcm_hw_vaes_avx512.inc: fix linux-x32 build
+ failure
+
+The VAES GCM code is enabled by an ISA check (__x86_64__ & co),
+which the x32 ABI satisfies: x32 is a 64-bit platform with a 32-bit
+size_t.  There, comparing the size_t ivlen against 2^61 is always
+false, which -Wtype-limits (via --strict-warnings) turns
+into a build failure.
+
+Only perform the check where size_t is wide enough to violate
+the limit.
+
+Fixes: 63b996e752ac "AES-GCM enabled with AVX512 vAES and vPCLMULQDQ."
+Assisted-by: Pi:moonshotai/kimi-k3
+Reviewed-by: Matt Caswell <matt@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Fri Oct  9 22:32:44 2026
+Merged-from: https://github.com/openssl/openssl/pull/32926
+(cherry picked from commit 04c2d1b7b37148808b5cdc9c2c029b2e9f13a783)
+---
+ .../implementations/ciphers/cipher_aes_gcm_hw_vaes_avx512.inc   | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/providers/implementations/ciphers/cipher_aes_gcm_hw_vaes_avx512.inc b/providers/implementations/ciphers/cipher_aes_gcm_hw_vaes_avx512.inc
+index c892c0754e8d..aa5c52dc7b51 100644
+--- a/providers/implementations/ciphers/cipher_aes_gcm_hw_vaes_avx512.inc
++++ b/providers/implementations/ciphers/cipher_aes_gcm_hw_vaes_avx512.inc
+@@ -73,8 +73,10 @@ static int vaes_gcm_setiv(PROV_GCM_CTX *ctx, const unsigned char *iv,
+     gcmctx->mres = 0;
+ 
+     /* IV is limited by 2^64 bits, thus 2^61 bytes */
++#if SIZE_MAX > 0xFFFFFFFFu
+     if (ivlen > (U64(1) << 61))
+         return 0;
++#endif
+ 
+     ossl_aes_gcm_setiv_avx512(gcmctx->key, gcmctx, iv, ivlen);
+ 

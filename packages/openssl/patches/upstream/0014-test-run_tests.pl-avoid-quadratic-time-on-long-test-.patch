@@ -1,0 +1,54 @@
+From fab249847c2b06e892a2934e09e3b4bc65b466ab Mon Sep 17 00:00:00 2001
+From: Mounir IDRASSI <mounir.idrassi@idrix.fr>
+Date: Fri, 2 Oct 2026 20:12:44 +0900
+Subject: [PATCH] test/run_tests.pl: avoid quadratic time on long test output
+
+With failure buffering enabled, the ALL callback appends nonempty output
+lines that it does not recognize as plans or test results to
+$output_buffer. Without an explicit return, that branch returns the
+accumulated buffer. TAP::Base::_make_callback() invokes callbacks in list
+context, even when TAP::Parser calls it in void context, so the buffer is
+copied. Each append then costs time proportional to the output accumulated
+so far, making processing quadratic for a growing sequence of such lines.
+
+run_tests.pl merges recipe stderr into the stream it reads. While the
+harness copies, a command writing enough stderr can fill that pipe and
+block. On Linux, with command stderr restored to this stream and the radix
+recipe from before #32395, test_quic_radix took 9.9 seconds without the fix
+and 2.3 seconds with it. Setting glibc's mmap threshold to a fixed 128 KiB
+increased the former to 85 seconds, while the fixed run took 2.3 seconds.
+The command blocked writing stderr while the harness kept a CPU busy,
+reproducing the signature reported in #32128. These measurements do not
+establish the cause of the historical OpenBSD and macOS stalls.
+
+Return no values from the callback; the parser does not use its result.
+V=1 disables failure buffering and avoids this accumulation path.
+
+Assisted-by: Claude Code:claude-opus-5-5
+Assisted-by: Codex:gpt-6-astra
+Reviewed-by: Jakub Zelenka <jakub.zelenka@openssl.foundation>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Tue Oct  6 16:04:01 2026
+Merged-from: https://github.com/openssl/openssl/pull/33078
+(cherry picked from commit ab9decd55becb870eb4bf99171dad6e8b706ac24)
+---
+ test/run_tests.pl | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/test/run_tests.pl b/test/run_tests.pl
+index 89d7fafb7256..ea19d3069f7a 100644
+--- a/test/run_tests.pl
++++ b/test/run_tests.pl
+@@ -243,6 +243,11 @@ $eres = eval {
+                         $output_buffer .= "\n".$self->as_string;
+                     }
+                 }
++
++                # TAP::Base calls callbacks in list context, so without this
++                # return, every line appended above would also return a copy
++                # of all of $output_buffer, which takes quadratic time.
++                return;
+             }
+         }
+ 

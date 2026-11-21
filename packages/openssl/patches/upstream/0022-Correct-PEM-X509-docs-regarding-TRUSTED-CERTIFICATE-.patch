@@ -1,0 +1,37 @@
+From 98bd3e4d4c39de960010345ef52bcd788286b6d1 Mon Sep 17 00:00:00 2001
+From: chrissorr <cjs7477@g.rit.edu>
+Date: Thu, 8 Oct 2026 10:18:58 -0400
+Subject: [PATCH] Correct PEM X509 docs regarding TRUSTED CERTIFICATE blocks
+
+The documentation stated that the X509 PEM functions also process
+trusted certificates, discarding the trust settings.  In fact, they
+reject "TRUSTED CERTIFICATE" blocks;  only the X509_AUX functions
+accept them.  Update the text accordingly.
+
+Resolves: https://github.com/openssl/openssl/issues/33019
+CLA: trivial
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Sun Oct 11 21:31:53 2026
+Merged-from: https://github.com/openssl/openssl/pull/33166
+(cherry picked from commit 22d309a11839d7c505af63c54880e657fc4bab5c)
+---
+ doc/man3/PEM_read_bio_PrivateKey.pod | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/doc/man3/PEM_read_bio_PrivateKey.pod b/doc/man3/PEM_read_bio_PrivateKey.pod
+index 22a5d606b0db..4a3d7ae74044 100644
+--- a/doc/man3/PEM_read_bio_PrivateKey.pod
++++ b/doc/man3/PEM_read_bio_PrivateKey.pod
+@@ -293,8 +293,9 @@ structure. The parameters are encoded using a PKCS#3 DHparameter
+ structure.
+ 
+ The B<X509> functions process an X509 certificate using an X509
+-structure. They will also process a trusted X509 certificate but
+-any trust settings are discarded.
++structure. They will not process a trusted X509 certificate (a PEM
++block of type "TRUSTED CERTIFICATE"); use the B<X509_AUX> functions
++to read those.
+ 
+ The B<X509_ACERT> functions process an X509 attribute certificate using
+ an X509_ACERT structure.

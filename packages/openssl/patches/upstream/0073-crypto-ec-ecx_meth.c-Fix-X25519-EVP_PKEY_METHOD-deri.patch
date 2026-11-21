@@ -1,0 +1,40 @@
+From 5daa287c386b982009ac3b8ab88cbf5ae6941497 Mon Sep 17 00:00:00 2001
+From: Ingo Franzki <ifranzki@linux.ibm.com>
+Date: Thu, 5 Nov 2026 11:01:53 +0100
+Subject: [PATCH] crypto/ec/ecx_meth.c: Fix X25519 EVP_PKEY_METHOD derive on
+ s390x
+
+The X25519 EVP_PKEY_METHOD function s390x_pkey_ecx_derive25519() passed
+the private and public key to s390x_x25519_mul() in swapped order,
+so it returned X25519(clamp(peer_pub), own_priv).  When that output
+reached the peer, one output recovered the private key with one scalar
+inversion.  Restore the proper argument order.
+
+This only affected the legacy code path, the provider code path
+was not affected.  The legacy code path is only used when an engine
+is registered or an application method was added.
+
+Fixes: 3cca05cc194c "s390x: fix ecx derive"
+Reported-by: Bhabani Sankar Das <007bsd@proton.me>
+Signed-off-by: Ingo Franzki <ifranzki@linux.ibm.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Bob Beck <beck@openssl.org>
+Merge-date: Fri Nov  6 19:42:43 2026
+Merged-from: https://github.com/openssl/openssl/pull/33556
+---
+ crypto/ec/ecx_meth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/crypto/ec/ecx_meth.c b/crypto/ec/ecx_meth.c
+index bc5cb0ed147d..1f3442f772f9 100644
+--- a/crypto/ec/ecx_meth.c
++++ b/crypto/ec/ecx_meth.c
+@@ -1198,7 +1198,7 @@ static int s390x_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key,
+ 
+     if (!validate_ecx_derive(ctx, key, keylen, &privkey, &pubkey)
+         || (key != NULL
+-            && s390x_x25519_mul(key, privkey, pubkey) == 0))
++            && s390x_x25519_mul(key, pubkey, privkey) == 0))
+         return 0;
+     *keylen = X25519_KEYLEN;
+     return 1;

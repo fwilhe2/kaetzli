@@ -1,0 +1,38 @@
+From 81162ed421d98f527f55bfff205994f53831223b Mon Sep 17 00:00:00 2001
+From: Richard Levitte <levitte@openssl.foundation>
+Date: Thu, 19 Nov 2026 12:32:47 +0100
+Subject: [PATCH] test/recipes/80-test_cmsapi.t: fix gating for no-ecx builds
+
+The test for CVE-2026-121482 embeds a CMS blob whose signer
+certificate uses an Ed25519 key, which cannot be decoded in a no-ecx
+build, so the test fails there instead of being skipped.  The commit
+in master gates it on ecx availability;  the openssl-4.0 cherry-pick
+gated it on ec, which no-ecx keeps enabled.  Gate on ecx here instead.
+
+Fixes: 3bc53699330f ("Add a test for CVE-2026-121482 / ANT-2026-ZQ110HRQ")
+Assisted-by: Pi:moonshotai/kimi-k3
+Signed-off-by: Richard Levitte <levitte@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Igor Ustinov <igus@openssl.foundation>
+Merge-date: Thu Nov 19 13:23:09 2026
+Merged-from: https://github.com/openssl/openssl/pull/33843
+(cherry picked from commit fc56abef965b47444d26cbb4dbaa20142ae11801)
+---
+ test/recipes/80-test_cmsapi.t | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/test/recipes/80-test_cmsapi.t b/test/recipes/80-test_cmsapi.t
+index 5833832a8ca9..86ad93f02342 100644
+--- a/test/recipes/80-test_cmsapi.t
++++ b/test/recipes/80-test_cmsapi.t
+@@ -16,7 +16,9 @@ plan skip_all => "CMS is disabled in this build" if disabled("cms");
+ 
+ plan tests => 1;
+ 
+-my @rootcert = disabled("ec") ? () : (srctop_file("test", certs, "root-cert.pem"));
++# The embedded CMS blob in test_cms_overlong_relative_dist_points carries
++# an Ed25519 signer cert, which cannot be decoded in a no-ecx build.
++my @rootcert = disabled("ecx") ? () : (srctop_file("test", "certs", "root-cert.pem"));
+ 
+ ok(run(test(["cmsapitest", srctop_file("test", "certs", "servercert.pem"),
+              srctop_file("test", "certs", "serverkey.pem"),

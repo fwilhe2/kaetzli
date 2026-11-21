@@ -1,0 +1,52 @@
+From de8d604eadce342e49021354f41d1130902d2513 Mon Sep 17 00:00:00 2001
+From: Nicky Mouha <nicky@mouha.be>
+Date: Sun, 8 Nov 2026 18:39:31 -0500
+Subject: [PATCH] fuzz/test-corpus.c: fix time-of-check time-of-use filesystem
+ race condition
+
+Open the file first and then call fstat() the descriptor, rather than
+call stat() and then opening it;  this avoid a potential
+time-of-check/time-of-use race.
+
+Fixes: 90d28f051942 "Run the fuzzing corpora as tests."
+Reviewed-by: Paul Dale <paul.dale@oracle.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Tue Nov 10 13:45:35 2026
+Merged-from: https://github.com/openssl/openssl/pull/33607
+(cherry picked from commit 12a903f25738f4c4398f8d30445acd70c55025fa)
+---
+ fuzz/test-corpus.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/fuzz/test-corpus.c b/fuzz/test-corpus.c
+index 783df1a07688..bcf405e7bebb 100644
+--- a/fuzz/test-corpus.c
++++ b/fuzz/test-corpus.c
+@@ -20,6 +20,7 @@
+ #include <sys/stat.h>
+ #include <openssl/crypto.h>
+ #include "fuzzer.h"
++#include "internal/e_os.h"
+ #include "internal/o_dir.h"
+ 
+ #if defined(_WIN32) && defined(_MAX_PATH) && !defined(PATH_MAX)
+@@ -41,13 +42,15 @@ static void testfile(const char *pathname)
+     unsigned char *buf;
+     size_t s;
+ 
+-    if (stat(pathname, &st) < 0 || !S_ISREG(st.st_mode))
+-        return;
+-    printf("# %s\n", pathname);
+-    fflush(stdout);
+     f = fopen(pathname, "rb");
+     if (f == NULL)
+         return;
++    if (fstat(fileno(f), &st) < 0 || !S_ISREG(st.st_mode)) {
++        fclose(f);
++        return;
++    }
++    printf("# %s\n", pathname);
++    fflush(stdout);
+     buf = malloc(st.st_size);
+     if (buf != NULL) {
+         s = fread(buf, 1, st.st_size, f);

@@ -1,0 +1,45 @@
+From 355268c20f56fdb9f7863c5b8fce3085f73facaa Mon Sep 17 00:00:00 2001
+From: Daniel Kubec <kubec@openssl.foundation>
+Date: Sat, 31 Oct 2026 19:21:49 +0100
+Subject: [PATCH] test/evp_extra_test.c: fetch AES-SIV from testctx
+
+In the -context run of test_evp_extra, the default context only holds
+the null provider, so test_aes_siv_ctx_reuse
+and test_aes_siv_ctx_dec_retval tests were reported as skipped there,
+although the cipher is available in testctx.  Fetch from testctx
+with testpropq, as the other tests in this file do.
+
+Fixes: 7fe3f33a3b3a "Fix handling of empty-ciphertext messages in AES-GCM-SIV and AES-SIV"
+Fixes: df2ac3f12593 "siv128.siv128.c: refactor encrypt/decrypt to a single exit point"
+Reviewed-by: Richard Levitte <levitte@openssl.foundation>
+Reviewed-by: Norbert Pocs <norbertp@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Sun Nov  8 13:19:52 2026
+Merged-from: https://github.com/openssl/openssl/pull/33469
+(cherry picked from commit 4e523f0f9fcd5e15d447b5e1f7005b43f0a66875)
+---
+ test/evp_extra_test.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/test/evp_extra_test.c b/test/evp_extra_test.c
+index 79079f541159..32ce63389c82 100644
+--- a/test/evp_extra_test.c
++++ b/test/evp_extra_test.c
+@@ -7896,7 +7896,7 @@ static int test_aes_siv_ctx_reuse(void)
+     unsigned char aad[14] = "forged header";
+     int outl, ret = 0;
+     EVP_CIPHER_CTX *e = NULL, *d = NULL;
+-    EVP_CIPHER *c = EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
++    EVP_CIPHER *c = EVP_CIPHER_fetch(testctx, "AES-128-SIV", testpropq);
+ 
+     if (c == NULL) {
+         return TEST_skip("AES-128-SIV cipher is not available");
+@@ -7951,7 +7951,7 @@ static int test_aes_siv_ctx_dec_retval(void)
+     EVP_CIPHER_CTX *enc_ctx = NULL;
+     EVP_CIPHER_CTX *dec_ctx = NULL;
+ 
+-    EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
++    EVP_CIPHER *cipher = EVP_CIPHER_fetch(testctx, "AES-128-SIV", testpropq);
+ 
+     if (cipher == NULL)
+         return TEST_skip("AES-128-SIV cipher is not available");

@@ -304,8 +304,8 @@ compile, install); CI's `build` matrix is generated from `packages/`. Shared mac
   Part of the extraction stamp, cache key, sources image and tag, and SBOM. A bump to the
   release containing our patch fails until it is deleted — intended. Sync only appends (a
   changed or vanished committed patch is exit 3) and verifies new files with `gpgv` against
-  `packages/<pkg>/upstream-key.asc`; bash, ncurses, glibc and gcc sync nightly via the update
-  workflow and auto-merge.
+  `packages/<pkg>/upstream-key.asc`; bash, ncurses, glibc, gcc and openssl sync nightly via
+  the update workflow and auto-merge.
 - **`VENDOR_TARBALL`/`_URL`/`_SHA256`**: a second pinned tarball (netavark's crates), handled
   everywhere the first is. With **`VENDOR_VERSION`** it has its own version (tcpdump's libpcap,
   linux-tools' libtraceevent): checked as `<pkg>/<VENDOR_NAME>` from `VENDOR_UPSTREAM_*`, bumped

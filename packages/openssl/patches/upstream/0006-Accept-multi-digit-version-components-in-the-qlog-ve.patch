@@ -1,0 +1,27 @@
+From e7f8787bb18f8c6ee114da80fd87b4ffbb411612 Mon Sep 17 00:00:00 2001
+From: Georgy Karataev <georgyk@openssl.org>
+Date: Wed, 30 Sep 2026 10:39:34 +0200
+Subject: [PATCH] Accept multi-digit version components in the qlog verifier
+
+Reviewed-by: Norbert Pocs <norbertp@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Wed Sep 30 10:01:42 2026
+Merged-from: https://github.com/openssl/openssl/pull/33050
+(cherry picked from commit ef0d748ece707e4518891751e3d06cf5632301b0)
+---
+ test/recipes/70-test_quic_multistream_data/verify-qlog.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test/recipes/70-test_quic_multistream_data/verify-qlog.py b/test/recipes/70-test_quic_multistream_data/verify-qlog.py
+index ae11007f3ea7..d5ccae389149 100755
+--- a/test/recipes/70-test_quic_multistream_data/verify-qlog.py
++++ b/test/recipes/70-test_quic_multistream_data/verify-qlog.py
+@@ -8,7 +8,7 @@
+ # https://www.openssl.org/source/license.html
+ import sys, os, os.path, glob, json, re
+ 
+-re_version = re.compile(r'''^OpenSSL/[0-9]+\.[0-9]\.[0-9](-[^ ]+)? ([^)]+)''')
++re_version = re.compile(r'''^OpenSSL/[0-9]+\.[0-9]+\.[0-9]+(-[^ ]+)? ([^)]+)''')
+ 
+ class Unexpected(Exception):
+     def __init__(self, filename, msg):
