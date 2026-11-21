@@ -1,7 +1,7 @@
 # Build reproduction
 
 **Status: partly implemented.** Implemented: an independent end-to-end rebuild of a
-release, `tools/rebuild-release.py` (below). Not yet: a recipe artifact.
+release, `tools/rebuild-release.py` (below), run weekly with an attestation of the result. Not yet: a recipe artifact.
 
 Archiving the full build recipe as an artifact remains a proposal. Package source patches
 and upstream patch series are implemented; see the [patches guide](../guides/patches.md).
@@ -43,7 +43,22 @@ names come from `kaetzli.release.collect`, the code that named the published one
 exits 0 only when every asset a build makes is byte-identical; the CVE workbook (a dated
 scan), the source tar, the launchers and the other architecture's assets are listed as not
 rebuilt and not judged. The builder image and sources image are pulled by the commit's own
-content-hash tags, so the toolchain is the one CI used.
+content-hash tags, so the toolchain is the one CI used; `FRESH=1` builds both from their
+inputs instead.
+
+**Every week** `.github/workflows/rebuild.yml` does this for the latest snapshot on both
+arches, with `FRESH=1` and no cache (dispatch it with a `name` for another), and gives the
+assets that came out byte-identical an attestation of predicate type
+`https://github.com/fwilhe2/kaetzli/rebuild/v1`, beside the release's own provenance:
+
+```sh
+gh attestation verify rootfs-amd64.erofs -R fwilhe2/kaetzli \
+    --predicate-type https://github.com/fwilhe2/kaetzli/rebuild/v1
+```
+
+That is GitHub's infrastructure and this repository's scripts again: it shows the build is
+deterministic from its pinned inputs, not that those inputs are honest. Running the
+command on a machine of your own is the independent check.
 
 ## Proposed recipe artifact
 

@@ -1,0 +1,107 @@
+name: Rebuild a release
+
+# The newest snapshot release (or the one named), rebuilt from its commit by
+# tools/rebuild-release.py and compared with its SHA256SUMS, asset by asset
+# (docs/proposals/reproducing-a-build.md). CI's own `reproducible` job only assembles
+# twice from one run's packages; this compiles everything again in one job, with no
+# cache and no image from the registry: FRESH=1 builds the builder from the Debian
+# snapshot and the sources image from upstream's URLs, so a release that reproduces here
+# does not depend on anything CI built being what it claims.
+#
+# Still GitHub's infrastructure and this repository's scripts: it shows the build is
+# deterministic from its inputs, not that the inputs are honest. The strong form is the
+# same command on a machine nobody here controls; this makes the claim checked every week
+# instead of once.
+#
+# When every asset is the same, the rebuilt assets get an attestation of their own
+# (predicate type below), next to the release's provenance: two builds, one set of bytes.
+# Writes nothing else — no release, no registry.
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "A snapshot release (default: the latest)"
+        type: string
+        default: ""
+  # Sundays 03:00 UTC: away from the fortnightly fresh build (16:00), the update run
+  # (17:00) and the merge window (20:00), and on a release a few days old.
+  schedule:
+    - cron: "0 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      id-token: write # the attestation (actions/attest)
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the release's commit, by its tag
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: python/.python-version
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      # Every package, the builder and the sources image in one job need more than the
+      # runner's free disk; the preinstalled SDKs are nothing the build uses.
+      - name: Make room
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Which release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ inputs.name }}
+        run: |
+          name=${NAME:-$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)}
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "Rebuilding $name for ${{ matrix.arch }}"
+
+      - name: Rebuild and compare
+        env:
+          FRESH: "1"
+          NAME: ${{ steps.release.outputs.name }}
+        run: |
+          set -o pipefail
+          ./tools/rebuild-release.py "$NAME" --dir "$RUNNER_TEMP/rebuild" 2>&1 | tee rebuild.log
+          # The comparison, as text, for the run page.
+          {
+            echo "### $NAME rebuilt on ${{ matrix.arch }}"
+            echo '```'
+            grep -E '^  [A-Za-z0-9._+-]+ +(same|DIFFERENT|not rebuilt|not in the release)$|^>> ' rebuild.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The assets that came out byte-identical, by the checksum the release publishes.
+      - name: List what reproduced
+        env:
+          NAME: ${{ steps.release.outputs.name }}
+        run: |
+          curl -fsSL -o SHA256SUMS "https://github.com/$GITHUB_REPOSITORY/releases/download/$NAME/SHA256SUMS"
+          awk '$NF == "same" { print $1 }' rebuild.log | sort > same.txt
+          awk 'NR == FNR { keep[$1]; next } ($2 in keep)' same.txt SHA256SUMS > reproduced.txt
+          test -s reproduced.txt
+          printf '{"release":"%s","arch":"%s","commit":"%s","fresh":true}\n' \
+              "$NAME" "${{ matrix.arch }}" "$(git rev-parse "$NAME^{commit}")" > predicate.json
+          cat reproduced.txt predicate.json
+
+      - name: Attest the rebuild
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: reproduced.txt
+          predicate-type: https://github.com/fwilhe2/kaetzli/rebuild/v1
+          predicate-path: predicate.json
