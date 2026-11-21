@@ -19,3 +19,12 @@ updates:
     groups:
       python:
         patterns: ["*"]
+
+  # go/tools: govulncheck for the CVE scan (kaetzli.cve.govuln), pinned by go.sum. The
+  # launcher's go/go.mod has no dependencies to update.
+  - package-ecosystem: "gomod"
+    directory: "/go/tools"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14

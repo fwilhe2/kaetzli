@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from kaetzli import repo, report
-from kaetzli.cve import grype, not_affected, scan
+from kaetzli.cve import govuln, grype, not_affected, scan
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EXPECTED = FIXTURES / "scan" / "expected"
@@ -79,6 +79,34 @@ def test_not_affected_lines_are_vex_statements_and_stale_ones_are_listed(build, 
     assert "| `kernel` | 7.3.1 | 1 |" in out
     assert "- line 2: `tar` CVE-2026-99" in out
     assert "GO-2026-3" not in out.split("Stale in")[1]
+
+
+def test_govulncheck_clears_what_no_binary_links_and_lists_what_one_does(build, fake_grype):
+    msgs = [
+        {"config": {"db_last_modified": "2026-11-11T02:51:11Z"}},
+        {"osv": {"id": "GO-2026-3", "aliases": ["CVE-2026-33"]}},
+        {"finding": {"osv": "GO-2026-3", "trace": [
+            {"module": "golang.org/x/net", "version": "v0.57.0"}
+        ]}},
+        {"osv": {"id": "GO-2026-9"}},
+        {"finding": {"osv": "GO-2026-9", "fixed_version": "v1.27.5", "trace": [
+            {"module": "stdlib", "version": "v1.27.3", "package": "net/http", "function": "Serve"}
+        ]}},
+    ]  # fmt: skip
+    go = govuln.analyse([(["ext-podman"], "podman/extensions/podman/usr/bin/podman", msgs)])
+    out = run_scan(build, fake_grype, go=go)
+    vex = json.loads((build / "cve" / "ext-podman.vex.json").read_text())
+    assert [(s["vulnerability"]["name"], s["status"]) for s in vex["statements"]] == [
+        ("GO-2026-3", "not_affected"),
+        ("CVE-2026-33", "not_affected"),
+    ]
+    assert "Go vulndb 2026-11-11" in out
+    assert "| GO-2026-9 | `stdlib` | v1.27.3 | v1.27.5 | `podman` |" in out
+
+
+def test_govulncheck_that_could_not_run_is_a_line(build, fake_grype):
+    out = run_scan(build, fake_grype, go_note="not run: no go on PATH")
+    assert out.endswith("govulncheck: not run: no go on PATH\n")
 
 
 def test_grype_reports_are_kept(build, fake_grype):

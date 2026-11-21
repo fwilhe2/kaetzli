@@ -8,9 +8,10 @@ Two series, because the count moves for two reasons:
 
   same database   every build's SBOMs (the sbom-<arch> artifact) rescanned now, with one
                   vulnerability database (test/cve-scan.py, with ENRICH for SBOMs from
-                  before env.sh had CPE=). Advisories published since are counted against
-                  old and new builds alike, so this moves only when the image changed: a
-                  bump that closes some is a step down.
+                  before env.sh had CPE=), and today's test/cve-not-affected.txt.
+                  Advisories published since are counted against old and new builds
+                  alike, so this moves only when the image changed: a bump that closes
+                  some is a step down.
   at build time   what the cve-scan job found on the day (the cve-<arch> artifact): the
                   exposure of the image as published, newly disclosed advisories included.
                   Only as far back as that job has run.
@@ -38,7 +39,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kaetzli import repo
-from kaetzli.cve import sbom
+from kaetzli.cve import not_affected, sbom
 from kaetzli.cve.grype import VERSION, Grype, GrypeUnavailable, binary
 from kaetzli.cve.scan import scan
 from kaetzli.cve.summary import Summary
@@ -153,13 +154,20 @@ def collect(gh: Gh, arch: str, runs: int, workdir: Path, workflow: str, branch: 
     return builds
 
 
-def rescan(builds: list[Build], workdir: Path, grype: Grype, cpes: dict[str, list[str]]) -> None:
-    """Every build with one database: today's, and today's CPEs for SBOMs without."""
+def rescan(
+    builds: list[Build],
+    workdir: Path,
+    grype: Grype,
+    cpes: dict[str, list[str]],
+    unaffected: list[not_affected.Entry] | None = None,
+) -> None:
+    """Every build with one database: today's, today's CPEs for SBOMs without, and today's
+    not-affected list (its reasons hold for any version)."""
     for b in builds:
         d = workdir / b.run
         # A build that cannot be rescanned has no summary and is left out of the table.
         with contextlib.suppress(Note):
-            scan(d, grype, Report.quiet(), arch="", cpes=cpes)
+            scan(d, grype, Report.quiet(), arch="", cpes=cpes, unaffected=unaffected)
         b.now = Summary.read(d / "cve-summary.txt")
 
 
@@ -174,6 +182,7 @@ def history(
     workflow: str = "ci.yml",
     branch: str = "main",
     label_of: Callable[[str, str], str] = label_between,
+    unaffected: list[not_affected.Entry] | None = None,
 ) -> None:
     builds = collect(gh, arch, runs, workdir, workflow, branch)
     if not builds:
@@ -183,7 +192,7 @@ def history(
             rep,
         )
     assert grype is not None
-    rescan(builds, workdir, grype, cpes)
+    rescan(builds, workdir, grype, cpes, unaffected)
     rep.lines(render(builds, arch, label_of))
 
 
@@ -208,6 +217,7 @@ def main(argv: list[str]) -> int:
             gh, grype, arch, int(os.environ.get("RUNS", "15")), Path(workdir), cpes, rep,
             workflow=os.environ.get("WORKFLOW", "ci.yml"),
             branch=os.environ.get("BASE_BRANCH", "main"),
+            unaffected=not_affected.load(repo.ROOT / not_affected.PATH),
         )  # fmt: skip
     return 0
 
