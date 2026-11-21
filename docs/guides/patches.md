@@ -96,6 +96,12 @@ The build records these fixes in the package's SBOM. `test/cve-scan.py` converts
 OpenVEX statements for grype, so fixed CVEs are reported as patched rather than open. The
 CI scan is informational; it does not gate the build.
 
+A CVE that needs no patch because it does not affect the image goes in
+`test/cve-not-affected.txt` instead, with its OpenVEX justification and a reason a reviewer
+can check: an NVD entry with no version range for a bug fixed years ago, another
+distribution's patch, code a configure switch leaves out. The scan counts those as
+"not affected" and lists a line as stale once grype stops reporting it.
+
 ## Check patches
 
 ```sh

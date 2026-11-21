@@ -54,13 +54,27 @@ def first_of_each(matches: Iterable[dict]) -> list[dict]:
     return [seen[k] for k in sorted(seen)]
 
 
-def vex_patched(report: Report) -> list[dict]:
-    """The matches a VEX statement closed: grype moved them to ignoredMatches."""
+def _vex(report: Report, statuses: tuple[str, ...]) -> list[dict]:
+    """The matches a VEX statement of one of these statuses moved to ignoredMatches."""
     return [
         m
         for m in report.ignored
-        if any(r.get("namespace") == "vex" for r in m.get("appliedIgnoreRules") or [])
+        if any(
+            r.get("namespace") == "vex" and r.get("vex-status", "fixed") in statuses
+            for r in m.get("appliedIgnoreRules") or []
+        )
     ]
+
+
+def vex_patched(report: Report) -> list[dict]:
+    """What our patches close: VEX `fixed` (tools/patch-cves.sh)."""
+    return _vex(report, ("fixed",))
+
+
+def vex_not_affected(report: Report) -> list[dict]:
+    """What does not affect the image: VEX `not_affected` (test/cve-not-affected.txt,
+    govulncheck)."""
+    return _vex(report, ("not_affected",))
 
 
 def counts(report: Report) -> Counts:
@@ -75,6 +89,7 @@ def counts(report: Report) -> Counts:
         other=sum(s not in ("critical", "high", "medium", "low") for s in sev),
         fixable=sum((m["vulnerability"].get("fix") or {}).get("state") == "fixed" for m in open_),
         patched=len({key(m) for m in vex_patched(report)}),
+        not_affected=len({key(m) for m in vex_not_affected(report)}),
     )
 
 
@@ -91,10 +106,25 @@ def most_affected(report: Report, n: int = 12) -> list[tuple[str, str, int]]:
 
 
 def patched(report: Report) -> list[tuple[str, str, str, str]]:
-    """(id, severity, package, version) of each finding VEX closed, by package then id."""
+    """(id, severity, package, version) of each finding our patches closed, by package
+    then id."""
+    return _rows(vex_patched(report))
+
+
+def not_affected(report: Report) -> list[tuple[str, str, int]]:
+    """(package, version, findings) VEX marked not affected, by package and version."""
+    rows: dict[tuple[str, str], set[str]] = {}
+    for m in vex_not_affected(report):
+        rows.setdefault((m["artifact"]["name"], m["artifact"]["version"]), set()).add(
+            m["vulnerability"]["id"]
+        )
+    return [(pkg, ver, len(ids)) for (pkg, ver), ids in sorted(rows.items())]
+
+
+def _rows(matches: list[dict]) -> list[tuple[str, str, str, str]]:
     rows = {
         (m["vulnerability"]["id"], severity(m), m["artifact"]["name"], m["artifact"]["version"])
-        for m in vex_patched(report)
+        for m in matches
     }
     # Ordered as jq orders the objects ({id, sev, pkg, ver} sorts by key name: id, pkg,
     # sev, ver), then by package and id, stably.

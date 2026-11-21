@@ -21,6 +21,13 @@ rescans old builds with one database to take the second away.
 ENRICH is for SBOMs from before env.sh had CPE= (test/cve-history.py): each package gets
 the CPE its env.sh has today, with the SBOM's version in it.
 
+Not affected is not open either. test/cve-not-affected.txt lists what grype matches but
+the image is not affected by — an NVD entry with no version range for a bug fixed years
+ago, a distribution's own patch, code a configure switch leaves out — each with its
+reason (kaetzli.cve.not_affected); every line becomes a VEX `not_affected` statement for
+the SBOM packages of that name, counted in its own column. A line no report mentions any
+more is listed as stale.
+
 Patched is not open. A package whose packages/<pkg>/patches fix a CVE says so in its SBOM
 entry, as an SPDX `fix` reference (tools/patch-cves.sh, image/sbom.py); each SBOM's
 references become an OpenVEX document (<dir>/cve/<sbom>.vex.json) that grype applies, so
@@ -36,7 +43,7 @@ import sys
 from pathlib import Path
 
 from kaetzli import repo
-from kaetzli.cve import findings, sbom
+from kaetzli.cve import findings, not_affected, sbom
 from kaetzli.cve.grype import VERSION, Grype, GrypeUnavailable, binary
 from kaetzli.cve.summary import Counts, Summary
 from kaetzli.report import Note, Report, run
@@ -48,6 +55,7 @@ def scan(
     report: Report,
     arch: str,
     cpes: dict[str, list[str]] | None = None,
+    unaffected: list[not_affected.Entry] | None = None,
 ) -> Summary:
     sboms = sorted(directory.glob("sbom-*.json"))
     if not sboms:
@@ -68,7 +76,8 @@ def scan(
             scanned = out / f"{name}.sbom.json"
             scanned.write_text(sbom.dumps(doc))
         vex_path = out / f"{name}.vex.json"
-        vex = sbom.vex(doc, sbom.timestamp(repo.SOURCE_DATE_EPOCH))
+        extra = not_affected.statements(doc, unaffected or [])
+        vex = sbom.vex(doc, sbom.timestamp(repo.SOURCE_DATE_EPOCH), extra)
         if vex:
             vex_path.write_text(sbom.dumps(vex))
         else:
@@ -88,23 +97,36 @@ def scan(
     whole = [r for name, r in sorted(reports.items()) if name != "oci"]
     top: list[tuple[str, str, int]] = []
     patched: list[tuple[str, str, str, str]] = []
+    unaffected_rows: list[tuple[str, str, int]] = []
     if whole:
         merged = findings.merge(whole)
         summary.all = findings.counts(merged)
         top = findings.most_affected(merged)
         patched = findings.patched(merged)
+        unaffected_rows = findings.not_affected(merged)
+    stale = not_affected.stale(unaffected or [], reports.values()) if reports else []
     (directory / "cve-summary.txt").write_text(summary.text())
 
-    report.lines(render(summary, top, patched, arch))
+    report.lines(render(summary, top, patched, arch, unaffected_rows, stale))
     return summary
 
 
 def _row(label: str, c: Counts) -> str:
-    cells = [c.total, c.critical, c.high, c.medium, c.low, c.other, c.fixable, c.patched]
+    cells = [
+        c.total,
+        c.critical,
+        c.high,
+        c.medium,
+        c.low,
+        c.other,
+        c.fixable,
+        c.patched,
+        c.not_affected,
+    ]
     return f"| {label} | " + " | ".join(str(v) for v in cells) + " |"
 
 
-def render(summary: Summary, top, patched, arch: str) -> list[str]:
+def render(summary: Summary, top, patched, arch: str, unaffected=(), stale=()) -> list[str]:
     lines = [
         f"## Known vulnerabilities — {arch}",
         "",
@@ -112,11 +134,12 @@ def render(summary: Summary, top, patched, arch: str) -> list[str]:
         "per package and version. Reported, never enforced.",
         "",
         "Open CVEs: what this build may be vulnerable to. **with a fix** means upstream has "
-        "released one; **patched** counts those our patches already close, which are not in "
-        "the other columns.",
+        "released one; **patched** counts those our patches already close and **not "
+        "affected** those VEX says do not apply here, neither in the other columns.",
         "",
-        "| SBOM | open | critical | high | medium | low | other | with a fix | patched |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| SBOM | open | critical | high | medium | low | other | with a fix | patched "
+        "| not affected |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     lines += [_row(f"`{name}`", c) for name, c in summary.docs]
     if summary.all is not None:
@@ -134,6 +157,24 @@ def render(summary: Summary, top, patched, arch: str) -> list[str]:
             "| --- | --- | --- | --- |",
         ]
         lines += [f"| {cve} | {sev} | `{pkg}` | {ver} |" for cve, sev, pkg, ver in patched]
+    if unaffected:
+        lines += [
+            "",
+            f"Not affected ({not_affected.PATH}; reported by grype, closed by VEX; not "
+            "counted as open):",
+            "",
+            "| package | version | findings |",
+            "| --- | --- | ---: |",
+        ]
+        lines += [f"| `{pkg}` | {ver} | {n} |" for pkg, ver, n in unaffected]
+    if stale:
+        lines += [
+            "",
+            f"Stale in {not_affected.PATH}: no report mentions these any more, so the "
+            "lines can go:",
+            "",
+        ]
+        lines += [f"- line {e.line}: `{e.package}` {e.vulnerability}" for e in stale]
     return lines
 
 
@@ -149,7 +190,15 @@ def main(argv: list[str]) -> int:
     cpes = None
     if os.environ.get("ENRICH") == "1":
         cpes = sbom.cpe_map(repo.env_get_all("CPE"))
-    scan(directory, Grype(exe), report, arch=repo.normalize_arch(), cpes=cpes)
+    unaffected = not_affected.load(repo.ROOT / not_affected.PATH)
+    scan(
+        directory,
+        Grype(exe),
+        report,
+        arch=repo.normalize_arch(),
+        cpes=cpes,
+        unaffected=unaffected,
+    )
     return 0
 
 

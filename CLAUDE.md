@@ -388,8 +388,10 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   crates (`go version -m`, `cargo tree -e normal`, in `usr/share/kaetzli/modules/`) → `CONTAINS`
   packages. A patched CVE (`tools/patch-cves.sh`) is a SPDX `fix` reference (commit URL;
   `sbom.py` maps `git+<repo>@<sha>`, the check fails other forms), made OpenVEX by
-  `cve-scan.py`. Unresolved libraries are `DEPENDS_ON` without `CONTAINS` (a library = file +
-  SONAME symlink).
+  `cve-scan.py`; `test/cve-not-affected.txt` (one reason per line, a fact a reviewer can
+  check, never "unlikely") is OpenVEX `not_affected`, counted apart from open and listed
+  stale when grype stops reporting it. Unresolved libraries are `DEPENDS_ON` without
+  `CONTAINS` (a library = file + SONAME symlink).
 - **License texts ship for every package; nothing may remove one.** `build-package.sh` copies
   upstream texts (top level, `doc/`, `LICENSES/`/`licenses/`, `debian/copyright`, each
   `vendor/` dependency's) into `usr/share/licenses/<pkg>/`, hardlinking duplicates, failing a
