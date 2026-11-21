@@ -137,7 +137,14 @@ make k8s.config
 #     libvirt's <sysinfo type="fwcfg">), the channel for anything that should not be on
 #     the command line: too big for its 2048 bytes, or a secret, since /proc/cmdline is
 #     world-readable. Unlike SMBIOS it needs no firmware, so arm64's virt board has it too.
+#   A virtual TPM (qemu's tpm-tis and tpm-crb over swtpm, cloud vTPMs): the UKI's stub
+#     measures every section into PCR 11, which /sys/class/tpm/tpm0/pcr-sha256/11 then
+#     shows, against the value each release predicts (docs/guides/secure-boot.md). TIS is
+#     x86's and device-tree arm64's interface, CRB the ACPI one.
 cat > kernel/configs/guest.config <<'EOF'
+CONFIG_TCG_TPM=y
+CONFIG_TCG_TIS=y
+CONFIG_TCG_CRB=y
 CONFIG_VIRTIO_MMIO=y
 CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
 CONFIG_VIRTIO_CONSOLE=y
@@ -411,7 +418,6 @@ cat > kernel/configs/vm.config <<'EOF'
 # CONFIG_CHROME_PLATFORMS is not set
 # CONFIG_GOOGLE_FIRMWARE is not set
 # CONFIG_TEE is not set
-# CONFIG_TCG_TPM is not set
 # CONFIG_IPMI_HANDLER is not set
 # CONFIG_EDAC is not set
 # CONFIG_ACPI_APEI_EINJ is not set

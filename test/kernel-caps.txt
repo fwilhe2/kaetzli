@@ -96,6 +96,11 @@ KPROBE_EVENTS       the same, through the tracefs and perf interfaces they use
 UPROBE_EVENTS       probes on functions in programs and libraries
 FTRACE_SYSCALLS     syscalls:sys_enter_*/sys_exit_*; perf trace reads nothing without them
 
+# Measured boot (docs/guides/secure-boot.md).
+TCG_TPM             no /dev/tpm0, no /sys/class/tpm: a vTPM's PCRs cannot be read or quoted
+TCG_TIS             qemu's tpm-tis (x86) and tpm-tis-device (arm64) are not found
+TCG_CRB             an ACPI CRB vTPM (qemu's tpm-crb, cloud vTPMs) is not found
+
 # What boots the machine at all on each architecture.
 [x86]
 PVH                 Firecracker boots an uncompressed vmlinux through PVH
