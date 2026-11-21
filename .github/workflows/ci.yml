@@ -411,6 +411,9 @@ jobs:
       - name: Check the kernel can run containers
         run: ./test/kernel-caps.py rootfs
 
+      - name: Check the kernel is hardened
+        run: ./test/kernel-hardening.py rootfs
+
       # The same library checks for each extension merged over the base, as a guest sees it.
       - name: Check the extensions' libraries against the base
         run: |

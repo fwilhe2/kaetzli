@@ -76,7 +76,8 @@ and fragments subtract hardware and add container, Kubernetes, KSPP and tracing 
 after merging, `build.sh` checks that requested `=y` symbols are set, that cleared symbols
 stayed cleared, and that every named symbol exists. `kernel-parity.py` requires amd64 and
 arm64 to have the same features. `kernel-caps.py` checks 108 symbols that container
-engines need at runtime. The kernel tracks the latest stable series from its x.y.1
+engines need at runtime, and `kernel-hardening.py` the hardening (lockdown in integrity
+mode, KSPP's recommendations) nothing would notice going. The kernel tracks the latest stable series from its x.y.1
 release.
 
 **Few privileges by default.** Nothing in the image is setuid or setgid, and assembly

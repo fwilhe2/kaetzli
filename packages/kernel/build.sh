@@ -191,11 +191,41 @@ make rootfs.config
 #   LEGACY_TIOCSTI off: only CAP_SYS_ADMIN may push input into a terminal, so a process
 #     left on a terminal it shares (su, runuser, chroot --userspec) cannot type commands
 #     into the shell that started it (CVE-2016-2781 and its kind; dev.tty.legacy_tiocsti).
+#   SECURITY_LOCKDOWN_LSM, _EARLY and FORCE_INTEGRITY: root cannot modify the running
+#     kernel (no /dev/mem, iopl, MSR writes, kexec, writable debugfs, bpf_probe_write_user).
+#     Integrity, not confidentiality: that would also close kprobes, perf's kernel side
+#     and BPF reads of kernel memory, which the debug extension is. Forced in the config,
+#     so no `lockdown=` the host passes can lower it.
+#   SECURITY_LANDLOCK: unprivileged sandboxing a program applies to itself. CONFIG_LSM
+#     named it, but an LSM that is not built is ignored there, silently.
+#   HARDENED_USERCOPY: copies to and from user space checked against the object's bounds.
+#   SLAB_FREELIST_RANDOM, SLAB_FREELIST_HARDENED: heap layout and freelist pointers an
+#     overflow cannot predict or forge.
+#   LIST_HARDENED, BUG_ON_DATA_CORRUPTION: a corrupted list or slab stops the kernel
+#     instead of becoming a write primitive.
+#   SCHED_STACK_END_CHECK: a task whose stack overran is killed at the next schedule.
+#   SECURITY_DMESG_RESTRICT: the kernel log is root's, whether or not sysctl.d runs
+#     (kernel.dmesg_restrict, image/files/etc/sysctl.d/50-hardening.conf).
+#   DEVMEM off: no /dev/mem or /dev/port; nothing in a VM reads physical memory.
+#   LDISC_AUTOLOAD off: an unprivileged TIOCSETD cannot load a line discipline.
 cat > kernel/configs/kspp.config <<'EOF'
 CONFIG_SECURITY_YAMA=y
 CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
 # CONFIG_SLAB_MERGE_DEFAULT is not set
 # CONFIG_LEGACY_TIOCSTI is not set
+CONFIG_SECURITY_LOCKDOWN_LSM=y
+CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
+CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y
+CONFIG_SECURITY_LANDLOCK=y
+CONFIG_HARDENED_USERCOPY=y
+CONFIG_SLAB_FREELIST_RANDOM=y
+CONFIG_SLAB_FREELIST_HARDENED=y
+CONFIG_LIST_HARDENED=y
+CONFIG_BUG_ON_DATA_CORRUPTION=y
+CONFIG_SCHED_STACK_END_CHECK=y
+CONFIG_SECURITY_DMESG_RESTRICT=y
+# CONFIG_DEVMEM is not set
+# CONFIG_LDISC_AUTOLOAD is not set
 EOF
 make kspp.config
 
@@ -744,10 +774,13 @@ CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=y
 # CONFIG_CGROUP_MISC is not set
 
 # Up to 512 vCPUs (amd64's default stops at 64, and the rest of a bigger VM's would sit
-# idle), one size of kernel log, one list of security modules in one order.
+# idle), one size of kernel log, one list of security modules in one order: the ones
+# kspp.config builds, and nothing else. LoadPin, SafeSetID and IPE are not built: each
+# needs a policy to do anything (IPE's own entry in docs/proposals/image-variants.md says
+# why its one useful policy, exec only from dm-verity, cannot run containers).
 CONFIG_NR_CPUS=512
 CONFIG_LOG_BUF_SHIFT=18
-CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,ipe,bpf"
+CONFIG_LSM="landlock,lockdown,yama,bpf"
 
 # One timer frequency and one preemption model: amd64's defaults, lazy preemption with
 # `preempt=` on the command line to change it.

@@ -240,6 +240,25 @@ expect pass "kernel-caps: a config with every requirement passes" "" ./test/kern
 sed -i '/^CONFIG_USER_NS=y$/d' "$kernel/boot/config"
 expect fail "kernel-caps: a missing requirement is reported" CONFIG_USER_NS ./test/kernel-caps.py "$kernel"
 
+# kernel-hardening.py: the same, from its list, both ways a line can be broken — a
+# required symbol gone, and one that must be off turned on. Only the lines a "Linux/x86"
+# config is held to, and not the `!` ones: `=y` for those is the failure.
+hard=$work/hardening-kernel
+mkdir -p "$hard/boot"
+{
+    echo "# Linux/x86 0.0.0 Kernel Configuration"
+    awk '/^\[/ { s = $0; next } s != "[arm64]" && /^[A-Z0-9_]+ / { print "CONFIG_" $1 "=y" }' \
+        test/kernel-hardening.txt
+} > "$hard/boot/config"
+expect pass "kernel-hardening: a config with every requirement passes" "" ./test/kernel-hardening.py "$hard"
+
+echo CONFIG_DEVMEM=y >> "$hard/boot/config"
+expect fail "kernel-hardening: a symbol that must be off is reported" "CONFIG_DEVMEM is set" \
+    ./test/kernel-hardening.py "$hard"
+sed -i '/^CONFIG_DEVMEM=y$/d; /^CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y$/d' "$hard/boot/config"
+expect fail "kernel-hardening: a missing requirement is reported" CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY \
+    ./test/kernel-hardening.py "$hard"
+
 # kernel-parity.py: two configs that differ only in what may differ (OF, a symbol only
 # one arch defines), then a pair that differs in a feature, and in a string value.
 parity=$work/parity

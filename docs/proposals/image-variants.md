@@ -60,3 +60,29 @@ them.
 - Consider a self-bootable disk platform separately; it requires a partition table and
   bootloader, unlike the current EROFS filesystem image ([cloud VPS](cloud-vps.md) is
   one use).
+
+## An appliance variant: exec only from dm-verity (IPE)
+
+The general image cannot restrict what runs, because it must run any container
+(constraint 3). An appliance variant, with fixed workloads and no `podman pull`, can,
+with the kernel's IPE LSM (Integrity Policy Enforcement, mainline since 6.12). It is not
+built today: `CONFIG_LSM=` names only what `kspp.config` builds.
+
+The one policy worth having allows `op=EXECUTE` only for files on a dm-verity device:
+the root, and the extensions, which are verity too (`dmverity_roothash`). Nothing written
+to `/var`, `/tmp` or a home then runs as native code, root included.
+
+- **Pulled containers stop working.** A container's root is overlayfs over layers on
+  `/var` (ext4, no verity), so its first `execve` fails with `EACCES`; crun itself, on
+  the root, starts. IPE has no subject conditions, so a policy cannot exempt containers.
+- **What still runs**: containers whose root is EROFS plus dm-verity built in this
+  pipeline and attached like an extension (`podman run --rootfs`), or composefs layers
+  whose fs-verity digests are signed by a key the variant enrolls (`fsverity_signature`).
+  Registry images are neither.
+- **Not covered**: interpreters on the root run scripts from anywhere (`bash /var/x.sh`,
+  awk, `nft -f`); IPE sees native code only. `memfd` executables are denied, which some
+  JITs and runtimes need.
+- **Before building it**: boot an enforcing policy and confirm `podman run alpine true`
+  fails as above (IPE reads the property from the file's superblock's block device, which
+  overlayfs does not have), and that the policy's audit mode reports what the workloads
+  would lose.

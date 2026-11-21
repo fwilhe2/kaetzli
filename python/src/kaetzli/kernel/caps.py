@@ -31,17 +31,23 @@ def required(entries: Entries, arch: str | None) -> list[tuple[str, str]]:
 
 
 def missing(path: Path, entries: Entries) -> list[str]:
+    """What the config gets wrong: a symbol that is not =y, or a `!SYM` that is."""
     have = set(config.lines(path))
-    return [
-        f"CONFIG_{sym} — {why}"
-        for sym, why in required(entries, config.arch(path))
-        if f"CONFIG_{sym}=y" not in have
-    ]
+    out = []
+    for sym, why in required(entries, config.arch(path)):
+        if sym.startswith("!"):
+            if f"CONFIG_{sym[1:]}=y" in have:
+                out.append(f"CONFIG_{sym[1:]} is set — {why}")
+        elif f"CONFIG_{sym}=y" not in have:
+            out.append(f"CONFIG_{sym} — {why}")
+    return out
 
 
-def main(argv: list[str]) -> int:
+def run(argv: list[str], *, script: str, listing: str, problem: str, ok: str) -> int:
+    """The check against one list: kernel-caps.py and kernel-hardening.py differ only in
+    which list, and in how they say what is wrong."""
     if len(argv) > 1:
-        print("usage: test/kernel-caps.py [rootfs]", file=sys.stderr)
+        print(f"usage: test/{script} [rootfs]", file=sys.stderr)
         return 2
     repo.enter_root()
     path = Path(argv[0] if argv else "rootfs") / "boot" / "config"
@@ -53,17 +59,27 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    entries = config.symbol_list(Path(LIST))
+    entries = config.symbol_list(Path(listing))
     if gone := missing(path, entries):
-        print("error: the kernel is missing capabilities this image depends on:", file=sys.stderr)
+        print(f"error: {problem}:", file=sys.stderr)
         for line in gone:
             print(f"  {line}", file=sys.stderr)
         return 1
 
     built_in = sum(line.endswith("=y") for line in config.lines(path))
     n = len(required(entries, config.arch(path)))
-    print(f"kernel capabilities OK ({built_in} symbols built in, {n} required present)")
+    print(ok.format(built_in=built_in, n=n))
     return 0
+
+
+def main(argv: list[str]) -> int:
+    return run(
+        argv,
+        script="kernel-caps.py",
+        listing=LIST,
+        problem="the kernel is missing capabilities this image depends on",
+        ok="kernel capabilities OK ({built_in} symbols built in, {n} required present)",
+    )
 
 
 if __name__ == "__main__":

@@ -176,6 +176,7 @@ policy checks are done).
 ./test/check-symbol-resolution.py rootfs  # undefined symbols nothing in the NEEDED closure defines
 ./test/check-hardening.py staging         # RELRO, BIND_NOW, PIE, NX, SSP, fortify per package
 ./test/kernel-caps.py rootfs              # kernel config vs test/kernel-caps.txt
+./test/kernel-hardening.py rootfs         # lockdown, KSPP: vs test/kernel-hardening.txt (`!SYM` must be off)
 ./test/kernel-parity.py <amd64> <arm64>   # the arches' kernel configs agree
 ./test/kernel-config-diff.py <old> <new> [src]  # what a kernel build turned on/off
 ./test/check-licenses.py

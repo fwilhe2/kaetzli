@@ -1,6 +1,6 @@
 # Ideas from other image builders
 
-**Status: proposal, partly implemented.** Implemented: sections 1–6 and 8; 7 as a report. This page collects features found
+**Status: proposal, partly implemented.** Implemented: sections 1–6, 8 and 9; 7 as a report. This page collects features found
 in other immutable or minimal Linux image builders that fit this project's constraints
 (see `CLAUDE.md`), with enough detail to implement each one. Each section names where the
 idea came from, what the gap is today, how to close it, and how to verify the change.
@@ -425,6 +425,12 @@ compared with `main`.
 version, files and size; a docs-only change does not run it.
 
 ## 9. A kernel hardening configuration check
+
+*Implemented:* `test/kernel-hardening.txt` and `test/kernel-hardening.py` (a list of its
+own, with `!SYM` for what must be off), turned on in `kspp.config`, with lockdown forced to
+integrity in the config. Not taken: `SHUFFLE_PAGE_ALLOCATOR` (inert without
+`page_alloc.shuffle=1`), `STATIC_USERMODEHELPER` (needs a helper we do not ship),
+`INIT_ON_FREE_DEFAULT_ON` (its cost is per free, for little over `INIT_ON_ALLOC`).
 
 **Inspiration:** LinuxKit, `projects/kspp/` and the per-kernel config tests in
 `test/cases/020_kernel/` (for example `022_config_6.12.x/`), which assert the shipped kernel

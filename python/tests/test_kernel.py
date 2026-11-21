@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from kaetzli import repo
-from kaetzli.kernel import caps, config, config_diff, parity
+from kaetzli.kernel import caps, config, config_diff, hardening, parity
 
 FIXTURES = Path(__file__).parent / "fixtures" / "kernel"
 EXPECTED = FIXTURES / "expected"
@@ -134,6 +134,47 @@ class TestCaps:
         monkeypatch.setattr(repo, "enter_root", lambda: monkeypatch.chdir(tmp_path))
         assert caps.main([]) == 1
         assert "no kernel config at rootfs/boot/config" in capsys.readouterr().err
+
+
+class TestHardening:
+    def test_the_real_list_has_both_arches_and_both_kinds(self):
+        entries = config.symbol_list(repo.ROOT / hardening.LIST)
+        assert {s for s, _, _ in entries} == {None, "x86", "arm64"}
+        assert any(sym.startswith("!") for _, sym, _ in entries)
+        assert all(why for _, _, why in entries)
+
+    def test_a_negated_symbol_must_not_be_y(self, tmp_path):
+        p = tmp_path / "config"
+        p.write_text("CONFIG_ON=y\nCONFIG_BAD=y\n# CONFIG_OFF is not set\n")
+        entries = [(None, "ON", "on"), (None, "!BAD", "bad"), (None, "!OFF", "off")]
+        entries.append((None, "!ABSENT", "an arch without the symbol"))
+        assert caps.missing(p, entries) == ["CONFIG_BAD is set — bad"]
+
+    def test_the_fixtures_predate_it(self, trees, capsys, monkeypatch):
+        # CI's 7.3.1 configs were built before kspp.config had lockdown: the check fails
+        # them, naming it.
+        monkeypatch.chdir("/")
+        assert hardening.main([str(trees / "amd64-7.3.1")]) == 1
+        err = capsys.readouterr().err
+        assert "CONFIG_SECURITY_LOCKDOWN_LSM —" in err
+        assert "CONFIG_DEVMEM is set" in err
+
+    def test_a_hardened_config_passes(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir("/")
+        entries = config.symbol_list(repo.ROOT / hardening.LIST)
+        boot = tmp_path / "boot"
+        boot.mkdir()
+        on = [f"CONFIG_{sym}=y" for s, sym, _ in entries if s in (None, "x86") and sym[0] != "!"]
+        (boot / "config").write_text("# Linux/x86 0.0.0 Kernel Configuration\n" + "\n".join(on))
+        assert hardening.main([str(tmp_path)]) == 0
+        assert "kernel hardening OK" in capsys.readouterr().out
+        script = repo.ROOT / "test" / "kernel-hardening.py"
+        r = subprocess.run([str(script), str(tmp_path)], capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+
+    def test_usage(self, capsys):
+        assert hardening.main(["a", "b"]) == 2
+        assert "usage: test/kernel-hardening.py" in capsys.readouterr().err
 
 
 class TestParity:

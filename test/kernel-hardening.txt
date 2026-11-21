@@ -1,0 +1,53 @@
+# How the kernel must be hardened: test/kernel-hardening.py holds the resolved config
+# (rootfs/boot/config) to this list, as test/kernel-caps.py holds it to kernel-caps.txt.
+#
+# A separate list because the question is different: kernel-caps.txt is what the image
+# needs to work, this is what it needs to resist. Nothing breaks when one of these goes —
+# that is why it needs a check. Most of it arrives from defconfig, and a defconfig that
+# stops providing it, or a fragment that selects its way around a clear, would otherwise
+# go unnoticed. What turns on the ones defconfig does not is kspp.config in
+# packages/kernel/build.sh (the Kernel Self Protection Project's recommendations).
+#
+# One symbol per line, without CONFIG_, then what an attacker gets without it. `!SYM`
+# means it must *not* be =y. Lines under [x86] or [arm64] apply to that architecture
+# only (the arch in the config's "# Linux/<arch>" header); before any section, to both.
+
+# Lockdown: root does not get to modify the running kernel.
+SECURITY_LOCKDOWN_LSM           no lockdown at all; root can patch the kernel through /dev/mem, MSRs, iopl, debugfs
+SECURITY_LOCKDOWN_LSM_EARLY     lockdown starts after early boot instead of before it
+LOCK_DOWN_KERNEL_FORCE_INTEGRITY  lockdown is off unless the command line, which the host writes, asks for it
+SECURITY_LANDLOCK               no unprivileged self-sandboxing (CONFIG_LSM names it, but an unbuilt LSM is skipped)
+SECURITY_YAMA                   any process may ptrace any other of the same user
+!KEXEC                          root can replace the verified kernel with any other
+!KEXEC_FILE                     the same, through kexec_file_load
+!HIBERNATION                    an image of memory written to and read back from a disk nothing verifies
+!DEVMEM                         /dev/mem and /dev/port: physical memory and I/O ports from user space
+!PROC_KCORE                     /proc/kcore: the kernel's memory as a file
+!LDISC_AUTOLOAD                 an unprivileged TIOCSETD loads any line discipline's code
+
+# Memory safety: a bug in the kernel stays a bug instead of becoming a primitive.
+RANDOMIZE_BASE                  the kernel is at the same address on every machine (KASLR)
+STACKPROTECTOR_STRONG           a stack overflow in the kernel overwrites the return address unnoticed
+VMAP_STACK                      a kernel stack overflow runs into the next allocation, not a guard page
+SCHED_STACK_END_CHECK           an overrun stack is used until something else notices
+STRICT_KERNEL_RWX               kernel code writable, kernel data executable
+HARDENED_USERCOPY               copy_to_user/copy_from_user not checked against the object's bounds
+SLAB_FREELIST_RANDOM            the heap's layout is predictable, so overflow targets are too
+SLAB_FREELIST_HARDENED          a freelist pointer an overflow writes is followed
+LIST_HARDENED                   a corrupted list's unlink writes where the corruption says
+BUG_ON_DATA_CORRUPTION          detected corruption is reported and execution goes on
+INIT_ON_ALLOC_DEFAULT_ON        a new allocation holds its previous owner's data
+SECURITY_DMESG_RESTRICT         any user reads kernel addresses out of the log
+!SLAB_MERGE_DEFAULT             object types share caches, so an overflow reaches another type's objects
+!LEGACY_TIOCSTI                 a process on a shared terminal types commands into the shell that started it
+!COMPAT_BRK                     the heap starts at a fixed offset from the program
+
+[x86]
+RANDOMIZE_MEMORY                the direct map, vmalloc and vmemmap at fixed addresses
+MITIGATION_PAGE_TABLE_ISOLATION  Meltdown: user space reads kernel memory on affected CPUs
+X86_KERNEL_IBT                  indirect branches in the kernel may land anywhere (CET)
+
+[arm64]
+ARM64_PTR_AUTH_KERNEL           return addresses in the kernel are not signed
+ARM64_BTI                       indirect branches may land anywhere (BTI)
+UNMAP_KERNEL_AT_EL0             Meltdown: the kernel stays mapped while user space runs
