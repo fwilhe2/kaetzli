@@ -76,6 +76,10 @@ systemd_opts=(
     -Drpmmacrosdir=no
 )
 
+# The EFI stubs link with -z max-page-size=4096 and elf2efi refuses any other alignment,
+# but meson puts LDFLAGS after them, so build-package.sh's arm64 16 KiB (there for the
+# padding) would win: systemd keeps the linker's default instead.
+LDFLAGS=${LDFLAGS//-Wl,-z,max-page-size=16384/}
 meson_install "${systemd_opts[@]}"
 
 # bootctl: it manages an EFI system partition and the boot loader's variables, and a VM
