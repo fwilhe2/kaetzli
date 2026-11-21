@@ -1,0 +1,50 @@
+From 5fba8ad64875ff1aff6cd2ad111ca12c33fa6ba2 Mon Sep 17 00:00:00 2001
+From: Prudhvi raj <prudhvirajkonda8@gmail.com>
+Date: Sun, 15 Nov 2026 19:10:45 +0530
+Subject: [PATCH] demos: fix sslecho receive buffer boundary handling
+
+The rxbuf array in the sslecho, echecho, and dtlsecho demos was declared
+as char rxbuf[128] with rxcap set to sizeof(rxbuf) (128).  SSL_read()
+could return up to 128 bytes, and the subsequent null termination
+rxbuf[rxlen] = 0 would then write one byte past the end of the buffer
+at index 128.
+
+This affected both the server-side and client-side receive paths in all
+three demo programs.
+
+Fix by declaring rxbuf with one extra byte (128 + 1 = 129) and setting
+rxcap to sizeof(rxbuf) - 1 (128). This preserves the maximum 128-byte
+read capacity while ensuring that the null terminator at rxbuf[128]
+stays within bounds.
+
+  [ dtlsecho and echecho do not exist on this branch, so the respective
+    hunks are dropped. ]
+
+Resolves: https://github.com/openssl/openssl/issues/33730
+Fixes: ef6e427b4026 "DTLS 1.3 Demo and Bug Fix"
+Fixes: 50580382caca "Documents initial agreed APIs for Encrypted Client Hello (ECH) and includes a minimal demo for some of those APIs."
+Fixes: 801c638c5040 "Added Simple SSL Echo Client/Server to demos."
+Reviewed-by: Matt Caswell <matt@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Fri Nov 20 17:51:06 2026
+Merged-from: https://github.com/openssl/openssl/pull/33747
+(cherry picked from commit eb7d128d17dfa2dc7954b086348accec946bd21c)
+---
+ demos/sslecho/main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/demos/sslecho/main.c b/demos/sslecho/main.c
+index c954ce7ee07e..decede2443c2 100644
+--- a/demos/sslecho/main.c
++++ b/demos/sslecho/main.c
+@@ -148,8 +148,8 @@ int main(int argc, char **argv)
+     char buffer[BUFFERSIZE];
+     char *txbuf;
+ 
+-    char rxbuf[128];
+-    size_t rxcap = sizeof(rxbuf);
++    char rxbuf[128 + 1];
++    size_t rxcap = sizeof(rxbuf) - 1;
+     int rxlen;
+ 
+     char *rem_server_ip = NULL;

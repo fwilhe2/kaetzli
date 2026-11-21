@@ -1,0 +1,35 @@
+From 16f611be4d854254d3b845b47f04f030b5b83149 Mon Sep 17 00:00:00 2001
+From: PSJ <51746608+thispsj@users.noreply.github.com>
+Date: Sat, 14 Feb 2026 22:02:53 +0530
+Subject: [PATCH] NOTES-ANDROID.md: add a note on 16 KiB page size for older
+ OpenSSL versions
+
+CLA: trivial
+Co-authored-by: Tomas Mraz <tomas@openssl.foundation>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Merge-date: Mon Oct  5 10:14:10 2026
+Merged-from: https://github.com/openssl/openssl/pull/30013
+(cherry picked from commit 31f4ecc5d000c5c8b902637deb841a4aeb8ee49a)
+---
+ NOTES-ANDROID.md | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/NOTES-ANDROID.md b/NOTES-ANDROID.md
+index b71365fe731e..8716de128fb8 100644
+--- a/NOTES-ANDROID.md
++++ b/NOTES-ANDROID.md
+@@ -42,6 +42,12 @@ Notes for Android platforms
+     ./Configure android-arm64 -D__ANDROID_API__=29
+     make
+ 
++**Note**: 64-bit devices running Android 15 (API Level 35) and above may require
++native libraries with a 16 KB page size. OpenSSL libraries with a 16 KB
++page size are built by default on version 3.6.0 and above. For prior
++versions of OpenSSL, you can pass the argument `-Wl,-z,max-page-size=16384`
++to Configure while building OpenSSL for 64-bit devices.
++
+  Older versions of the NDK have GCC under their common prebuilt tools
+  directory, so the bin path will be slightly different. EG: to compile
+  for ICS on ARM with NDK 10d:

@@ -27,6 +27,11 @@
 #   UPSTREAM_PATCH_ADVISORIES  <branch>:<dir> of glibc-format advisories (CVE-Id:,
 #                          Fix-Commit: <sha> (<version>-<n>)), optional: written to
 #                          patches/upstream.cves for tools/patch-cves.sh
+#   UPSTREAM_PATCH_ARCHIVE=1  the tarball is `git archive` of the tag (OpenSSL's is, byte
+#                          for byte), so what that leaves out — .github/, submodules, the
+#                          export-ignore paths — is left out of the series too: a commit
+#                          touching only those disappears, and one touching both keeps the
+#                          rest. Without it a CI-only commit is a patch with no file to patch.
 #
 # The series is then `git format-patch BASE..BRANCH`: the tarball plus these patches is
 # the branch's tree at its head, which each patch's `From <sha>` line names. Only the
@@ -61,8 +66,10 @@ esac
 PKG=$(package_name "$1")
 dest="packages/$PKG/patches/upstream"
 mapfile -t v < <(env_get "$PKG" UPSTREAM_PATCHES UPSTREAM_PATCH_REGEX \
-                 UPSTREAM_PATCH_GIT UPSTREAM_PATCH_BRANCH UPSTREAM_PATCH_BASE UPSTREAM_PATCH_ADVISORIES)
+                 UPSTREAM_PATCH_GIT UPSTREAM_PATCH_BRANCH UPSTREAM_PATCH_BASE UPSTREAM_PATCH_ADVISORIES \
+                 UPSTREAM_PATCH_ARCHIVE)
 index=${v[0]:-} regex=${v[1]:-} repo=${v[2]:-} branch=${v[3]:-} base=${v[4]:-} advisories=${v[5]:-}
+archive=${v[6]:-}
 
 # replace_series <dir> — make $dest exactly the files in <dir>.
 #
@@ -130,11 +137,27 @@ if [ -n "$repo" ]; then
     # --no-numbered, because "[PATCH 01/66]" names the length of the series in every file,
     # so one new commit upstream would rewrite them all and fail the append-only check.
     # The file names still carry the order (0001-…).
+    # Pathspecs for what the tag has and `git archive` of it does not: each such directory
+    # as a whole (so a file the branch adds under it goes too), else the file.
+    pathspec=()
+    if [ -n "$archive" ]; then
+        g ls-tree -r --name-only "$base" | LC_ALL=C sort > "$tmp/tree"
+        g archive "$base" | tar -t | grep -v '/$' | LC_ALL=C sort > "$tmp/archived"
+        mapfile -t absent < <(LC_ALL=C comm -23 "$tmp/tree" "$tmp/archived" | awk '
+            NR == FNR { n = split($0, p, "/"); d = ""
+                        for (i = 1; i < n; i++) { d = d (i > 1 ? "/" : "") p[i]; present[d] = 1 }
+                        next }
+            { n = split($0, p, "/"); d = ""; out = $0
+              for (i = 1; i < n; i++) { d = d (i > 1 ? "/" : "") p[i]; if (!(d in present)) { out = d; break } }
+              print out }' "$tmp/archived" - | LC_ALL=C sort -u)
+        pathspec=(-- .)
+        for p in "${absent[@]}"; do pathspec+=(":(exclude,literal)$p"); done
+    fi
     mkdir "$tmp/series"
     g -c core.abbrev=12 -c diff.renames=false -c diff.noprefix=false -c diff.mnemonicPrefix=false \
         -c diff.algorithm=myers -c format.signOff=false -c format.numbered=false \
         format-patch -q --no-numbered --no-signature --no-renames --no-binary \
-        -o "$tmp/series" "$base..upstream/branch"
+        -o "$tmp/series" "$base..upstream/branch" "${pathspec[@]}"
     if grep -l '^Binary files ' "$tmp/series"/* 2>/dev/null; then
         echo "error: a commit on $branch changes a binary file, which patch(1) cannot apply" >&2
         exit 1

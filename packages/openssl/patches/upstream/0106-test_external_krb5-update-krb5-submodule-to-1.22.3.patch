@@ -1,0 +1,69 @@
+From fe7c060be52411affa9a6a66b886935190f45edc Mon Sep 17 00:00:00 2001
+From: Richard Levitte <levitte@openssl.foundation>
+Date: Tue, 17 Nov 2026 12:41:17 +0100
+Subject: [PATCH] test_external_krb5: update krb5 submodule to 1.22.3
+
+Update the krb5 submodule to krb5-1.22.3-final (f5bee90a).  The four
+locally carried patches are present in 1.22.3 in equivalent form,
+so they are dropped;  the release also carries the C23 strchr() fixes
+that the gcc 15 default -std=gnu23 requires (the ubuntu-26.04 runners
+fail the build with -Werror=discarded-qualifiers).
+
+One small patch is carried instead:  the k5tls plugin lacks two
+const qualifiers for OpenSSL 4.x APIs.
+
+Resolves: https://github.com/openssl/openssl/issues/33794
+Assisted-by: Pi:moonshotai/kimi-k3
+Signed-off-by: Richard Levitte <levitte@openssl.foundation>
+Reviewed-by: Dmitry Belyavskiy <beldmit@gmail.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Tue Nov 17 15:08:26 2026
+Merged-from: https://github.com/openssl/openssl/pull/33795
+(cherry picked from commit 16796809d8f2fc92ce0bded75e6b60a9e1bba3bb)
+---
+ .../0001-constify-k5tls-openssl-plugin.patch  | 36 +++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+ create mode 100644 test/recipes/95-test_external_krb5_data/patches/0001-constify-k5tls-openssl-plugin.patch
+
+diff --git a/test/recipes/95-test_external_krb5_data/patches/0001-constify-k5tls-openssl-plugin.patch b/test/recipes/95-test_external_krb5_data/patches/0001-constify-k5tls-openssl-plugin.patch
+new file mode 100644
+index 000000000000..e79c076f98f9
+--- /dev/null
++++ b/test/recipes/95-test_external_krb5_data/patches/0001-constify-k5tls-openssl-plugin.patch
+@@ -0,0 +1,36 @@
++From e8e15b31dc01963f3c4995f63f699e68d8724c22 Mon Sep 17 00:00:00 2001
++From: Richard Levitte <levitte@openssl.foundation>
++Date: Tue, 17 Nov 2026 12:54:04 +0100
++Subject: [PATCH] constify k5tls OpenSSL plugin
++
++X509_get_ext() and X509_get_subject_name() return const pointers in
++OpenSSL 4.x.
++---
++ src/plugins/tls/k5tls/openssl.c | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/src/plugins/tls/k5tls/openssl.c b/src/plugins/tls/k5tls/openssl.c
++index 3b0b29a5f..6bc2c3d4b 100644
++--- a/src/plugins/tls/k5tls/openssl.c
+++++ b/src/plugins/tls/k5tls/openssl.c
++@@ -162,7 +162,7 @@ static GENERAL_NAMES *
++ get_cert_sans(const X509 *x)
++ {
++     int ext;
++-    X509_EXTENSION *san_ext;
+++    const X509_EXTENSION *san_ext;
++ 
++     ext = X509_get_ext_by_NID(x, NID_subject_alt_name, -1);
++     if (ext < 0)
++@@ -178,7 +178,7 @@ get_cert_sans(const X509 *x)
++ static int
++ get_cert_cn(const X509 *x, char *buf, size_t bufsize)
++ {
++-    X509_NAME *name;
+++    const X509_NAME *name;
++ 
++     name = X509_get_subject_name(x);
++     if (name == NULL)
++-- 
++2.55.0
++

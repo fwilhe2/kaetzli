@@ -1,0 +1,99 @@
+From 486d662fdec321164b727cec1ab7f85ada85e896 Mon Sep 17 00:00:00 2001
+From: Eugene Syromiatnikov <esyr@openssl.org>
+Date: Sun, 4 Oct 2026 12:53:02 +0200
+Subject: [PATCH] CHANGES.md, NEWS.md: 3.5.9 fixups
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix CVE-2026-54872 title wording, fix typos in CVE-2026-35191,
+CVE-2026-75804, and PR #31610[1] descriptions, mention the FIPS
+indicator change in NEWS.md.
+
+[1] https://github.com/openssl/openssl/pull/31610
+
+Co-Authored-by: Mounir IDRASSI <mounir.idrassi@idrix.fr>
+Fixes: c76f715f4a53 "CHANGES.md, NEWS.md: update for 3.5.9"
+Signed-off-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Milan Broz <mbroz@openssl.org>
+Reviewed-by: Daniel Kubec <kubec@openssl.foundation>
+Reviewed-by: Saša Nedvědický <sashan@openssl.org>
+Merge-date: Tue Nov  3 13:28:11 2026
+Merged-from: https://github.com/openssl/openssl/pull/33165
+---
+ CHANGES.md |  9 +++++----
+ NEWS.md    | 13 ++++++++++++-
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/CHANGES.md b/CHANGES.md
+index a604b4af84c9..f656fa8c0dc4 100644
+--- a/CHANGES.md
++++ b/CHANGES.md
+@@ -76,7 +76,7 @@ OpenSSL 3.5
+ 
+    Severity: Low
+ 
+-   Issue summary: The OpenSSL QUIC server, when configured to not preform
++   Issue summary: The OpenSSL QUIC server, when configured to not perform
+    address validation, can be forced to count incoming packets multiple times
+    in its unvalidated credit computation, leading to a violation
+    of the [RFC 9000] unvalidated connection amplification limit of 3 times
+@@ -114,7 +114,8 @@ OpenSSL 3.5
+ 
+    *Alexandr Nedvědický*
+ 
+- * Fixed a timing side-channel in scalar multiplication for mon-NIST EC curves.
++ * Fixed a timing side-channel leak in generic elliptic curve scalar
++   multiplication.
+ 
+    Severity: Low
+ 
+@@ -207,7 +208,7 @@ OpenSSL 3.5
+    flow control for streams to make the QUIC stack receive ~100 MiB of memory
+    instead of 768 KiB (default flow control window size).
+ 
+-   Reportedby: Moltenbit, Bhabani Sankar Das, Saiyowa Security Team, mzfr.
++   Reported by: Moltenbit, Bhabani Sankar Das, Saiyowa Security Team, mzfr.
+ 
+    ([CVE-2026-75804])
+ 
+@@ -292,7 +293,7 @@ OpenSSL 3.5
+    *Alexandr Nedvědický*
+ 
+  * Fixed a bug where `EVP_DecryptFinal()` incorrectly reported a stale success
+-   on AES-SIV authentication failure after a preciously successful message
++   on AES-SIV authentication failure after a previously successful message
+    decryption.
+    <!-- https://github.com/openssl/openssl/pull/31610 -->
+ 
+diff --git a/NEWS.md b/NEWS.md
+index 5ecab6c700db..bbcaeafc1998 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -46,7 +46,8 @@ This release incorporates the following bug fixes and mitigations:
+   * Fixed potential CPU DoS via O(n^2) fragment reassembly in QUIC.
+     ([CVE-2026-42772])
+ 
+-  * Fixed a timing side-channel in scalar multiplication for mon-NIST EC curves.
++  * Fixed a timing side-channel leak in generic elliptic curve scalar
++    multiplication.
+     ([CVE-2026-54872])
+ 
+   * Fixed QUIC `STREAM` fragment metadata DoS.
+@@ -77,6 +78,16 @@ This release incorporates the following bug fixes and mitigations:
+   * Fixed a bug where `EVP_DecryptFinal()` incorrectly reported a stale success
+     on AES-SIV authentication failure.
+ 
++This release incorporates the following potentially significant or incompatible
++changes:
++
++ * Changed the OpenSSL FIPS provider so that every algorithm advertised
++   with `fips=yes` property explicitly exposes a `fips-indicator` gettable
++   context parameter, that returns 1 for an approved operation.  The absence
++   of an indicator is no longer interpreted as approval.  Algorithms advertised
++   with `fips=no` property, including X448MLKEM1024, remain unapproved
++   and return 0 when they expose the indicator.
++
+ ### Major changes between OpenSSL 3.5.7 and OpenSSL 3.5.8 [25 Aug 2026]
+ 
+ OpenSSL 3.5.8 is a security patch release.  The most severe CVE fixed

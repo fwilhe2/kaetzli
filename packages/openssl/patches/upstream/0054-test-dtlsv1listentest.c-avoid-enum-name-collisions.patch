@@ -1,0 +1,84 @@
+From f34a4ffd662b090b2b5af00971d8d735e6081b9b Mon Sep 17 00:00:00 2001
+From: rafael-almeida <13210596+rafael-almeida@users.noreply.github.com>
+Date: Wed, 28 Oct 2026 01:36:24 -0400
+Subject: [PATCH] test/dtlsv1listentest.c: avoid enum name collisions
+
+The DTLSv1_listen test uses generic outcome constants GOOD, VERIFY,
+and DROP, which may conflict with platform-specific headers.
+On AIX 6.1, <sys/param.h> already defines GOOD.  Rename these constants
+to OTT_GOOD, OTT_VERIFY, and OTT_DROP, respectively, and update their
+references and comments.
+
+Resolves: https://github.com/openssl/openssl/issues/33367
+CLA: trivial
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Fri Oct 30 02:49:12 2026
+Merged-from: https://github.com/openssl/openssl/pull/33427
+(cherry picked from commit a257c5cb2265890bca83816a76810f44216f0398)
+---
+ test/dtlsv1listentest.c | 36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/test/dtlsv1listentest.c b/test/dtlsv1listentest.c
+index eb08fdb4e0be..50f87ae3e833 100644
+--- a/test/dtlsv1listentest.c
++++ b/test/dtlsv1listentest.c
+@@ -237,25 +237,25 @@ typedef struct {
+     const unsigned char *in;
+     unsigned int inlen;
+     /*
+-     * GOOD == positive return value from DTLSv1_listen, no output yet
+-     * VERIFY == 0 return value, HelloVerifyRequest sent
+-     * DROP == 0 return value, no output
++     * OTT_GOOD == positive return value from DTLSv1_listen, no output yet
++     * OTT_VERIFY == 0 return value, HelloVerifyRequest sent
++     * OTT_DROP == 0 return value, no output
+      */
+-    enum { GOOD,
+-        VERIFY,
+-        DROP } outtype;
++    enum { OTT_GOOD,
++        OTT_VERIFY,
++        OTT_DROP } outtype;
+ } tests;
+ 
+ static tests testpackets[9] = {
+-    { clienthello_nocookie, sizeof(clienthello_nocookie), VERIFY },
+-    { clienthello_nocookie_frag, sizeof(clienthello_nocookie_frag), VERIFY },
+-    { clienthello_nocookie_short, sizeof(clienthello_nocookie_short), DROP },
+-    { clienthello_2ndfrag, sizeof(clienthello_2ndfrag), DROP },
+-    { clienthello_cookie, sizeof(clienthello_cookie), GOOD },
+-    { clienthello_cookie_frag, sizeof(clienthello_cookie_frag), GOOD },
+-    { clienthello_badcookie, sizeof(clienthello_badcookie), VERIFY },
+-    { clienthello_cookie_short, sizeof(clienthello_cookie_short), DROP },
+-    { record_short, sizeof(record_short), DROP }
++    { clienthello_nocookie, sizeof(clienthello_nocookie), OTT_VERIFY },
++    { clienthello_nocookie_frag, sizeof(clienthello_nocookie_frag), OTT_VERIFY },
++    { clienthello_nocookie_short, sizeof(clienthello_nocookie_short), OTT_DROP },
++    { clienthello_2ndfrag, sizeof(clienthello_2ndfrag), OTT_DROP },
++    { clienthello_cookie, sizeof(clienthello_cookie), OTT_GOOD },
++    { clienthello_cookie_frag, sizeof(clienthello_cookie_frag), OTT_GOOD },
++    { clienthello_badcookie, sizeof(clienthello_badcookie), OTT_VERIFY },
++    { clienthello_cookie_short, sizeof(clienthello_cookie_short), OTT_DROP },
++    { record_short, sizeof(record_short), OTT_DROP }
+ };
+ 
+ #define COOKIE_LEN 20
+@@ -322,13 +322,13 @@ static int dtls_listen_test(int i)
+         goto err;
+     datalen = BIO_get_mem_data(outbio, &data);
+ 
+-    if (tp->outtype == VERIFY) {
++    if (tp->outtype == OTT_VERIFY) {
+         if (!TEST_int_eq(ret, 0)
+             || !TEST_mem_eq(data, datalen, verify, sizeof(verify)))
+             goto err;
+     } else if (datalen == 0) {
+-        if (!TEST_true((ret == 0 && tp->outtype == DROP)
+-                || (ret == 1 && tp->outtype == GOOD)))
++        if (!TEST_true((ret == 0 && tp->outtype == OTT_DROP)
++                || (ret == 1 && tp->outtype == OTT_GOOD)))
+             goto err;
+     } else {
+         TEST_info("Test %d: unexpected data output", i);

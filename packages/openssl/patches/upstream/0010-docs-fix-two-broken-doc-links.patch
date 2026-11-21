@@ -1,0 +1,47 @@
+From adb795d9b166b7342ad1227b6241f3d31d973438 Mon Sep 17 00:00:00 2001
+From: yuwk <1729065730@qq.com>
+Date: Wed, 30 Sep 2026 21:35:45 +0800
+Subject: [PATCH] docs: fix two broken doc links
+
+Fixes: 312142583092 "Add --fips-key configuration parameter to fipsinstall application."
+Fixes: dc589daec888 "Reformat some NOTES and README files"
+
+CLA: trivial
+
+Signed-off-by: yuwk <1729065730@qq.com>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Merge-date: Fri Oct  2 08:47:38 2026
+Merged-from: https://github.com/openssl/openssl/pull/33051
+(cherry picked from commit 4d25710dbfeacbb36d055592a3bc6811172248b1)
+---
+ INSTALL.md    | 2 +-
+ NOTES-PERL.md | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/INSTALL.md b/INSTALL.md
+index 983f6aad1369..8dd3d8626550 100644
+--- a/INSTALL.md
++++ b/INSTALL.md
+@@ -21,7 +21,7 @@ Table of Contents
+    - [Compiler Warnings](#compiler-warnings)
+    - [Compression Algorithm Flags](#compression-algorithm-flags)
+    - [Seeding the Random Generator](#seeding-the-random-generator)
+-   - [Setting the FIPS HMAC key](#setting-the-FIPS-HMAC-key)
++   - [Setting the FIPS HMAC key](#setting-the-fips-hmac-key)
+    - [Enable and Disable Features](#enable-and-disable-features)
+    - [Displaying configuration data](#displaying-configuration-data)
+  - [Installation Steps in Detail](#installation-steps-in-detail)
+diff --git a/NOTES-PERL.md b/NOTES-PERL.md
+index 3a91f09c2d5e..928b67b5ff62 100644
+--- a/NOTES-PERL.md
++++ b/NOTES-PERL.md
+@@ -6,7 +6,7 @@ Notes on Perl
+  - [Perl on VMS](#perl-on-vms)
+  - [Perl on NonStop](#perl-on-nonstop)
+  - [Required Perl modules](#required-perl-modules)
+- - [Notes on installing a Perl module](#notes-on-installing-a-perl-module])
++ - [Notes on installing a Perl module](#notes-on-installing-a-perl-module)
+ 
+ General Notes
+ -------------

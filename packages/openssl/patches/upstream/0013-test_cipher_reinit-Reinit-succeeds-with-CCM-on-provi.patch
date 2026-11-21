@@ -1,0 +1,32 @@
+From 5160b1216bb544bd86298e0c19e5810e84daf811 Mon Sep 17 00:00:00 2001
+From: Tomas Mraz <tomas@openssl.foundation>
+Date: Tue, 6 Oct 2026 09:56:38 +0200
+Subject: [PATCH] test_cipher_reinit(): Reinit succeeds with CCM on providers
+ >=4.2.0
+
+Reviewed-by: Daniel Kubec <kubec@openssl.foundation>
+Reviewed-by: Neil Horman <nhorman@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Tue Oct  6 13:22:05 2026
+Merged-from: https://github.com/openssl/openssl/pull/33115
+(cherry picked from commit 752d9a2c12fc3e0e1f10e5f09b2e17fe689a8fc3)
+---
+ test/evp_libctx_test.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/test/evp_libctx_test.c b/test/evp_libctx_test.c
+index 0c96f735ad9e..e65578e70501 100644
+--- a/test/evp_libctx_test.c
++++ b/test/evp_libctx_test.c
+@@ -384,8 +384,9 @@ static int test_cipher_reinit(int test_id)
+     if (!TEST_ptr(cipher = EVP_CIPHER_fetch(libctx, name, NULL)))
+         goto err;
+ 
+-    /* ccm fails on the second update - this matches OpenSSL 1_1_1 behaviour */
+-    ccm = (EVP_CIPHER_get_mode(cipher) == EVP_CIPH_CCM_MODE);
++    /* ccm fails on the second update on <4.2.0 - this matches OpenSSL 1_1_1 behaviour */
++    ccm = (EVP_CIPHER_get_mode(cipher) == EVP_CIPH_CCM_MODE
++        && fips_provider_version_match(libctx, "<4.2.0"));
+ 
+     /* siv cannot be called with NULL key as the iv is irrelevant */
+     siv = (EVP_CIPHER_get_mode(cipher) == EVP_CIPH_SIV_MODE);

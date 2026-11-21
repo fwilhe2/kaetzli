@@ -1,0 +1,28 @@
+From bf26290d2f021111cf806753dcb87d165f53571b Mon Sep 17 00:00:00 2001
+From: Sebastian Pipping <sebastian@pipping.org>
+Date: Fri, 6 Nov 2026 19:16:22 +0100
+Subject: [PATCH] lib: Resolve needless `else` in `unknown_toUtf16`
+
+Upstream's commit, the first of PR #1492 (merged as 3f839767), which the next patch
+applies on top of. Made with `git format-patch --relative=expat`:
+the repository keeps the library under expat/, the tarball at its root.
+
+---
+ lib/xmltok.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lib/xmltok.c b/lib/xmltok.c
+index 2f837acc..f4c317f3 100644
+--- a/lib/xmltok.c
++++ b/lib/xmltok.c
+@@ -1317,8 +1317,8 @@ unknown_toUtf16(const ENCODING *enc, const char **fromP, const char *fromLim,
+ 
+   if ((*toP == toLim) && (*fromP < fromLim))
+     return XML_CONVERT_OUTPUT_EXHAUSTED;
+-  else
+-    return XML_CONVERT_COMPLETED;
++
++  return XML_CONVERT_COMPLETED;
+ }
+ 
+ ENCODING *

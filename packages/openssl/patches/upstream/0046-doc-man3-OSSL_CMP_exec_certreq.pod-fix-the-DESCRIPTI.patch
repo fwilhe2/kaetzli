@@ -1,0 +1,32 @@
+From 27ec7941cdfda9125a7c8727d1eac4da3f6d7a5d Mon Sep 17 00:00:00 2001
+From: Leon Timmermans <fawaka@gmail.com>
+Date: Mon, 19 Oct 2026 03:10:42 +0200
+Subject: [PATCH] doc/man3/OSSL_CMP_exec_certreq.pod: fix the DESCRIPTION
+ section header
+
+Add a missing empty line between verbatim section and the DESCRIPTION
+header in OSSL_CMP_exec_certreq.pod.  Without it, it is parsed
+as ordinary text.
+
+Fixes: 6a3579e190fd "CMP: add support for requesting cert template using genm/genp"
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Merge-date: Wed Oct 28 09:44:33 2026
+Merged-from: https://github.com/openssl/openssl/pull/33266
+(cherry picked from commit 769ef60ef7b132a2123b53d0236da1bae30ee93a)
+---
+ doc/man3/OSSL_CMP_exec_certreq.pod | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/doc/man3/OSSL_CMP_exec_certreq.pod b/doc/man3/OSSL_CMP_exec_certreq.pod
+index 30b7f42f31a6..407c95bb74cf 100644
+--- a/doc/man3/OSSL_CMP_exec_certreq.pod
++++ b/doc/man3/OSSL_CMP_exec_certreq.pod
+@@ -49,6 +49,7 @@ OSSL_CMP_get1_certReqTemplate
+  int OSSL_CMP_get1_certReqTemplate(OSSL_CMP_CTX *ctx,
+                                    OSSL_CRMF_CERTTEMPLATE **certTemplate,
+                                    OSSL_CMP_ATAVS **keySpec);
++
+ =head1 DESCRIPTION
+ 
+ This is the OpenSSL main API for Certificate Management Protocol (CMP) clients.

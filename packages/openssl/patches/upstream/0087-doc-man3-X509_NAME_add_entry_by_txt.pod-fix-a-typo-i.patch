@@ -1,0 +1,30 @@
+From 24515aaebf9c7d513a2eed562cdbbb54f88fdb8e Mon Sep 17 00:00:00 2001
+From: lefrogfrog <yagoperez2003@gmail.com>
+Date: Fri, 6 Nov 2026 14:42:37 +0100
+Subject: [PATCH] doc/man3/X509_NAME_add_entry_by_txt.pod: fix a typo in RETURN
+ VALUES section
+
+CLA: trivial
+Fixes: 0711be169681 "New docs."
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Merge-date: Tue Nov 10 12:30:22 2026
+Merged-from: https://github.com/openssl/openssl/pull/33574
+(cherry picked from commit a68ced216ba51ea18a896fecf55b9f4431e3f27d)
+---
+ doc/man3/X509_NAME_add_entry_by_txt.pod | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/man3/X509_NAME_add_entry_by_txt.pod b/doc/man3/X509_NAME_add_entry_by_txt.pod
+index 8b17a016de47..d88de509dc37 100644
+--- a/doc/man3/X509_NAME_add_entry_by_txt.pod
++++ b/doc/man3/X509_NAME_add_entry_by_txt.pod
+@@ -78,7 +78,7 @@ Since multi-valued RDNs are very rarely used B<set> typically will be zero.
+ 
+ X509_NAME_add_entry_by_txt(), X509_NAME_add_entry_by_OBJ(),
+ X509_NAME_add_entry_by_NID() and X509_NAME_add_entry() return 1 for
+-success of 0 if an error occurred.
++success or 0 if an error occurred.
+ 
+ X509_NAME_delete_entry() returns either the deleted B<X509_NAME_ENTRY>
+ structure or B<NULL> if an error occurred.

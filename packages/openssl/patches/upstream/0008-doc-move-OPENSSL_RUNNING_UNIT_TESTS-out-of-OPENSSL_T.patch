@@ -1,0 +1,53 @@
+From fe9f12b8f5286cb0aa3ebffa78f8fc7038360b80 Mon Sep 17 00:00:00 2001
+From: s4ge <shrey.sneh650@gmail.com>
+Date: Wed, 26 Aug 2026 15:08:05 -0600
+Subject: [PATCH] doc: move OPENSSL_RUNNING_UNIT_TESTS out of OPENSSL_TRACE
+
+The env var was documented as an =item between the OPENSSL_TRACE
+description and its nested trace-name list, so openssl-env(7) rendered
+it as if it were a TRACE category. Move it to a top-level =item after
+OPENSSL_MODULES.
+
+Fixes: https://github.com/openssl/openssl/issues/31094
+
+CLA: trivial
+Reviewed-by: Richard Levitte <levitte@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Merge-date: Fri Oct  2 07:57:58 2026
+Merged-from: https://github.com/openssl/openssl/pull/32534
+---
+ doc/man7/openssl-env.pod | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/doc/man7/openssl-env.pod b/doc/man7/openssl-env.pod
+index 8e2b391fcd91..b7b151970ad1 100644
+--- a/doc/man7/openssl-env.pod
++++ b/doc/man7/openssl-env.pod
+@@ -51,6 +51,13 @@ See L<OPENSSL_malloc(3)>.
+ Specifies the directory from which cryptographic providers are loaded.
+ Equivalently, the generic B<-provider-path> command-line option may be used.
+ 
++=item B<OPENSSL_RUNNING_UNIT_TESTS>
++
++This environment variable is used to flag the fact that unit tests are being run
++(i.e. `make test`).  It is used to detect when the OpenSSL should behave in a special
++manner during unit tests (i.e. when unit tests are being run on fuzzing builds).  It should
++generally not be set by users.
++
+ =item B<OPENSSL_TRACE>
+ 
+ By default the OpenSSL trace feature is disabled statically.
+@@ -64,13 +71,6 @@ This output usually makes sense only if you know OpenSSL internals well.
+ The value of this environment variable is a comma-separated list of names,
+ with the following available:
+ 
+-=item B<OPENSSL_RUNNING_UNIT_TESTS>
+-
+-This environment variable is used to flag the fact that unit tests are being run
+-(i.e. `make test`).  It is used to detect when the OpenSSL should behave in a special
+-manner during unit tests (i.e. when unit tests are being run on fuzzing builds).  It should
+-generally not be set by users.
+-
+ =over 4
+ 
+ =item B<TRACE>

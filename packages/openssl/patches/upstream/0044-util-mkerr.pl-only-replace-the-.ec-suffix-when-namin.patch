@@ -1,0 +1,43 @@
+From 867020fb463eedb5a04d05dc769081c19d63fbf6 Mon Sep 17 00:00:00 2001
+From: Nikolas Gauder <nikolas.gauder@tum.de>
+Date: Sat, 24 Oct 2026 14:42:58 +0200
+Subject: [PATCH] util/mkerr.pl: only replace the .ec suffix when naming the
+ state file
+
+When no state file is configured, mkerr.pl derives it from the config
+file path with s/.ec/.txt/.  The unescaped, unanchored pattern replaces
+the first occurrence of any character followed by "ec" anywhere
+in the path.  Since the error headers are generated at build time,
+mkerr.pl runs with -conf $(SRCDIR)/crypto/err/openssl.ec,
+so an out-of-tree build whose relative source path contains a name
+such as "projects" fails:
+
+    Can't open ../pro.txtts/openssl/crypto/err/openssl.ec
+
+Anchor the pattern to the ".ec" suffix.
+
+Fixes: 52df25cf2e65 "make error tables const and separate header file"
+Complements: 7a3fa58d9da7 "Generate the error headers and tables at build time"
+Assisted-by: Claude:claude-opus-5-5
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Tue Oct 27 18:11:11 2026
+Merged-from: https://github.com/openssl/openssl/pull/33389
+(cherry picked from commit 93d5616734b9a11bc180cda496222f658ccdbd29)
+---
+ util/mkerr.pl | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/util/mkerr.pl b/util/mkerr.pl
+index e2479e727b74..c4d6b331376a 100755
+--- a/util/mkerr.pl
++++ b/util/mkerr.pl
+@@ -178,7 +178,7 @@ close IN;
+ 
+ if ( ! $statefile ) {
+     $statefile = $config;
+-    $statefile =~ s/.ec/.txt/;
++    $statefile =~ s/\.ec$/.txt/;
+ }
+ 
+ # The statefile has all the previous assignments.

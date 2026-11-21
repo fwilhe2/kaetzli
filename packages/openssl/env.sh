@@ -40,3 +40,13 @@ UPSTREAM_SED='s/^openssl-//'
 # the older branches that are still getting releases. See the two reasons above; this is
 # the line to edit when Debian sid moves to a new SONAME.
 UPSTREAM_IGNORE='(3\.[0-46-9]|3\.[0-9]{2}|[0-24-9]|[0-9]{2})\..*'
+# Security fixes land on the release branch weeks before the next 3.5.x tarball (the
+# November 2026 advisories had their commits on openssl-3.5 with no 3.5.10 yet), so the
+# branch since the tag is the series, as glibc's is (docs/guides/patches.md).
+UPSTREAM_PATCH_GIT="https://github.com/openssl/openssl.git"
+UPSTREAM_PATCH_BRANCH="openssl-3.5"
+UPSTREAM_PATCH_BASE="openssl-${VERSION}"
+# The tarball is `git archive` of the tag, so the series leaves out .github/ and the rest.
+UPSTREAM_PATCH_ARCHIVE=1
+# Its fixes say `Fixes: CVE-…`; other mentions are tests and CHANGES.md (tools/patch-cves.sh).
+UPSTREAM_PATCH_CVE_TRAILER="Fixes"

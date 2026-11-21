@@ -1,0 +1,52 @@
+From ffbd9bf532e1c4c2777fe93e0822398e86bb9d9a Mon Sep 17 00:00:00 2001
+From: Gowtham Suresh Kumar <gowtham.sureshkumar@arm.com>
+Date: Thu, 30 Jul 2026 10:59:53 +0100
+Subject: [PATCH] Enable AES-GCM unroll8/unroll12 for Neoverse N3/V3
+
+Backport of commit b6dceb3 from master branch.
+
+Signed-off-by: Paul Elliott <paul.elliott@arm.com>
+Signed-off-by: Gowtham Suresh Kumar <gowtham.sureshkumar@arm.com>
+Reviewed-by: Tom Cosgrove <tom.cosgrove@arm.com>
+Reviewed-by: Daniel Kubec <kubec@openssl.foundation>
+Reviewed-by: Matt Caswell <matt@openssl.foundation>
+Merge-date: Tue Sep 29 16:59:12 2026
+Merged-from: https://github.com/openssl/openssl/pull/32125
+---
+ crypto/arm_arch.h | 2 ++
+ crypto/armcap.c   | 3 +++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/crypto/arm_arch.h b/crypto/arm_arch.h
+index d570d1eba6c1..9960ef3818ec 100644
+--- a/crypto/arm_arch.h
++++ b/crypto/arm_arch.h
+@@ -105,6 +105,8 @@ extern unsigned int OPENSSL_armv8_rsa_neonized;
+ #define ARM_CPU_PART_N2 0xD49
+ #define HISI_CPU_PART_KP920 0xD01
+ #define ARM_CPU_PART_V2 0xD4F
++#define ARM_CPU_PART_N3 0xD8E
++#define ARM_CPU_PART_V3 0xD84
+ 
+ #define APPLE_CPU_PART_M1_ICESTORM 0x022
+ #define APPLE_CPU_PART_M1_FIRESTORM 0x023
+diff --git a/crypto/armcap.c b/crypto/armcap.c
+index 3005d295cfd0..8939c043a875 100644
+--- a/crypto/armcap.c
++++ b/crypto/armcap.c
+@@ -418,12 +418,15 @@ void OPENSSL_cpuid_setup(void)
+             || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_N2)
+             || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_MICROSOFT, MICROSOFT_CPU_PART_COBALT_100)
+             || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_V2)
++            || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_N3)
++            || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_V3)
+             || MIDR_IMPLEMENTER(OPENSSL_arm_midr) == ARM_CPU_IMP_AMPERE))
+         OPENSSL_armcap_P |= ARMV8_UNROLL8_EOR3;
+ 
+     if ((OPENSSL_armcap_P & ARMV8_SHA3)
+         && (MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_V1)
+             || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_V2)
++            || MIDR_IS_CPU_MODEL(OPENSSL_arm_midr, ARM_CPU_IMP_ARM, ARM_CPU_PART_V3)
+             || MIDR_IMPLEMENTER(OPENSSL_arm_midr) == ARM_CPU_IMP_AMPERE))
+         OPENSSL_armcap_P |= ARMV8_UNROLL12_EOR3;
+ 

@@ -1,0 +1,43 @@
+From d52c011e1a441cc3f33ce0529dc0a783d6f52396 Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@openssl.org>
+Date: Thu, 10 Sep 2026 13:49:36 -0400
+Subject: [PATCH] Fix set but unsued variable in lib/opt.c
+
+https://github.com/openssl/openssl/actions/runs/34494520852/job/102982686286
+
+CI is failing because we have a varaible in opt.c that is set but never
+used.
+
+Just remove it.
+
+Reviewed-by: Andrew Dinh <andrewd@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+MergeDate: Sat Sep 12 13:18:16 2026
+Reviewed-by: Mounir Idrassi <mounir.idrassi@idrix.fr>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merged-from: https://github.com/openssl/openssl/pull/33194
+(cherry picked from commit eadfce0e20dafd9a9bc8232caf84c4c9498ea667)
+---
+ apps/lib/opt.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/apps/lib/opt.c b/apps/lib/opt.c
+index f9135f4549be..9b613ef63d31 100644
+--- a/apps/lib/opt.c
++++ b/apps/lib/opt.c
+@@ -36,7 +36,6 @@ const char OPT_PARAM_STR[] = "-P";
+ 
+ /* Our state */
+ static char **argv;
+-static int argc;
+ static int opt_index;
+ static char *arg;
+ static char *flag;
+@@ -161,7 +160,6 @@ char *opt_getprog(void)
+ char *opt_init(int ac, char **av, const OPTIONS *o)
+ {
+     /* Store state. */
+-    argc = ac;
+     argv = av;
+     opt_begin();
+     opts = o;

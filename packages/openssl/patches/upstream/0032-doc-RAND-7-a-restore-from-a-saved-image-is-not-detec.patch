@@ -1,0 +1,55 @@
+From 3271146b74639d79165168d34b9af08d71bb4ac3 Mon Sep 17 00:00:00 2001
+From: Yuxiang Ji <kurath0307@icloud.com>
+Date: Tue, 20 Oct 2026 23:10:35 +0800
+Subject: [PATCH] doc: RAND(7): a restore from a saved image is not detected;
+ reseed after it
+
+The DRBGs reseed on a change of process ID, on the request count and on
+the time interval, and have no way to notice that the process or the
+machine was restored from a snapshot or a checkpoint: copies restored
+from one image continue from the same state until their next scheduled
+reseed. Say so in RAND(7) beside the paragraph on automatic reseeding,
+and tell applications in such environments to reseed after their own
+restore signal, with RAND_poll(3) as the call that does it.
+
+Measured on 3.5.9 and master: two continuations of one QEMU or
+Firecracker snapshot, or of one CRIU checkpoint, print identical
+RAND_bytes output block for block (32 of 32, 14 of 14) until the primary
+DRBG's interval expires; plain fork, _Fork and clone are distinct through
+the pid check.
+
+Assisted-by: Claude Code:claude-fable-5-1
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Reviewed-by: Paul Dale <paul.dale@oracle.com>
+Reviewed-by: Viktor Dukhovni <viktor@openssl.org>
+Merge-date: Fri Oct 23 12:51:55 2026
+Merged-from: https://github.com/openssl/openssl/pull/33285
+(cherry picked from commit f4ada04e0c795e3ff07aa24be79b7240cfbf3388)
+---
+ doc/man7/RAND.pod | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/doc/man7/RAND.pod b/doc/man7/RAND.pod
+index ac46d16e9090..8b837651acd9 100644
+--- a/doc/man7/RAND.pod
++++ b/doc/man7/RAND.pod
+@@ -35,6 +35,19 @@ In this case the CSPRNG enters an error state and ceases to provide output,
+ until it is able to recover from the error by reseeding itself.
+ For more details on reseeding and error recovery, see L<EVP_RAND(7)>.
+ 
++The automatic reseeding reacts to a change of the process ID (a child created
++by fork(2) does not continue its parent's generator), to the number of
++requests made and to the time elapsed since the last reseed; see L<EVP_RAND(7)>.
++It does not detect that the process, or the virtual machine it runs in, has
++been restored from a saved image: a virtual machine restored from a snapshot,
++a process restored from a checkpoint, or a function resumed from an image
++continues from the generator state in the image, and several copies restored
++from one image produce the same output until their next scheduled reseed.
++An application that runs where such a restore can happen should reseed after
++its own restore signal, for example by calling L<RAND_poll(3)>, which reseeds
++the primary DRBG; the public and private DRBGs then reseed from it at their
++next request.
++
+ For values that should remain secret, you can use L<RAND_priv_bytes(3)>
+ instead.
+ This method does not provide 'better' randomness, it uses the same type of

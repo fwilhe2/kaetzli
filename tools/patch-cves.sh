@@ -25,6 +25,11 @@
 # Our own patch says what it fixes in its message, e.g. a `CVE: CVE-2026-12345` line
 # above the diff. A message that names a CVE it does not fix ("the fix for CVE-x did not
 # cover…") would be counted, so read what this prints when a new patch lands.
+#
+# Where upstream marks its fixes with a trailer, env.sh says so and only that counts:
+# UPSTREAM_PATCH_CVE_TRAILER="Fixes" reads `Fixes: CVE-2026-88823` and nothing else
+# (OpenSSL's release branch also has "fix typos in CVE-…" and "Add test for CVE-…").
+# It applies to upstream/ only; our own patches keep the `CVE:` line.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -33,8 +38,8 @@ source tools/lib.sh
 [ -n "${1:-}" ] || { echo "usage: ${0##*/} <package>" >&2; exit 2; }
 PKG=$(package_name "$1")
 dir="packages/$PKG/patches"
-mapfile -t v < <(env_get "$PKG" UPSTREAM_PATCH_GIT UPSTREAM_PATCHES UPSTREAM_GITHUB)
-repo=${v[0]:-} index=${v[1]:-} github=${v[2]:-}
+mapfile -t v < <(env_get "$PKG" UPSTREAM_PATCH_GIT UPSTREAM_PATCHES UPSTREAM_GITHUB UPSTREAM_PATCH_CVE_TRAILER)
+repo=${v[0]:-} index=${v[1]:-} github=${v[2]:-} trailer=${v[3]:-}
 # Our own patches are upstream's commits verbatim (docs/guides/patches.md), so their
 # fix is that commit too, in the repository the release branch comes from or else the
 # GitHub project releases are taken from.
@@ -67,7 +72,10 @@ locator() {
         [ -n "$f" ] || continue
         # Everything before the first line that starts a diff: format-patch's `---`, a
         # unified or context diff header, or `Index:`.
+        only=.
+        case $f in "$dir"/upstream/*) [ -z "$trailer" ] || only="^$trailer:[[:space:]]+CVE-" ;; esac
         awk '/^(---$|--- |\*\*\* |diff |Index: )/ { exit } { print }' "$f" |
+            { grep -E "$only" || true; } |
             { grep -oE 'CVE-[0-9]{4}-[0-9]{4,}' || true; } | sort -u |
             while read -r cve; do printf '%s\t%s\t%s\n' "$cve" "${f#"$dir"/}" "$(locator "$f")"; done
     done < <(package_patches "$PKG")
