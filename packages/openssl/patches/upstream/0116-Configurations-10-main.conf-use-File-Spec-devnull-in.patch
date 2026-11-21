@@ -1,0 +1,58 @@
+From e110612e5fa0451e9d70746bc28ba873070bcf81 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?K=C3=A1roly=20Szab=C3=B3?= <szabokaresz2000@gmail.com>
+Date: Thu, 17 Sep 2026 14:49:51 +0300
+Subject: [PATCH] Configurations/10-main.conf: use File::Spec->devnull()
+ instead of NUL on Windows
+
+On Windows, in some of the environments (like Cygwin Perl), the null
+device is /dev/null instead of NUL, so, if the nasm/nasmw is missing,
+the stderr is redirected into a local file named 'NUL' instead of being
+discarded.  "NUL" file name then causes issues with cleanup of the build
+directory, as it is not easily deletable using common tools[1], like
+using `del` command or the file explorer.
+
+Determine the appropriate file name using File::Spec->devnull()
+and use it instead.
+
+[1] https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#win32-device-namespaces
+
+Resolves: https://github.com/openssl/openssl/issues/17947
+Fixes: 2fe730362812 "Unified - extract settings from util/pl/VC-32.pl and make the config settings"
+CLA: trivial
+Reviewed-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
+Reviewed-by: Richard Levitte <levitte@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Sat Nov 21 07:43:26 2026
+Merged-from: https://github.com/openssl/openssl/pull/32869
+(cherry picked from commit d59ec01038482b4b21f31e1658bbba31bfc851c4)
+---
+ Configurations/10-main.conf | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/Configurations/10-main.conf b/Configurations/10-main.conf
+index 6f4ee6d17c39..a6e751859bbd 100644
+--- a/Configurations/10-main.conf
++++ b/Configurations/10-main.conf
+@@ -5,8 +5,9 @@
+ my $vc_win64a_info = {};
+ sub vc_win64a_info {
+     unless (%$vc_win64a_info) {
++        my $devnull = File::Spec->devnull();
+         # Minimum NASM version is 2.09 otherwise SHA3 might be miscompiled
+-        if (`nasm -v 2>NUL` =~ /NASM version ([0-9]+)\.([0-9]+)/ && ($1 > 2 || ($1 == 2 && $2 >= 9))) {
++        if (`nasm -v 2>$devnull` =~ /NASM version ([0-9]+)\.([0-9]+)/ && ($1 > 2 || ($1 == 2 && $2 >= 9))) {
+             $vc_win64a_info = { AS        => "nasm",
+                                 ASFLAGS   => "-g",
+                                 asflags   => "-Ox -f win64 -DNEAR",
+@@ -34,8 +35,9 @@ sub vc_win64a_info {
+ my $vc_win32_info = {};
+ sub vc_win32_info {
+     unless (%$vc_win32_info) {
+-        my $ver=`nasm -v 2>NUL`;
+-        my $vew=`nasmw -v 2>NUL`;
++        my $devnull = File::Spec->devnull();
++        my $ver=`nasm -v 2>$devnull`;
++        my $vew=`nasmw -v 2>$devnull`;
+         if ($ver ne "" || $vew ne "") {
+             $vc_win32_info = { AS        => $ver ge $vew ? "nasm" : "nasmw",
+                                ASFLAGS   => "",
