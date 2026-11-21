@@ -1,8 +1,8 @@
 # Releases
 
 **Status: implemented**: publishing (`tools/release.py`, the `release` job in `ci.yml`)
-and fetching (`tools/fetch-image.sh`, `--snapshot`, `--run`). Immutable releases are a
-repository setting, to be switched on by hand.
+and fetching (`tools/fetch-image.sh`, `--snapshot`, `--run`). Immutable releases are on (every
+release since `20261107.094545-751` says `"immutable": true`).
 
 ## The model is rolling
 
@@ -34,10 +34,13 @@ release therefore tracks the newest green build of what `main` is.
   `https://github.com/fwilhe2/kaetzli/releases/latest/download/<file>` is the rolling
   URL. A snapshot is a full release, not a pre-release, because GitHub's latest skips
   pre-releases.
-- **Immutable**: a published snapshot's assets and tag never change. Enable GitHub's
-  immutable releases setting so this is enforced, not just intended.
-- **Expiry**: snapshots and their tags are deleted after at least 37 days, the latest
-  never. Thirty days is the minimum availability period; the extra week gives downloads
+- **Immutable**: a published snapshot's assets and tag never change, enforced by GitHub's
+  immutable releases setting (on; `gh api repos/fwilhe2/kaetzli/immutable-releases`), not
+  just intended. Publishing stays a draft until the last step for this reason: a draft is
+  not immutable, a published release cannot take another asset.
+- **Expiry**: snapshots are deleted after at least 37 days, the latest never. Their tags
+  are deleted too where GitHub allows it; an immutable release's tag may outlive the
+  release, which `_expire` reports as a warning, and its name is never reused. Thirty days is the minimum availability period; the extra week gives downloads
   already in progress time to finish. They exist for bisecting a regression, not for
   pinning.
 - **Only forward**: before publishing, the job checks that its commit is still what
