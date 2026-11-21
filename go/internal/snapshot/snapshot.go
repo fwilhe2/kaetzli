@@ -1,7 +1,8 @@
 // Package snapshot fetches a rolling snapshot release (docs/proposals/release.md) into a
 // cache directory, as tools/fetch-image.sh does: the latest resolved once from the
 // redirect of releases/latest, every file from that snapshot's own URL, and nothing kept
-// until each file the architecture needs matches SHA256SUMS.
+// until each file the architecture needs matches SHA256SUMS, and SHA256SUMS itself carries
+// CI's signed provenance (internal/attest).
 package snapshot
 
 import (
@@ -19,6 +20,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/fwilhe2/kaetzli/go/internal/attest"
 )
 
 // Releases is where snapshots are published.
@@ -37,11 +40,36 @@ func IsName(s string) bool { return nameRE.MatchString(s) }
 type Client struct {
 	Base string
 	HTTP *http.Client
+	// Attest checks SHA256SUMS before anything it lists is downloaded; nil only for a
+	// base that is not a GitHub repository's releases, which Fetch says.
+	Attest func(sums []byte) error
+	// Repo is owner/name when Base is a GitHub repository's releases.
+	Repo string
 }
 
-// New is a client for base (Releases unless a fork or mirror is wanted).
+var githubReleases = regexp.MustCompile(`^https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/releases$`)
+
+// New is a client for base (Releases unless a fork or mirror is wanted). On GitHub,
+// SHA256SUMS must carry a build provenance attestation by that repository's ci.yml on
+// main, verified here with Sigstore's pinned trusted root — no gh needed.
 func New(base string) *Client {
-	return &Client{Base: strings.TrimSuffix(base, "/"), HTTP: &http.Client{Timeout: 10 * time.Minute}}
+	c := &Client{Base: strings.TrimSuffix(base, "/"), HTTP: &http.Client{Timeout: 10 * time.Minute}}
+	if m := githubReleases.FindStringSubmatch(c.Base); m != nil {
+		c.Repo = m[1]
+		c.Attest = func(sums []byte) error {
+			root, err := attest.PublicGood()
+			if err != nil {
+				return err
+			}
+			digest := sha256.Sum256(sums)
+			bundles, err := attest.Fetch(c.HTTP, attest.API, c.Repo, digest)
+			if err != nil {
+				return fmt.Errorf("could not fetch its attestation: %w", err)
+			}
+			return root.VerifyAny(bundles, digest, attest.ForRepo(c.Repo))
+		}
+	}
+	return c
 }
 
 // Latest is the newest snapshot's name, or "" when none is published: GitHub redirects
@@ -163,6 +191,14 @@ func (c *Client) Fetch(cache, name, arch string, log io.Writer) (string, error) 
 	wanted, err := Wanted(sums, arch)
 	if err != nil {
 		return "", fmt.Errorf("snapshot %s: %w", name, err)
+	}
+	if c.Attest == nil {
+		fmt.Fprintf(log, "   note: %s is not a GitHub repository's releases: SHA256SUMS is checked, not attested\n", c.Base)
+	} else {
+		if err := c.Attest(sumsBuf.Bytes()); err != nil {
+			return "", fmt.Errorf("snapshot %s: SHA256SUMS: %w", name, err)
+		}
+		fmt.Fprintf(log, "   attested: SHA256SUMS was built by %s's ci.yml on main (Sigstore)\n", c.Repo)
 	}
 	assets := make([]string, 0, len(wanted))
 	for a := range wanted {

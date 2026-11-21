@@ -109,7 +109,8 @@ policy checks are done).
   and BSD tools (macOS).
 - **Python** for the rest — parsing JSON or tool output, HTTP/GitHub, versions, joins, reports,
   CLIs with subcommands and state (`vm.sh`, `k8s-demo.py`). The default for new host code.
-- **Go** only where a static binary is the point (no Python there). The launcher: stdlib only,
+- **Go** only where a static binary is the point (no Python there). The launcher: stdlib only
+  (its Sigstore verification too: `go/internal/attest`, with the trusted root pinned beside it),
   built by `tools/build-launcher.sh` in the golang container `go/go.mod` names; its qemu
   command line is a third copy of the harness's, held equal by `python/tests/test_launcher.py`.
   `go/tools` is not our code: a `tool` line and `go.sum` pinning govulncheck, which

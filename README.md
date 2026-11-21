@@ -227,7 +227,8 @@ gh attestation verify output/boot-image/rootfs.erofs -R fwilhe2/kaetzli
 ```
 
 `tools/fetch-image.sh` checks the bundle's signature itself; `REQUIRE_ATTESTATION=1`
-makes it refuse a run that has none.
+makes it refuse a run that has none. The launcher verifies every snapshot's attestation
+without `gh` before it downloads anything else.
 
 You need not trust CI either: a release rebuilds from its commit on your machine, and the
 tool says whether every asset is byte-identical to the published one (hours the first time;

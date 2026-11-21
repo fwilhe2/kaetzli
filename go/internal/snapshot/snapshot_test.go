@@ -3,6 +3,7 @@ package snapshot
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -184,5 +185,68 @@ func TestVerifyChecksCachedFilesAgainstSHA256SUMSAgain(t *testing.T) {
 	}
 	if err := Verify(t.TempDir(), "amd64", "kaetzli.efi"); err == nil {
 		t.Fatal("a directory without SHA256SUMS verified")
+	}
+}
+
+func TestOnGitHubSHA256SUMSMustBeAttested(t *testing.T) {
+	c := New(Releases)
+	if c.Repo != "fwilhe2/kaetzli" || c.Attest == nil {
+		t.Fatalf("repo %q, attest set: %v", c.Repo, c.Attest != nil)
+	}
+	for _, base := range []string{"http://127.0.0.1:1", "https://example.org/fwilhe2/kaetzli/releases", "https://github.com/a/b/releases/x"} {
+		if New(base).Attest != nil {
+			t.Fatalf("%s: attestation expected only for a GitHub repository's releases", base)
+		}
+	}
+}
+
+func TestAttestSeesSHA256SUMSBeforeAnyAsset(t *testing.T) {
+	files := withSums(map[string]string{
+		"rootfs-amd64.erofs": "erofs", "rootfs-amd64.cmdline": "root=x", "kernel-amd64": "k",
+	})
+	srv := serve(t, name, files, "/tag/"+name)
+	c := New(srv.URL)
+	var seen string
+	c.Attest = func(sums []byte) error { seen = string(sums); return nil }
+	var log strings.Builder
+	if _, err := c.Fetch(t.TempDir(), name, "amd64", &log); err != nil {
+		t.Fatal(err)
+	}
+	if seen != files["SHA256SUMS"] {
+		t.Fatalf("attest saw %q", seen)
+	}
+	if !strings.Contains(log.String(), "attested: SHA256SUMS") {
+		t.Fatalf("log: %s", log.String())
+	}
+}
+
+func TestAnUnattestedSnapshotLeavesNothingBehind(t *testing.T) {
+	files := withSums(map[string]string{
+		"rootfs-amd64.erofs": "erofs", "rootfs-amd64.cmdline": "root=x", "kernel-amd64": "k",
+	})
+	srv := serve(t, name, files, "/tag/"+name)
+	c := New(srv.URL)
+	c.Attest = func([]byte) error { return errors.New("no attestation verifies") }
+	cache := t.TempDir()
+	_, err := c.Fetch(cache, name, "amd64", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "no attestation verifies") {
+		t.Fatalf("got %v", err)
+	}
+	if entries, _ := os.ReadDir(cache); len(entries) != 0 {
+		t.Fatalf("left %v behind", entries)
+	}
+}
+
+func TestElsewhereFetchSaysItIsNotAttested(t *testing.T) {
+	files := withSums(map[string]string{
+		"rootfs-amd64.erofs": "erofs", "rootfs-amd64.cmdline": "root=x", "kernel-amd64": "k",
+	})
+	srv := serve(t, name, files, "/tag/"+name)
+	var log strings.Builder
+	if _, err := New(srv.URL).Fetch(t.TempDir(), name, "amd64", &log); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(log.String(), "checked, not attested") {
+		t.Fatalf("log: %s", log.String())
 	}
 }

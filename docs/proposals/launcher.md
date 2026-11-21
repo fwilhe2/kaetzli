@@ -54,7 +54,10 @@ Nothing else: no git, no `gh`, no `socat`, no `curl` after the first download.
 ## What it does differently from vm.sh
 
 - **Images come from releases** (`release.md`): it resolves the latest snapshot once,
-  downloads into its cache and verifies every file against `SHA256SUMS` before using it.
+  downloads into its cache and verifies every file against `SHA256SUMS` before using it,
+  and `SHA256SUMS` against CI's signed provenance first (`go/internal/attest`: the
+  Fulcio chain, the workflow identity, the DSSE signature and the Rekor entry, with
+  Sigstore's trusted root pinned in the package, standard library only — no `gh`).
   `--image DIR` boots a local build, so `vm.sh`'s `--image local` keeps a way in.
 - **State in the platform's place**: `os.UserCacheDir()` for images, one directory per
   machine under `os.UserConfigDir()`. That is `~/.local/share` and `~/.cache` on Linux,

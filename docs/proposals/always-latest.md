@@ -99,9 +99,10 @@ Version skew is the largest of them.
    *Risk* for why some users want a lag. Snapshots are kept long enough that `update
    --min-age 3d` (the newest snapshot that is at least three days old) would be a
    flag, not a channel.
-7. **Authenticity is checked only where `gh` exists.** `fetch-image.sh` checks
-   `SHA256SUMS` always, and the attestations only when `gh` can. An unattended updater
-   has to check the attestation itself.
+7. **Authenticity is checked only where `gh` exists** — in `fetch-image.sh`. The
+   launcher checks it itself (`kaetzli update` refuses a snapshot whose `SHA256SUMS` has
+   no attestation by `ci.yml` on main; `go/internal/attest`), so an updater built on it
+   needs nothing else.
 
 ### For Kubernetes
 
