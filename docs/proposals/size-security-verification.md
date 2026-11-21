@@ -16,9 +16,9 @@ Nothing new is planned here beyond *Open*.
 | libstdc++ | `842dace` | Kept on purpose, for prebuilt C++ programs: `present` lines in `test/image-files/gcc.txt` | CI green |
 | Immutable releases | `4695b6d` | Were already on; [release.md](release.md) says so, and what it means for expiry (a tag may outlive its release) | `gh api repos/fwilhe2/kaetzli/immutable-releases` |
 | Weekly rebuild | `37e104c` | `.github/workflows/rebuild.yml`: the latest release rebuilt with `FRESH=1`, no cache, compared with `SHA256SUMS`; byte-identical assets get a `rebuild/v1` attestation ([reproducing a build](reproducing-a-build.md)) | Not run yet (Sundays 03:00 UTC, or dispatch) |
-| arm64 alignment | `f25b3ea`, `167d71f` | `-z max-page-size=16384` on arm64 (`builder/build-package.sh`, glibc's `configparms`): less padding; the OCI image still runs on 4 and 16 KiB hosts, not 64 KiB ones. systemd keeps the default: its EFI stubs need 4 KiB and `elf2efi` refuses anything else — what broke CI between the two commits | see *Open* |
-| vTPM | `a305875`, `37e824d` | `TCG_TPM`, `TCG_TIS`, `TCG_CRB` in the kernel (`kernel-caps.txt`); the kernel fixtures carry them | Kernel built; full run see *Open* |
-| Measured boot | `14fe13a` | systemd's stub `-Dtpm=true` (no tpm2-tss); `image/pcr.py` predicts PCR 11 (matches `systemd-measure calculate`); `kaetzli.pcr.json` → release asset `uki-<arch>.pcr.json`; `test/secureboot.py` boots under swtpm and requires PCR 11 = prediction = published value ([Secure Boot](../guides/secure-boot.md#measured-boot)) | Unit tests; boot test see *Open* |
+| arm64 alignment | `f25b3ea`, `167d71f` | `-z max-page-size=16384` on arm64 (`builder/build-package.sh`, glibc's `configparms`): less padding; the OCI image still runs on 4 and 16 KiB hosts, not 64 KiB ones. systemd keeps the default: its EFI stubs need 4 KiB and `elf2efi` refuses anything else — what broke CI between the two commits; budget lowered in `f9e4027` | CI: arm64 erofs tree 88.2 → 75.4 MiB, oci 58.8 → 47.0 (amd64: 75.0, 49.1) |
+| vTPM | `a305875`, `37e824d` | `TCG_TPM`, `TCG_TIS`, `TCG_CRB` in the kernel (`kernel-caps.txt`); the kernel fixtures carry them | CI green, both arches |
+| Measured boot | `14fe13a` | systemd's stub `-Dtpm=true` (no tpm2-tss); `image/pcr.py` predicts PCR 11 (matches `systemd-measure calculate`); `kaetzli.pcr.json` → release asset `uki-<arch>.pcr.json`; `test/secureboot.py` boots under swtpm and requires PCR 11 = prediction = published value ([Secure Boot](../guides/secure-boot.md#measured-boot)) | CI (run 44934567492): the guest's PCR 11 under swtpm was the predicted and published value |
 | Launcher attestation | `7b543e7` | `go/internal/attest`: Sigstore bundle verified with the standard library (Fulcio chain, ci.yml on main, DSSE, Rekor SET, inclusion proof, checkpoint); `kaetzli update` refuses an unattested snapshot | Go tests; live against `20261121.083317-915` |
 
 ## Not changed, on purpose
@@ -31,12 +31,8 @@ Nothing new is planned here beyond *Open*.
 
 ## Open
 
-1. **CI after `167d71f`**: the arm64 systemd build with the fix, then the first boot of
-   `test/secureboot.py` with a vTPM — the PCR 11 check has run only in unit tests.
-2. **arm64 size budget**: lower the arm64 rows in `test/size-budget.txt` to what CI
-   measures with 16 KiB alignment, plus the usual 8%.
-3. **Review the pinned Sigstore root**: `go/internal/attest/trusted_root.json` is a trust
+1. **Review the pinned Sigstore root**: `go/internal/attest/trusted_root.json` is a trust
    anchor, committed from `gh attestation trusted-root`; like the toolchain keys it
    should be a person's commit (or reviewed as one).
-4. **First `rebuild.yml` run**: unmeasured in one job; a fresh CI build's serial path is
+2. **First `rebuild.yml` run**: unmeasured in one job; a fresh CI build's serial path is
    ~2 h, inside its 350-minute timeout.
