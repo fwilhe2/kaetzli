@@ -33,6 +33,9 @@ Guides describe current behavior. Proposals describe work that is not implemente
   improvement; package patches are already supported ([guide](guides/patches.md)).
 - [Ideas from other builders](proposals/ideas-from-other-builders.md): checks, hardening
   and SBOM features adapted from Talos, LinuxKit, Flatcar and podman-machine-os.
+- [Smaller, more secure, easier to verify](proposals/size-security-verification.md): the
+  2026-11-21 pass (kernel lockdown, kmod, measured boot, attestation in the launcher) and
+  what is still open.
 - [Host-side scripts](proposals/host-scripting.md): which tests and tools move from bash
   to Python, and in what order.
 - [Persistent volumes](proposals/persistent-volumes.md): storage for PersistentVolumeClaims
