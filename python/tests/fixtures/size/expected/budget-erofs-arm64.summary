@@ -1,16 +1,16 @@
 ## Image size — erofs, arm64
 
-**86.3 MiB** of a **117 MiB** budget (73%). 25.9 MiB as a compressed EROFS image.
+**75.4 MiB** of a **82 MiB** budget (92%). 26.3 MiB as a compressed EROFS image.
 
 | directory | MiB |
 | --- | ---: |
-| `usr` | 85.5 |
-| `usr/lib` | 49.7 |
-| `usr/bin` | 28.6 |
-| `usr/lib64` | 2.4 |
+| `usr` | 74.6 |
+| `usr/lib` | 43.9 |
+| `usr/bin` | 25.4 |
 | `usr/share` | 2.4 |
-| `usr/libexec` | 2.3 |
+| `usr/libexec` | 2.2 |
 | `etc` | 0.8 |
+| `usr/lib64` | 0.7 |
 | `etc/ssl` | 0.2 |
 | `boot` | 0.1 |
 
@@ -18,30 +18,30 @@
 
 | file | MiB |
 | --- | ---: |
-| `usr/lib/libcrypto.so.3` | 5.3 |
-| `usr/lib/systemd/libsystemd-shared-262.so` | 5.3 |
+| `usr/lib/libcrypto.so.3` | 5.5 |
+| `usr/lib/systemd/libsystemd-shared-262.so` | 5.4 |
 | `usr/lib/systemd/libsystemd-core-262.so` | 2.6 |
 | `usr/lib/libstdc++.so.6.0.36` | 2.5 |
 | `usr/lib/systemd/systemd-networkd` | 2.1 |
 | `usr/lib/libc.so.6` | 1.6 |
+| `usr/lib/libsystemd.so.0.45.0` | 1.5 |
+| `usr/lib/libglib-2.0.so.0.9000.1` | 1.5 |
 | `usr/bin/coreutils` | 1.5 |
-| `usr/lib/libsystemd.so.0.45.0` | 1.4 |
-| `usr/lib/libglib-2.0.so.0.9000.1` | 1.4 |
 | `usr/bin/bash` | 1.4 |
-| `usr/bin/gawk-5.4.1` | 1.1 |
+| `usr/bin/gawk-5.4.2` | 1.1 |
 | `usr/bin/gawk` | 1.1 |
-| `usr/bin/openssl` | 1.0 |
 | `usr/lib/libnftables.so.1.1.0` | 1.0 |
-| `usr/libexec/sshd-session` | 1.0 |
+| `usr/bin/openssl` | 1.0 |
 | `usr/lib/libssl.so.3` | 1.0 |
+| `usr/libexec/sshd-session` | 1.0 |
 | `usr/lib/security/pam_systemd.so` | 0.9 |
 | `usr/libexec/sshd-auth` | 0.9 |
 | `usr/bin/ssh` | 0.9 |
 | `usr/bin/ldconfig` | 0.8 |
 | `usr/bin/udevadm` | 0.8 |
 | `usr/bin/ip` | 0.7 |
+| `usr/bin/crun` | 0.7 |
+| `usr/lib/libcurl.so.4.8.0` | 0.7 |
 | `usr/lib/libzstd.so.1.5.7` | 0.7 |
-| `usr/lib/libm.so.6` | 0.7 |
-| `usr/bin/crun` | 0.6 |
 
 </details>

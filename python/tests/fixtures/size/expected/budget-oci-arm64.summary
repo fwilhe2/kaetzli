@@ -1,46 +1,45 @@
 ## Image size — oci, arm64
 
-**57.2 MiB** of a **66 MiB** budget (86%). 17.9 MiB as a gzipped OCI archive.
+**47.0 MiB** of a **51 MiB** budget (92%). 18.2 MiB as a gzipped OCI archive.
 
 | directory | MiB |
 | --- | ---: |
-| `usr` | 56.5 |
-| `usr/lib` | 28.8 |
-| `usr/bin` | 22.7 |
-| `usr/lib64` | 2.4 |
+| `usr` | 46.3 |
+| `usr/lib` | 23.2 |
+| `usr/bin` | 19.8 |
 | `usr/share` | 2.4 |
 | `etc` | 0.7 |
-| `usr/libexec` | 0.2 |
+| `usr/lib64` | 0.7 |
 | `etc/ssl` | 0.2 |
 
 <details><summary>Largest files</summary>
 
 | file | MiB |
 | --- | ---: |
-| `usr/lib/libcrypto.so.3` | 5.3 |
+| `usr/lib/libcrypto.so.3` | 5.5 |
 | `usr/lib/libstdc++.so.6.0.36` | 2.5 |
 | `usr/lib/libc.so.6` | 1.6 |
+| `usr/lib/libsystemd.so.0.45.0` | 1.5 |
 | `usr/bin/coreutils` | 1.5 |
-| `usr/lib/libsystemd.so.0.45.0` | 1.4 |
 | `usr/bin/bash` | 1.4 |
-| `usr/bin/gawk-5.4.1` | 1.1 |
+| `usr/bin/gawk-5.4.2` | 1.1 |
 | `usr/bin/gawk` | 1.1 |
-| `usr/bin/openssl` | 1.0 |
 | `usr/lib/libnftables.so.1.1.0` | 1.0 |
+| `usr/bin/openssl` | 1.0 |
 | `usr/lib/libssl.so.3` | 1.0 |
 | `usr/bin/ssh` | 0.9 |
 | `usr/bin/ldconfig` | 0.8 |
 | `usr/bin/ip` | 0.7 |
+| `usr/bin/crun` | 0.7 |
+| `usr/lib/libcurl.so.4.8.0` | 0.7 |
 | `usr/lib/libzstd.so.1.5.7` | 0.7 |
 | `usr/lib/libm.so.6` | 0.7 |
-| `usr/bin/crun` | 0.6 |
-| `usr/lib/libcurl.so.4.8.0` | 0.6 |
 | `usr/bin/tc` | 0.6 |
 | `etc/services` | 0.5 |
 | `usr/lib/libmount.so.1.1.0` | 0.5 |
 | `usr/bin/ssh-keyscan` | 0.5 |
 | `usr/bin/ssh-keygen` | 0.5 |
+| `usr/lib/libbpf.so.1.8.0` | 0.5 |
 | `usr/bin/tar` | 0.5 |
-| `usr/lib/libext2fs.so.2.4` | 0.4 |
 
 </details>

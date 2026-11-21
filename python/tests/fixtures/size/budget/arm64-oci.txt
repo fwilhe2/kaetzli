@@ -1,36 +1,35 @@
 # assembled oci image tree, sizes in bytes. Written by image/build-rootfs.sh.
-total 59975271
-dir 59193572 usr
-dir 30160035 usr/lib
-dir 23788075 usr/bin
-dir 2563346 usr/lib64
-dir 2475051 usr/share
-dir 776373 etc
-dir 203048 usr/libexec
+total 49297107
+dir 48514275 usr
+dir 24378692 usr/lib
+dir 20780917 usr/bin
+dir 2522439 usr/share
+dir 777506 etc
+dir 772938 usr/lib64
 dir 193592 etc/ssl
-file 5583192 usr/lib/libcrypto.so.3
-file 2633048 usr/lib/libstdc++.so.6.0.36
-file 1651176 usr/lib/libc.so.6
-file 1525928 usr/bin/coreutils
-file 1513840 usr/lib/libsystemd.so.0.45.0
-file 1479816 usr/bin/bash
-file 1188040 usr/bin/gawk-5.4.1
-file 1188040 usr/bin/gawk
-file 1096296 usr/bin/openssl
-file 1069672 usr/lib/libnftables.so.1.1.0
-file 1003920 usr/lib/libssl.so.3
+file 5794864 usr/lib/libcrypto.so.3
+file 2607672 usr/lib/libstdc++.so.6.0.36
+file 1700096 usr/lib/libc.so.6
+file 1579376 usr/lib/libsystemd.so.0.45.0
+file 1555792 usr/bin/coreutils
+file 1477936 usr/bin/bash
+file 1202880 usr/bin/gawk-5.4.2
+file 1202880 usr/bin/gawk
+file 1099408 usr/lib/libnftables.so.1.1.0
+file 1066400 usr/bin/openssl
+file 1064808 usr/lib/libssl.so.3
 file 920352 usr/bin/ssh
-file 860720 usr/bin/ldconfig
-file 750360 usr/bin/ip
-file 723936 usr/lib/libzstd.so.1.5.7
-file 723192 usr/lib/libm.so.6
-file 669920 usr/bin/crun
-file 662504 usr/lib/libcurl.so.4.8.0
-file 618432 usr/bin/tc
-file 563158 etc/services
-file 530632 usr/lib/libmount.so.1.1.0
+file 876984 usr/bin/ldconfig
+file 765296 usr/bin/ip
+file 733480 usr/bin/crun
+file 708560 usr/lib/libcurl.so.4.8.0
+file 706672 usr/lib/libzstd.so.1.5.7
+file 706656 usr/lib/libm.so.6
+file 617144 usr/bin/tc
+file 563209 etc/services
+file 543456 usr/lib/libmount.so.1.1.0
 file 526840 usr/bin/ssh-keyscan
-file 526624 usr/bin/ssh-keygen
-file 474368 usr/bin/tar
-file 466464 usr/lib/libext2fs.so.2.4
-archive 18810880
+file 510240 usr/bin/ssh-keygen
+file 493912 usr/lib/libbpf.so.1.8.0
+file 489016 usr/bin/tar
+archive 19097600

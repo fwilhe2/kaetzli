@@ -1,5 +1,5 @@
 error: test/size-budget.txt has no line for oci/arm64, so nothing is capping that image.
-       It measures 57.2 MiB today. Add a line — the measurement plus
+       It measures 47.0 MiB today. Add a line — the measurement plus
        about 8% of headroom, which is how the others were set:
 
-           oci    arm64    61
+           oci    arm64    50

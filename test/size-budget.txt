@@ -95,7 +95,13 @@
 # to 83.4 MiB on amd64 and to 108.3 MiB on arm64, both measured in CI (run 40090943060),
 # and the ceilings to that plus about 8%. The OCI rows are untouched: the container
 # flavour never had podman.
+#
+# Lowered for arm64 by 16 KiB segment alignment (builder/build-package.sh, glibc's
+# configparms; systemd keeps the default, for its EFI stubs): measured in CI (run
+# 44934567492) the arm64 erofs tree went from 88.2 to 75.4 MiB and the oci tree from 58.8
+# to 47.0, level with amd64's 75.0 and 49.1 — the padding the paragraph at the top
+# explains is gone. The rows are that plus about 8%.
 erofs      amd64  90
-erofs      arm64  117
+erofs      arm64  82
 oci        amd64  51
-oci        arm64  66
+oci        arm64  51
