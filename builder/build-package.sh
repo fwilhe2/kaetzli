@@ -65,8 +65,16 @@ if [ -n "${SYSROOT:-}" ]; then
         aarch64) hardening+=" -mbranch-protection=standard" ;;
     esac
 
+    # arm64's linker aligns every LOAD segment to 64 KiB, so that a binary runs on a 64 KiB
+    # page kernel too, and pads each shared object to match: the arm64 tree was half again
+    # amd64's for it (test/size-budget.txt). 16 KiB, Android's choice: our kernel is 4 KiB,
+    # and the OCI image still runs on 4 and 16 KiB hosts (Asahi), not on 64 KiB ones
+    # (RHEL's kernel-64k). packages/glibc passes the same flag; Go's own linker ignores it.
+    pagesize=""
+    [ "$(uname -m)" = aarch64 ] && pagesize=" -Wl,-z,max-page-size=16384"
+
     export CPPFLAGS="$sysroot_cppflags${CPPFLAGS:+ $CPPFLAGS}"
-    export LDFLAGS="$sysroot_ldflags -Wl,-z,relro -Wl,-z,now${LDFLAGS:+ $LDFLAGS}"
+    export LDFLAGS="$sysroot_ldflags -Wl,-z,relro -Wl,-z,now$pagesize${LDFLAGS:+ $LDFLAGS}"
 
     # -O2 has to be said: autoconf only defaults to it when CFLAGS is unset, and setting
     # it is what the line above does, so everything was silently -O0. No -g, since the

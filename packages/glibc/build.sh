@@ -7,6 +7,16 @@ pushd build
 # protector, fortified internal calls, and BIND_NOW for the loader and every library.
 ../configure --prefix=/usr --disable-werror \
     --enable-stack-protector=strong --enable-fortify-source --enable-bind-now
+# On arm64, 16 KiB segment alignment instead of the linker's 64 KiB, as every other
+# package gets it from build-package.sh: glibc's gconv modules alone were 18.8 MiB of
+# padding there against 7.7 MiB on amd64. configparms is how glibc takes make variables
+# (Makeconfig includes it); configure does not pass LDFLAGS to shared objects. .so for
+# libraries and modules, -rtld for the loader, plain for the programs.
+if [ "$(uname -m)" = aarch64 ]; then
+    for var in LDFLAGS.so LDFLAGS-rtld LDFLAGS; do
+        echo "$var += -Wl,-z,max-page-size=16384"
+    done > configparms
+fi
 make
 make install DESTDIR=$ROOTFS
 popd
