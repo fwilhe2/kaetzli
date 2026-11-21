@@ -19,12 +19,24 @@ class TestCounts:
         # CVE-2026-1/openssh is listed twice and counted as its first listing (Medium,
         # no fix); severity missing is "other", as is Negligible.
         assert c == Counts(
-            total=6, critical=1, high=1, medium=1, low=1, other=2, fixable=2, patched=2
+            total=6,
+            critical=1,
+            high=1,
+            medium=1,
+            low=1,
+            other=2,
+            fixable=2,
+            patched=2,
+            not_affected=1,
         )
 
     def test_patched_is_what_vex_closed_only(self, report):
-        # CVE-2026-6 twice, CVE-2026-7; CVE-2026-8 was ignored by another rule.
+        # CVE-2026-6 twice, CVE-2026-7; CVE-2026-8 was ignored by another rule, and
+        # CVE-2016-0774 by a not_affected statement, which is not a patch.
         assert findings.counts(report).patched == 2
+
+    def test_not_affected_is_its_own_count(self, report):
+        assert findings.not_affected(report) == [("kernel", "7.3.1", 1)]
 
     def test_an_empty_report(self):
         assert findings.counts(findings.Report([], [])) == Counts()
@@ -58,10 +70,27 @@ class TestPatched:
 
 class TestSummaryLine:
     def test_round_trip(self):
-        c = Counts(total=94, critical=1, high=27, medium=59, low=7, other=0, fixable=4, patched=8)
+        c = Counts(
+            total=94,
+            critical=1,
+            high=27,
+            medium=59,
+            low=7,
+            other=0,
+            fixable=4,
+            patched=8,
+            not_affected=90,
+        )
         line = c.line()
-        assert line == "total 94 critical 1 high 27 medium 59 low 7 other 0 fixable 4 patched 8"
+        assert line == (
+            "total 94 critical 1 high 27 medium 59 low 7 other 0 fixable 4 patched 8"
+            " not_affected 90"
+        )
         assert Counts.parse(line) == c
+
+    def test_a_line_from_before_not_affected_parses_with_zero(self):
+        old = "total 94 critical 1 high 27 medium 59 low 7 other 0 fixable 4 patched 8"
+        assert Counts.parse(old).not_affected == 0
 
     def test_parse_tolerates_missing_keys(self):
         assert Counts.parse("total 3 fixable 1") == Counts(total=3, fixable=1)
@@ -71,9 +100,12 @@ class TestSummaryLine:
 class TestSummaryFile:
     TEXT = (
         "db 2026-11-01 grype-0.120.1\n"
-        "doc erofs total 2 critical 0 high 1 medium 1 low 0 other 0 fixable 1 patched 0\n"
-        "doc ext-podman total 1 critical 1 high 0 medium 0 low 0 other 0 fixable 1 patched 0\n"
-        "all total 3 critical 1 high 1 medium 1 low 0 other 0 fixable 2 patched 0\n"
+        "doc erofs total 2 critical 0 high 1 medium 1 low 0 other 0 fixable 1 patched 0"
+        " not_affected 4\n"
+        "doc ext-podman total 1 critical 1 high 0 medium 0 low 0 other 0 fixable 1 patched 0"
+        " not_affected 0\n"
+        "all total 3 critical 1 high 1 medium 1 low 0 other 0 fixable 2 patched 0"
+        " not_affected 4\n"
     )
 
     def test_parse(self):

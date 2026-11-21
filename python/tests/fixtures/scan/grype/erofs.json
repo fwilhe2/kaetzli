@@ -24,6 +24,8 @@
     {"vulnerability": {"id": "CVE-2026-7"}, "artifact": {"name": "bash", "version": "5.3"},
      "appliedIgnoreRules": [{"namespace": "vex", "vex-status": "fixed"}]},
     {"vulnerability": {"id": "CVE-2026-8", "severity": "High"}, "artifact": {"name": "glibc", "version": "2.44"},
-     "appliedIgnoreRules": [{"namespace": "", "vulnerability": "CVE-2026-8"}]}
+     "appliedIgnoreRules": [{"namespace": "", "vulnerability": "CVE-2026-8"}]},
+    {"vulnerability": {"id": "CVE-2016-0774", "severity": "Medium"}, "artifact": {"name": "kernel", "version": "7.3.1"},
+     "appliedIgnoreRules": [{"namespace": "vex", "vex-status": "not_affected", "vex-justification": "vulnerable_code_not_present"}]}
   ]
 }

@@ -23,10 +23,11 @@ def _refs(pkg: dict, kind: str) -> list[dict]:
     return [r for r in pkg.get("externalRefs") or [] if r.get("referenceType") == kind]
 
 
-def vex(doc: dict, timestamp: str) -> dict | None:
+def vex(doc: dict, timestamp: str, extra: list[dict] | None = None) -> dict | None:
     """OpenVEX "fixed" for each CVE a package's patches fix (an SPDX `fix` reference,
     image/sbom.py), the product being the package's purl, which is what grype matches a
-    statement against. None when no package has one."""
+    statement against; then `extra` (test/cve-not-affected.txt's and govulncheck's
+    `not_affected`). None when there is no statement at all."""
     statements = []
     for pkg in doc.get("packages") or []:
         for purl in _refs(pkg, "purl"):
@@ -42,6 +43,7 @@ def vex(doc: dict, timestamp: str) -> dict | None:
                         "status_notes": f"fixed by packages/{pkg['name']}/patches/{m['patch']}",
                     }
                 )
+    statements += extra or []
     if not statements:
         return None
     return {

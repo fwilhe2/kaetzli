@@ -1,7 +1,7 @@
 """<dir>/cve-summary.txt: one line per SBOM and one for the whole build.
 
     db <date> grype-<version>
-    doc <name> total N critical N high N medium N low N other N fixable N patched N
+    doc <name> total N critical N high N medium N low N other N fixable N patched N not_affected N
     all total N ...
 
 test/cve-scan.py writes it, test/cve-history.py plots it, and CI keeps it in the
@@ -16,7 +16,9 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Counts:
-    """Open CVEs by severity, those with a fix upstream, and those our patches close."""
+    """Open CVEs by severity, those with a fix upstream, those our patches close, and those
+    VEX says do not affect the image (test/cve-not-affected.txt, govulncheck). A line from
+    before not_affected existed parses with 0 there."""
 
     total: int = 0
     critical: int = 0
@@ -26,6 +28,7 @@ class Counts:
     other: int = 0
     fixable: int = 0
     patched: int = 0
+    not_affected: int = 0
 
     def line(self) -> str:
         return " ".join(f"{f.name} {getattr(self, f.name)}" for f in fields(self))
