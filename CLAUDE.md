@@ -85,7 +85,8 @@ tools/            local conveniences and maintenance, not a build — except lib
 docs/             design notes, each saying at the top whether it is implemented; how-it-works.md,
                   debugging.md, linking.md
 python/           the kaetzli package behind test/ and tools/ .py scripts (python/README.md)
-go/               the launcher, go/cmd/kaetzli (docs/proposals/launcher.md)
+go/               the launcher, go/cmd/kaetzli (docs/proposals/launcher.md); go/tools pins
+                  govulncheck (its own module, so the launcher stays stdlib only)
 examples/         images FROM the published image; user templates, not in build or CI
 downloads/ staging/<pkg>/{rootfs,extensions} rootfs/ extensions/ output/   (gitignored)
 ```
@@ -111,6 +112,10 @@ policy checks are done).
 - **Go** only where a static binary is the point (no Python there). The launcher: stdlib only,
   built by `tools/build-launcher.sh` in the golang container `go/go.mod` names; its qemu
   command line is a third copy of the harness's, held equal by `python/tests/test_launcher.py`.
+  `go/tools` is not our code: a `tool` line and `go.sum` pinning govulncheck, which
+  `kaetzli.cve.govuln` builds with the Go on PATH and runs in binary mode on the staged Go
+  programs. An advisory whose functions no binary of an SBOM contains is VEX `not_affected`
+  there (per SBOM: a module inert in podman may be live in crio); the rest stay open.
 - **`env.sh` stays bash**; Python reads pins through bash (`env_get`, `bash -c 'source …;
   printf …'`), never by parsing.
 - **Python 3.12 baseline**: the distribution's `python3` (Debian, Ubuntu, Fedora only). Must run
@@ -210,7 +215,7 @@ policy checks are done).
 ./test/boot-time-history.py [arch]    # systemd.py's output/boot-time.txt vs main
 ./test/image-diff.py [OLD [NEW]]      # vs main's newest green build (--comment on the PR)
 ./test/oci-trim.py [output]           # what OCI leaves out of the disk image, deps check on its layer
-./test/cve-scan.py [dir]              # grype on the SBOMs (report only)
+./test/cve-scan.py [dir]              # grype on the SBOMs (report only); GO_TREES=staging adds govulncheck
 ./test/cve-workbook.sh [dir]          # reports as <dir>/cve.ods via grind ($GRIND or PATH)
 ./test/cve-history.py [arch]          # CVE count over main builds, one database
 ./test/cve-context.py [dir]           # findings + EPSS, KEV, distro verdicts (RUN=, ARCH=)

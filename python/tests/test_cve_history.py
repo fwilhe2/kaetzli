@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from kaetzli import report
-from kaetzli.cve import history
+from kaetzli.cve import history, not_affected
 from kaetzli.cve.grype import Grype
 from kaetzli.cve.summary import Counts, Summary
 from kaetzli.gh import Gh
@@ -153,6 +153,14 @@ class TestHistory:
         history.rescan(builds, tmp_path, Grype(FIXTURES / "bin" / "grype"), cpes={})
         assert [b.now.all.total for b in builds] == [7, 7, 7]
         assert (tmp_path / "5" / "cve" / "erofs.sbom.json").exists()  # enriched
+
+    def test_the_rescan_applies_todays_not_affected_list(self, tmp_path):
+        gh = Gh(run=FakeGhRun(runs(1), with_sbom={"1"}))
+        builds = history.collect(gh, "amd64", 3, tmp_path, "ci.yml", "main")
+        entries = not_affected.parse("golang.org/x/net GO-2026-3 component_not_present r\n")
+        history.rescan(builds, tmp_path, Grype(FIXTURES / "bin" / "grype"), {}, entries)
+        vex = json.loads((tmp_path / "1" / "cve" / "erofs.vex.json").read_text())
+        assert "not_affected" in [s["status"] for s in vex["statements"]]
 
     def test_the_rescans_say_nothing(self, tmp_path, monkeypatch, capsys):
         summary_file = tmp_path / "step-summary.md"

@@ -28,6 +28,11 @@ reason (kaetzli.cve.not_affected); every line becomes a VEX `not_affected` state
 the SBOM packages of that name, counted in its own column. A line no report mentions any
 more is listed as stale.
 
+GO_TREES=<dir> (staging trees: CI's package artifacts, or staging/) adds govulncheck on
+every Go program there (kaetzli.cve.govuln): a Go advisory whose vulnerable functions are
+in none of an SBOM's binaries is VEX `not_affected` in that SBOM too, and the ones whose
+code is linked are listed with the binaries that have it.
+
 Patched is not open. A package whose packages/<pkg>/patches fix a CVE says so in its SBOM
 entry, as an SPDX `fix` reference (tools/patch-cves.sh, image/sbom.py); each SBOM's
 references become an OpenVEX document (<dir>/cve/<sbom>.vex.json) that grype applies, so
@@ -43,7 +48,7 @@ import sys
 from pathlib import Path
 
 from kaetzli import repo
-from kaetzli.cve import findings, not_affected, sbom
+from kaetzli.cve import findings, govuln, not_affected, sbom
 from kaetzli.cve.grype import VERSION, Grype, GrypeUnavailable, binary
 from kaetzli.cve.summary import Counts, Summary
 from kaetzli.report import Note, Report, run
@@ -56,6 +61,8 @@ def scan(
     arch: str,
     cpes: dict[str, list[str]] | None = None,
     unaffected: list[not_affected.Entry] | None = None,
+    go: govuln.Result | None = None,
+    go_note: str = "",
 ) -> Summary:
     sboms = sorted(directory.glob("sbom-*.json"))
     if not sboms:
@@ -76,7 +83,7 @@ def scan(
             scanned = out / f"{name}.sbom.json"
             scanned.write_text(sbom.dumps(doc))
         vex_path = out / f"{name}.vex.json"
-        extra = not_affected.statements(doc, unaffected or [])
+        extra = not_affected.statements(doc, unaffected or []) + govuln.statements(go, name, doc)
         vex = sbom.vex(doc, sbom.timestamp(repo.SOURCE_DATE_EPOCH), extra)
         if vex:
             vex_path.write_text(sbom.dumps(vex))
@@ -107,8 +114,40 @@ def scan(
     stale = not_affected.stale(unaffected or [], reports.values()) if reports else []
     (directory / "cve-summary.txt").write_text(summary.text())
 
-    report.lines(render(summary, top, patched, arch, unaffected_rows, stale))
+    lines = render(summary, top, patched, arch, unaffected_rows, stale)
+    report.lines(lines + render_go(go, go_note))
     return summary
+
+
+def render_go(go: govuln.Result | None, note: str) -> list[str]:
+    if note:
+        return ["", f"govulncheck: {note}"]
+    if go is None:
+        return []
+    cleared = sum(len(go.not_linked(sbom)) for sbom in go.present)
+    lines = [
+        "",
+        f"### govulncheck {govuln.version()} (binary mode, Go vulndb {go.db})",
+        "",
+        f"{cleared} advisories against a module version a binary links, with none of their "
+        "vulnerable functions in that SBOM's binaries: VEX `not_affected`, in the column "
+        "above.",
+    ]
+    if go.linked:
+        lines += [
+            "",
+            "Whose vulnerable code is in a binary (open; `stdlib` is the Go toolchain, which "
+            "grype does not see):",
+            "",
+            "| advisory | module | version | fixed in | binaries |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for osv, module, ver, fixed, bins in go.linked:
+            names = ", ".join(f"`{b.rsplit('/', 1)[-1]}`" for b in bins)
+            lines.append(f"| {osv} | `{module}` | {ver} | {fixed or '—'} | {names} |")
+    if go.errors:
+        lines += ["", "Not scanned:", ""] + [f"- {e}" for e in go.errors]
+    return lines
 
 
 def _row(label: str, c: Counts) -> str:
@@ -191,6 +230,12 @@ def main(argv: list[str]) -> int:
     if os.environ.get("ENRICH") == "1":
         cpes = sbom.cpe_map(repo.env_get_all("CPE"))
     unaffected = not_affected.load(repo.ROOT / not_affected.PATH)
+    go, go_note = None, ""
+    if trees := os.environ.get("GO_TREES"):
+        try:
+            go = govuln.run_all(Path(trees))
+        except govuln.Unavailable as e:
+            go_note = f"not run: {e}"
     scan(
         directory,
         Grype(exe),
@@ -198,6 +243,8 @@ def main(argv: list[str]) -> int:
         arch=repo.normalize_arch(),
         cpes=cpes,
         unaffected=unaffected,
+        go=go,
+        go_note=go_note,
     )
     return 0
 

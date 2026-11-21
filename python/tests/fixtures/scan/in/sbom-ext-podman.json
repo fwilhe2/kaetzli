@@ -3,6 +3,8 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "packages": [
     { "SPDXID": "SPDXRef-Package-podman", "name": "podman", "versionInfo": "5.7.0",
-      "externalRefs": [ { "referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:generic/podman@5.7.0" } ] }
+      "externalRefs": [ { "referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:generic/podman@5.7.0" } ] },
+    { "SPDXID": "SPDXRef-Package-podman-golang.org-x-net", "name": "golang.org/x/net", "versionInfo": "v0.57.0",
+      "externalRefs": [ { "referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:golang/golang.org/x/net@v0.57.0" } ] }
   ]
 }
