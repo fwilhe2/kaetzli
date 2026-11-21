@@ -32,7 +32,7 @@ bzip2
 zstd
 zip
 
-# Autotools, and the two other build systems in use: meson (dbus, kmod, pam, systemd)
+# Autotools, and the two other build systems in use: meson (dbus, pam, systemd)
 # and cmake (json-c).
 autoconf
 automake
@@ -107,7 +107,6 @@ libjansson-dev
 libffi-dev
 libglib2.0-dev
 libjson-c-dev
-libkmod-dev
 liblzma-dev
 libmnl-dev
 libmount-dev

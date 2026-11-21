@@ -318,10 +318,10 @@ to start. With no `kernel.panic`, a panicked node hangs forever instead of reboo
 
 ## 7. An SBOM that vulnerability scanners can match
 
-*Implemented, observing only:* `CPE=` in 53 packages' `env.sh` (two for gawk and shadow,
+*Implemented, observing only:* `CPE=` in 52 packages' `env.sh` (two for gawk and shadow,
 which NVD files under two vendors each), Go modules and Rust crates in the SBOM
 (`builder/build-package.sh`, `image/sbom.py`), an SBOM per extension,
-a package the assembly removes whole (the container image's kernel, kmod and PAM) left
+a package the assembly removes whole (the container image's kernel and PAM) left
 out of that flavour's SBOM, and a `cve-scan` job that nothing waits on: `test/cve-scan.py`
 (grype, pinned) and `test/cve-history.py`, which rescans the last builds' SBOMs with one
 database so that a step in the count is the image's doing, and sums the steps by whether

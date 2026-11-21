@@ -1,8 +1,0 @@
-VERSION="34.3"
-PACKAGE="kmod-${VERSION}"
-TARBALL="v${VERSION}.tar.gz"
-URL="https://github.com/kmod-project/kmod/archive/refs/tags/$TARBALL"
-SHA256="26e7ef068cd935d0f882b2e3b11f4452a1ed239aa24d68bfcaa047475e254e1f"
-LICENSE="LGPL-2.1-or-later AND GPL-2.0-or-later"
-CPE="cpe:2.3:a:kernel:kmod:${VERSION}:*:*:*:*:*:*:*"
-UPSTREAM_GITHUB="kmod-project/kmod"

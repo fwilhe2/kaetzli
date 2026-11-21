@@ -60,6 +60,10 @@ systemd_opts=(
     -Dpwquality=disabled -Dpasswdqc=disabled
     -Dbzip2=disabled -Dlz4=disabled -Didn=false -Dlibidn2=disabled
 
+    # The kernel is built with CONFIG_MODULES off, so there is nothing for PID 1's
+    # module loading, udev's kmod builtin or kmod-static-nodes to do.
+    -Dkmod=disabled
+
     # Access control with no userspace behind it: no polkitd, no SMACK/IMA/IPE/AppArmor.
     -Dpolkit=disabled -Dsmack=false -Dima=false -Dipe=false -Dapparmor=disabled
 

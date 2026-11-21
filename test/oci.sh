@@ -97,8 +97,8 @@ check "no udev"                              test ! -e /usr/lib/udev
 check "no units left behind in /etc"         test ! -e /etc/systemd
 check "no fstab for a root it never mounts"  test ! -e /etc/fstab
 check "no password hashes"                   test ! -e /etc/shadow
-# PAM went because it cannot work without the /etc/pam.d that went with systemd, kmod
-# because the kernel is built CONFIG_MODULES=n, libudev because nothing here names it.
+# PAM went because it cannot work without the /etc/pam.d that went with systemd, libudev
+# because nothing here names it. kmod is not built at all (CONFIG_MODULES=n).
 check "no PAM, which had no config to read"  test ! -e /usr/lib/security
 check "no su, which aborted without one"     test ! -e /usr/bin/su
 check "no module tools for a modless kernel" test ! -e /usr/bin/modprobe

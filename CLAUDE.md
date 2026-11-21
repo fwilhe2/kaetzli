@@ -375,7 +375,7 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   and the SBOM. Without it the bytes are unchanged.
 - **The OCI flavour is subtractions in one block**: kernel; systemd (tree, udev, PAM/NSS
   modules, every binary whose `NEEDED` has `libsystemd-shared`, via `readelf`); PAM; agetty;
-  kmod; sshd; libudev; conmon with glib and pcre2. `libsystemd.so.0` **stays** (crun,
+  sshd; libudev; conmon with glib and pcre2. `libsystemd.so.0` **stays** (crun,
   libmount). Deleted libraries are guarded: a new consumer fails the build. **Grep binaries
   with `grep -a`** (GNU grep drops matches inside `.dynstr`). Anything below the block runs
   without systemd, so must say which flavour it is for. `test/oci-trim.py` diffs the manifests

@@ -93,7 +93,7 @@ image. `make install` regularly adds such scripts (iproute2's `routel`, OpenSSL'
 fails the build if one ships.
 
 **One userspace, two formats.** The OCI image is the disk tree with the kernel, systemd,
-udev, PAM, sshd and kmod removed. Removed libraries are guarded, so a new consumer fails
+udev, PAM and sshd removed. Removed libraries are guarded, so a new consumer fails
 the build. `oci-trim.py` reports the difference on every run.
 
 **Extensions instead of a package manager.** Podman (with netavark, aardvark-dns, pasta

@@ -231,11 +231,6 @@ if [ "$flavour" = oci ]; then
     fi
     rm -f usr/lib/libglib-2.0.* usr/lib/libpcre2-8.*
 
-    # kmod: the kernel has no modules. The disk image keeps it for systemd and udev. Its
-    # symlinks are collected by the dangling-link sweep below.
-    rm -rf etc/depmod.d etc/modprobe.d etc/modules-load.d
-    rm -f  usr/bin/kmod usr/lib/libkmod.so*
-
     # libudev has no consumer once udev and udevadm are gone. grep rather than readelf,
     # so a dlopen by name counts too.
     consumers=$(find usr -type f -perm -u+x ! -name 'libudev.so*' -exec grep -la 'libudev\.so' {} + 2>/dev/null || true)
@@ -706,7 +701,7 @@ if [ ! -d "$components" ] || [ -z "$(ls -A "$components" 2>/dev/null)" ]; then
 fi
 
 # A package the steps above removed whole leaves the SBOM too, or a scanner reports its
-# CVEs against an image without it: the container flavour has no kernel, kmod or PAM.
+# CVEs against an image without it: the container flavour has no kernel or PAM.
 # tools/merge-staging.sh lists who installed each path; a package stays while any of its
 # files is left other than its license texts (which nothing may remove) and its records.
 owners="$IMAGE/usr/share/kaetzli/owners"

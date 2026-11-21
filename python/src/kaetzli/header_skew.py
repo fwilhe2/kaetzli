@@ -43,7 +43,6 @@ OURS = {
     "libjansson-dev": "jansson",
     "libglib2.0-dev": "glib",
     "libjson-c-dev": "json-c",
-    "libkmod-dev": "kmod",
     "liblzma-dev": "xz",
     "libmnl-dev": "libmnl",
     "libmount-dev": "util-linux",
