@@ -1,0 +1,7 @@
+# packages/gcc's runtime, kept although nothing in the image or its extensions links
+# either library: libgcc_s is dlopened by glibc (pthread_cancel, backtrace) and needed by
+# nearly every prebuilt Rust binary; libstdc++ is for prebuilt C++ programs
+# (test/prebuilt.sh runs one). No NEEDED names them, so the trim and the deps check
+# cannot see them go.
+present usr/lib/libgcc_s.so.1
+present usr/lib/libstdc++.so.6*
