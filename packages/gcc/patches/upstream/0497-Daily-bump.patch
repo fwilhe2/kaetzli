@@ -1,0 +1,95 @@
+From 46aeba1db488586e408c08833b5c2b4aee8ab3d5 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Sat, 21 Nov 2026 00:21:00 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 17 +++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/fortran/ChangeLog   |  9 +++++++++
+ gcc/testsuite/ChangeLog | 26 ++++++++++++++++++++++++++
+ 4 files changed, 53 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index fef16531aff5..ec40a4ae0401 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,20 @@
++2026-11-20  Avinash Jayakar  <avinashd@linux.ibm.com>
++
++	Backported from master:
++	2026-11-05  Avinash Jayakar  <avinashd@linux.ibm.com>
++
++	* config/rs6000/rs6000-c.cc (altivec_resolve_overloaded_builtin): Use
++	signed types intead of unsigned for atomic_cas_local builtin casts.
++
++2026-11-20  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-18  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128770
++	* config/i386/i386-expand.cc (ix86_expand_fp_compare): Use
++	UNSPEC_OPTCOMX only if HONOR_NANS.
++
+ 2026-11-19  Tamar Christina  <tamar.christina@arm.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index d6b1ffb7138f..b403a5efd48f 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261120
++20261121
+diff --git a/gcc/fortran/ChangeLog b/gcc/fortran/ChangeLog
+index 13bca0f7bfc8..ca2e8e5297b9 100644
+--- a/gcc/fortran/ChangeLog
++++ b/gcc/fortran/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-20  Steven G. Kargl  <kargl@gcc.gnu.org>
++
++	Backported from master:
++	2026-11-19  Steven G. Kargl  <kargl@gcc.gnu.org>
++
++	PR fortran/128682
++	* trans-expr.cc (gfc_get_expr_charlen): Get character length also
++	from functions.
++
+ 2026-11-17  Harald Anlauf  <anlauf@gmx.de>
+ 
+ 	Backported from master:
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 24c8b5c7ae8e..d6335910b7d9 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,29 @@
++2026-11-20  Steven G. Kargl  <kargl@gcc.gnu.org>
++
++	Backported from master:
++	2026-11-19  Steven G. Kargl  <kargl@gcc.gnu.org>
++
++	PR fortran/128682
++	* gfortran.dg/transpose_reshape_char.f90: New test.
++
++2026-11-20  Avinash Jayakar  <avinashd@linux.ibm.com>
++
++	Backported from master:
++	2026-11-05  Avinash Jayakar  <avinashd@linux.ibm.com>
++
++	* gcc.target/powerpc/acmp-tst.cc: New test.
++	* gcc.target/powerpc/acmp-tst-32bit.cc: New test.
++	* gcc.target/powerpc/acmp-tst-indexed.cc: New test.
++	* gcc.target/powerpc/powerpc.exp: Accept c++ tests.
++
++2026-11-20  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-18  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128770
++	* gcc.target/i386/pr128770.c: New test.
++
+ 2026-11-19  Tamar Christina  <tamar.christina@arm.com>
+ 
+ 	Backported from master:
