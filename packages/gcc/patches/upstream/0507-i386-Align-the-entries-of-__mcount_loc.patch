@@ -1,0 +1,64 @@
+From 3f02ce6938e2430520a81e3f68895a4cfad59e4e Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Sat, 21 Nov 2026 00:14:14 +0100
+Subject: [PATCH] i386: Align the entries of __mcount_loc
+
+-mrecord-mcount emits __mcount_loc without an alignment directive, so
+the section has an alignment of 1.  GNU ld and LLD only use packed
+relative relocations (-z pack-relative-relocs) for input sections that
+are at least 2-byte aligned, so in position independent output, each
+entry needs a 24 byte RELA relocation instead.  For a PIE build of the
+x86_64 Linux kernel, that is 50111 relocations (1.2 MB) instead of
+about 6 KB of RELR.
+
+Align the entries to their size, like the generic code already does
+for __patchable_function_entries.
+
+gcc/ChangeLog:
+
+	* config/i386/i386.cc (x86_function_profiler): Align the
+	__mcount_loc entries to their size.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/record-mcount-2.c: New test.
+
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+(cherry picked from commit b2e128f2d58ad1db099f0eb42ca74cfe5b262350)
+---
+ gcc/config/i386/i386.cc                         |  4 ++++
+ gcc/testsuite/gcc.target/i386/record-mcount-2.c | 10 ++++++++++
+ 2 files changed, 14 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.target/i386/record-mcount-2.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index f6fd628f3030..ce9ed0fd1681 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -24524,6 +24524,10 @@ x86_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
+ 	sname = fentry_section;
+ 
+       fprintf (file, "\t.section %s, \"a\",@progbits\n", sname);
++      /* Align the entries to their size: the linker only uses packed
++	 relative relocations (RELR) for them in position independent
++	 output if they are aligned.  */
++      ASM_OUTPUT_ALIGN (file, TARGET_64BIT ? 3 : 2);
+       fprintf (file, "\t.%s 1b\n", TARGET_64BIT ? "quad" : "long");
+       fprintf (file, "\t.previous\n");
+     }
+diff --git a/gcc/testsuite/gcc.target/i386/record-mcount-2.c b/gcc/testsuite/gcc.target/i386/record-mcount-2.c
+new file mode 100644
+index 000000000000..95dcbfac5c6a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/record-mcount-2.c
+@@ -0,0 +1,10 @@
++/* Test that -mrecord-mcount aligns the __mcount_loc entries.  */
++/* { dg-do compile { target { *-*-linux* && nonpic } } } */
++/* { dg-options "-pg -mrecord-mcount" } */
++/* { dg-final { scan-assembler {__mcount_loc, "a",@progbits\n\t\.b?align 8\n\t\.quad 1b} { target { ! ia32 } } } } */
++/* { dg-final { scan-assembler {__mcount_loc, "a",@progbits\n\t\.b?align 4\n\t\.long 1b} { target ia32 } } } */
++
++void
++func (void)
++{
++}

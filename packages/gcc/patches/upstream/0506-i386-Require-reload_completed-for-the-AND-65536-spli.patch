@@ -1,0 +1,86 @@
+From c4772c860b268801729d0a46f874b1eb4f429c7e Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Wed, 18 Nov 2026 20:19:35 +0100
+Subject: [PATCH] i386: Require reload_completed for the AND -65536 split [PR
+ target/128836]
+
+The define_split that converts "and $-65536, reg" to a strict_low_part
+HImode store of zero can fire before reload.  When operands[0] is a
+(subreg:SI (reg:SF N) 0), gen_lowpart (HImode, operands[0]) cannot be
+folded into a valid subreg of the SFmode pseudo, so it silently copies
+the value to a fresh SImode pseudo and returns the lowpart of that.
+The strict_low_part store then updates a pseudo nobody reads and the
+original register keeps its old value, which is a miscompile.
+
+Fix this by requiring reload_completed, where operands[0] is a hard
+register and gen_lowpart yields a plain REG that aliases the original.
+
+	PR target/128836
+
+gcc/ChangeLog:
+
+	* config/i386/i386.md
+	(split and with -65536 to strict_low_part movhi):
+	Require reload_completed.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128836.c: New test.
+
+(cherry picked from commit 44f26668c6b35ef7f6d71fdc4c89e667bec9a80f)
+---
+ gcc/config/i386/i386.md                  |  5 +++--
+ gcc/testsuite/gcc.target/i386/pr128836.c | 28 ++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+), 2 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128836.c
+
+diff --git a/gcc/config/i386/i386.md b/gcc/config/i386/i386.md
+index a303fa79f9f3..9603597bfb46 100644
+--- a/gcc/config/i386/i386.md
++++ b/gcc/config/i386/i386.md
+@@ -13255,8 +13255,9 @@
+ 	(and:SWI48 (match_dup 0)
+ 		   (const_int -65536)))
+    (clobber (reg:CC FLAGS_REG))]
+-  "(TARGET_FAST_PREFIX && !TARGET_PARTIAL_REG_STALL)
+-    || optimize_function_for_size_p (cfun)"
++  "((TARGET_FAST_PREFIX && !TARGET_PARTIAL_REG_STALL)
++    || optimize_function_for_size_p (cfun))
++   && reload_completed"
+   [(set (strict_low_part (match_dup 1)) (const_int 0))]
+   "operands[1] = gen_lowpart (HImode, operands[0]);")
+ 
+diff --git a/gcc/testsuite/gcc.target/i386/pr128836.c b/gcc/testsuite/gcc.target/i386/pr128836.c
+new file mode 100644
+index 000000000000..7c5993b7c3e1
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128836.c
+@@ -0,0 +1,28 @@
++/* PR target/128836 */
++/* { dg-do run } */
++/* { dg-options "-Os" } */
++
++__attribute__((noipa)) float
++f(int p, float x)
++{
++  if (p == 1)
++    {
++      unsigned int u;
++      __builtin_memcpy (&u, &x, sizeof (u));
++      u &= 0xFFFF0000u;
++      __builtin_memcpy (&x, &u, sizeof (u));
++      return x;
++    }
++  return p == 2 ? -x : x;
++}
++
++int
++main ()
++{
++  volatile int p = 1;
++  volatile float v = -87.3f;
++  float r = f (p, v);
++  if (r != -87.0f)
++    __builtin_abort ();
++  return 0;
++}
