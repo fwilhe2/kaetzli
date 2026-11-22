@@ -1,0 +1,30 @@
+From 3f7870ef59a576a312c106b1c1edf818f88a9c41 Mon Sep 17 00:00:00 2001
+From: Nicky Mouha <nicky@mouha.be>
+Date: Fri, 20 Nov 2026 23:17:41 -0500
+Subject: [PATCH] doc/man1: do not use backticks in POD markup
+
+It has no syntactical meaning there.  Replace it appropriately.
+
+Fixes: 26521fdcf404 "Add note for non-interactive use of `s_client`"
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Frederik Wedel-Heinen <fwh.openssl@gmail.com>
+Merge-date: Sun Nov 22 15:06:37 2026
+Merged-from: https://github.com/openssl/openssl/pull/33899
+(cherry picked from commit 4b98fc77ca21a88e75f8a56a26270d82f38d537f)
+---
+ doc/man1/openssl-s_client.pod.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/man1/openssl-s_client.pod.in b/doc/man1/openssl-s_client.pod.in
+index bd24ab1ef197..15104cf2daf2 100644
+--- a/doc/man1/openssl-s_client.pod.in
++++ b/doc/man1/openssl-s_client.pod.in
+@@ -978,7 +978,7 @@ initiate a clean disconnect. For SMTP, you can send a QUIT command:
+  printf 'QUIT\r\n' | openssl s_client -connect <server address>:25
+                                       -starttls smtp -brief -ign_eof
+ 
+-Similarly, for HTTP/1.1 connections, including a `Connection: close` header
++Similarly, for HTTP/1.1 connections, including a C<Connection: close> header
+ ensures the server closes the connection after responding:
+ 
+  printf 'GET / HTTP/1.1\r\nHost: <server address>\r\nConnection: close\r\n\r\n'
