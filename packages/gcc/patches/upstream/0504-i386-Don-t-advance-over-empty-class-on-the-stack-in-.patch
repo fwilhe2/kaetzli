@@ -1,0 +1,88 @@
+From 34f07ae8d86c638dea339577dc920fbacdf7b18e Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Mon, 16 Nov 2026 09:11:07 +0100
+Subject: [PATCH] i386: Don't advance over empty class on the stack in
+ function_arg_advance_64 [PR128751]
+
+An empty class containing only an unnamed bit-field has TYPE_EMPTY_P set,
+so the generic argument layout (expand_call, locate_and_pad_parm) gives
+it zero bytes on the stack.  However, classify_argument gives such a class
+an INTEGER class, and when no integer register is left,
+function_arg_advance_64 falls into the stack branch and adds one word to
+cum->words.  ix86_va_start then computes overflow_arg_area one slot too
+far, and va_arg in the callee disagrees with the caller.
+
+Don't advance cum->words for TYPE_EMPTY_P arguments, consistently with
+ix86_function_arg_boundary which already special-cases them.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128751
+
+gcc/ChangeLog:
+
+	* config/i386/i386.cc (function_arg_advance_64): Do not advance
+	cum->words for TYPE_EMPTY_P arguments passed on the stack.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128751.c: New test.
+
+(cherry picked from commit 92a95b5e20929eb363f849170236271ce6973b43)
+---
+ gcc/config/i386/i386.cc                  |  7 ++++++
+ gcc/testsuite/gcc.target/i386/pr128751.c | 27 ++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128751.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index cd366d599224..f6fd628f3030 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -3266,6 +3266,13 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, machine_mode mode,
+     }
+   else
+     {
++      /* An argument of empty type takes no space on the stack, even
++	 when classify_argument gives it a register class (e.g. for a
++	 class with an unnamed bit-field).  Don't advance over it,
++	 otherwise ix86_va_start computes a wrong overflow_arg_area.  */
++      if (type && TYPE_EMPTY_P (type))
++	return 0;
++
+       int align = ix86_function_arg_boundary (mode, type) / BITS_PER_WORD;
+       cum->words = ROUND_UP (cum->words, align);
+       cum->words += words;
+diff --git a/gcc/testsuite/gcc.target/i386/pr128751.c b/gcc/testsuite/gcc.target/i386/pr128751.c
+new file mode 100644
+index 000000000000..f511b665b67c
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128751.c
+@@ -0,0 +1,27 @@
++/* PR target/128751 */
++/* { dg-do run { target { ! ia32 } } } */
++/* { dg-options "-O2" } */
++
++#include <stdarg.h>
++
++struct E { unsigned : 8; };
++
++__attribute__((noipa)) long
++g (long a, long b, long c, long d, long f, long h, struct E e, ...)
++{
++  va_list ap;
++  (void) e;
++  va_start (ap, e);
++  long x = va_arg (ap, long);
++  va_end (ap);
++  return x + a + b + c + d + f + h - 21;
++}
++
++int
++main ()
++{
++  struct E e = {};
++  if (g (1, 2, 3, 4, 5, 6, e, 42L) != 42)
++    __builtin_abort ();
++  return 0;
++}

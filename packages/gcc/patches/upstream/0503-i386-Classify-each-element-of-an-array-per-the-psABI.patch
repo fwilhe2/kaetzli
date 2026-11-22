@@ -1,0 +1,166 @@
+From b019210a46356c24777ddcbd9b3972de53042fc6 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Mon, 16 Nov 2026 09:04:28 +0100
+Subject: [PATCH] i386: Classify each element of an array per the psABI
+ [PR128670]
+
+The x86-64 psABI classifies an aggregate by classifying each of its
+fields, and thus each array element, recursively and merging the classes
+of the fields sharing an eightbyte.  Zero-width bit-fields are NO_CLASS.
+
+classify_argument classified only the first element of an array and
+replicated its classes over the eightbytes of the array.  This is exact
+only when the element size is a multiple of a word.  For an element like
+struct { char x; int : 0; } at an odd offset, the classes of the first
+element are { INTEGER, NO_CLASS }, so the eightbyte that holds the
+second element is classified as NO_CLASS and its data is not returned in
+a register.  Replicating also gives a wrong partial class when the first
+element does not use a whole eightbyte that other elements use, e.g. an
+SSEHF class for an eightbyte that holds 8 bytes of _Float16 data.
+
+Classify each element of an array at its actual offset and merge the
+classes of the elements sharing an eightbyte.  The promotion of partial
+classes is applied to the first class of each element, so that the
+classification of arrays that were classified correctly is unchanged.
+Arrays larger than two eightbytes with more than one element are always
+passed in memory, so return early for them.  A zero-sized array is
+classified by classifying one element, as before.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128670
+
+gcc/ChangeLog:
+
+	* config/i386/i386.cc (classify_argument) <case ARRAY_TYPE>:
+	Classify each element at its actual offset and merge the classes
+	of the elements.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128670.c: New test.
+
+(cherry picked from commit 050413681696ce80483e183d59e5580ec74b73ec)
+---
+ gcc/config/i386/i386.cc                  | 65 +++++++++++++++++-------
+ gcc/testsuite/gcc.target/i386/pr128670.c | 32 ++++++++++++
+ 2 files changed, 80 insertions(+), 17 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128670.c
+
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index 9cb33ff8c721..cd366d599224 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -2374,26 +2374,57 @@ classify_argument (machine_mode mode, const_tree type,
+ 	  break;
+ 
+ 	case ARRAY_TYPE:
+-	  /* Arrays are handled as small records.  */
++	  /* Arrays are handled as small records.  The psABI classifies each
++	     element, so classify every element at its actual offset and merge
++	     the classes of the elements sharing an eightbyte.  The classes of
++	     the first element don't describe the other elements when the
++	     element size is not a multiple of a word, e.g. when the element
++	     has padding ignored by the classification, such as from a
++	     zero-width bit-field.  */
+ 	  {
+-	    int num;
+-	    num = classify_argument (TYPE_MODE (TREE_TYPE (type)),
+-				     TREE_TYPE (type), subclasses, bit_offset,
+-				     zero_width_bitfields);
+-	    if (!num)
++	    tree elt_type = TREE_TYPE (type);
++	    HOST_WIDE_INT elt_bytes = int_size_in_bytes (elt_type);
++
++	    if (elt_bytes < 0)
++	      return 0;
++
++	    /* An array larger than two eightbytes is passed in registers
++	       only if the first eightbyte is SSE and all the others are
++	       SSEUP, which is possible only for a single element.  */
++	    if (words > 2 && elt_bytes != bytes)
+ 	      return 0;
+ 
+-	    /* The partial classes are now full classes.  */
+-	    if (subclasses[0] == X86_64_SSESF_CLASS && bytes != 4)
+-	      subclasses[0] = X86_64_SSE_CLASS;
+-	    if (subclasses[0] == X86_64_SSEHF_CLASS && bytes != 2)
+-	      subclasses[0] = X86_64_SSE_CLASS;
+-	    if (subclasses[0] == X86_64_INTEGERSI_CLASS
+-		&& !((bit_offset % 64) == 0 && bytes == 4))
+-	      subclasses[0] = X86_64_INTEGER_CLASS;
+-
+-	    for (i = 0; i < words; i++)
+-	      classes[i] = subclasses[i % num];
++	    /* A zero-sized array is classified by classifying one element.  */
++	    HOST_WIDE_INT nelts = bytes > 0 ? bytes / elt_bytes : 1;
++
++	    for (HOST_WIDE_INT k = 0; k < nelts; k++)
++	      {
++		int elt_offset = k * elt_bytes * BITS_PER_UNIT;
++		int pos = (elt_offset + (bit_offset % 64)) / 8 / 8;
++		int num = classify_argument (TYPE_MODE (elt_type), elt_type,
++					     subclasses,
++					     (bit_offset + elt_offset) % 512,
++					     zero_width_bitfields);
++		if (!num)
++		  return 0;
++
++		/* The partial classes are now full classes.  */
++		if (subclasses[0] == X86_64_SSESF_CLASS && bytes != 4)
++		  subclasses[0] = X86_64_SSE_CLASS;
++		if (subclasses[0] == X86_64_SSEHF_CLASS && bytes != 2)
++		  subclasses[0] = X86_64_SSE_CLASS;
++		if (subclasses[0] == X86_64_INTEGERSI_CLASS
++		    && !((bit_offset % 64) == 0 && bytes == 4))
++		  subclasses[0] = X86_64_INTEGER_CLASS;
++
++		for (i = 0; i < num && (i + pos) < words; i++)
++		  {
++		    classes[i + pos]
++		      = merge_classes (subclasses[i], classes[i + pos]);
++		    if (classes[i + pos] == X86_64_MEMORY_CLASS)
++		      return 0;
++		  }
++	      }
+ 
+ 	    break;
+ 	  }
+diff --git a/gcc/testsuite/gcc.target/i386/pr128670.c b/gcc/testsuite/gcc.target/i386/pr128670.c
+new file mode 100644
+index 000000000000..d76a85dd7ef8
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128670.c
+@@ -0,0 +1,32 @@
++/* PR target/128670 */
++/* { dg-do run { target { ! ia32 } } } */
++/* { dg-options "-O2" } */
++
++#define T(N)								\
++struct S##N								\
++{									\
++  char pad[N];								\
++  struct { char x; int : 0; } a[2];					\
++};									\
++									\
++__attribute__((noipa)) struct S##N					\
++f##N (void)								\
++{									\
++  return (struct S##N) { .a[1].x = 42 };				\
++}
++
++T (4)
++T (5)
++T (6)
++T (7)
++
++int
++main (void)
++{
++  if (f4 ().a[1].x != 42
++      || f5 ().a[1].x != 42
++      || f6 ().a[1].x != 42
++      || f7 ().a[1].x != 42)
++    __builtin_abort ();
++  return 0;
++}

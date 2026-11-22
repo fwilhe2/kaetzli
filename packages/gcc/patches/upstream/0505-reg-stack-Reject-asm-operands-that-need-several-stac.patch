@@ -1,0 +1,130 @@
+From 2f80d454b53203daec8168c7fe16880f2e5cf423 Mon Sep 17 00:00:00 2001
+From: Uros Bizjak <ubizjak@gmail.com>
+Date: Tue, 10 Nov 2026 10:49:02 +0100
+Subject: [PATCH] reg-stack: Reject asm operands that need several stack
+ registers
+
+For
+
+  float _Complex z = 0;
+  long double v;
+  asm volatile ("" : "=t" (v) : "0" (z));
+
+the input is (reg:SC st), i.e. st(0) and st(1).  Only the first register
+is tied to the output, so the death note at the asm is just for st(1),
+which subst_asm_stack_regs never pops because it only looks at REGNO of
+an operand, and convert_regs_1 asserts since the stack after the asm does
+not match the live registers.
+
+Operands that need more than one stack register, such as complex values,
+are not supported by reg-stack, so report them as an error like the other
+malformed stack register asms.
+
+Assisted-by: Claude Sonnet 5.5
+
+	PR target/128533
+
+gcc/ChangeLog:
+
+	* doc/extend.texi (x86 Floating-Point asm Operands):
+	Document that operands must occupy a single register.
+	* reg-stack.cc: Document rule #7.
+	(check_asm_stack_operands): Reject operands
+	that need more than one stack register.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr128533.c: New test.
+
+(cherry picked from commit f3d75174a098342f40cc3203799f251ef7f3cc7c)
+---
+ gcc/doc/extend.texi                      |  5 +++++
+ gcc/reg-stack.cc                         | 17 ++++++++++++++++-
+ gcc/testsuite/gcc.target/i386/pr128533.c | 13 +++++++++++++
+ 3 files changed, 34 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr128533.c
+
+diff --git a/gcc/doc/extend.texi b/gcc/doc/extend.texi
+index 5b25bfde4a90..c070982fcdfe 100644
+--- a/gcc/doc/extend.texi
++++ b/gcc/doc/extend.texi
+@@ -12802,6 +12802,7 @@ up''.
+ All implicitly popped input registers must be closer to the top of
+ the reg-stack than any input that is not implicitly popped.
+ 
++@item
+ It is possible that if an input dies in an @code{asm}, the compiler might
+ use the input register for an output reload.  Consider this example:
+ 
+@@ -12850,6 +12851,10 @@ Some @code{asm} statements may need extra stack space for internal
+ calculations.  This can be guaranteed by clobbering stack registers
+ unrelated to the inputs and outputs.
+ 
++@item
++Each operand must occupy a single register.  Operands that need
++more, such as complex values, which take two, are not supported.
++
+ @end enumerate
+ 
+ This @code{asm}
+diff --git a/gcc/reg-stack.cc b/gcc/reg-stack.cc
+index aa08fc39b180..1f87322246b1 100644
+--- a/gcc/reg-stack.cc
++++ b/gcc/reg-stack.cc
+@@ -139,6 +139,10 @@
+       calculations.  This can be guaranteed by clobbering stack registers
+       unrelated to the inputs and outputs.
+ 
++   7. Each operand must occupy a single register.  Operands that
++      need more, such as complex values, which take two, are not
++      supported.
++
+    Here are a couple of reasonable asms to want to write.  This asm
+    takes one input, which is internally popped, and produces two outputs.
+ 
+@@ -504,6 +508,16 @@ check_asm_stack_operands (rtx_insn *insn)
+ 	&& REG_P (SUBREG_REG (recog_data.operand[i])))
+       recog_data.operand[i] = SUBREG_REG (recog_data.operand[i]);
+ 
++  /* Enforce rule #7: Operands must occupy a single register.  */
++
++  for (i = 0; i < recog_data.n_operands; i++)
++    if (STACK_REG_P (recog_data.operand[i])
++	&& REG_NREGS (recog_data.operand[i]) > 1)
++      {
++	error_for_asm (insn, "operand %d must occupy a single register", i);
++	malformed_asm = true;
++      }
++
+   /* Set up CLOBBER_REG.  */
+ 
+   n_clobbers = 0;
+@@ -542,7 +556,8 @@ check_asm_stack_operands (rtx_insn *insn)
+       {
+ 	if (reg_class_size[(int) op_alt[i].cl] != 1)
+ 	  {
+-	    error_for_asm (insn, "output constraint %d must specify a single register", i);
++	    error_for_asm (insn, "output constraint %d must "
++			   "specify a single register", i);
+ 	    malformed_asm = true;
+ 	  }
+ 	else
+diff --git a/gcc/testsuite/gcc.target/i386/pr128533.c b/gcc/testsuite/gcc.target/i386/pr128533.c
+new file mode 100644
+index 000000000000..47eb114cfed1
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr128533.c
+@@ -0,0 +1,13 @@
++/* PR target/128533 */
++/* { dg-do compile } */
++/* { dg-options "-O0" } */
++
++/* A complex value occupies two x87 stack registers,
++   which reg-stack doesn't support for asm operands.  */
++
++void f (void)
++{
++  float _Complex z = 0;
++  long double v;
++  asm volatile ("" : "=t" (v) : "0" (z));	/* { dg-error "must occupy a single register" } */
++}

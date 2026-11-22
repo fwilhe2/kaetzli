@@ -1,0 +1,172 @@
+From 4c5507b1d4e95c9c6834361d2fbeb0cf33f34fd5 Mon Sep 17 00:00:00 2001
+From: Guo Jie <guojie@loongson.cn>
+Date: Sun, 8 Nov 2026 14:25:39 +0800
+Subject: [PATCH] LoongArch: Fix the immediate range of lsx_vbitrevi_<lsxfmt>
+
+The lsx_vbitrevi_<lsxfmt> described its immediate with
+const_lsx_branch_operand, the predicate used for the branch offsets
+(-1024 .. 1023), instead of const_<bitimm>_operand.  The immediate of
+vbitrevi is a bit index, so it must fit in the element: 3 bits for
+byte, 4 bits for halfword, 5 bits for word and 6 bits for doubleword
+elements.
+
+Because the predicate was too permissive, out of range immediates were
+not diagnosed by the compiler; they were emitted as-is and the
+assembler then failed with Fatal error: Immediate overflow.
+
+gcc/ChangeLog:
+
+	* config/loongarch/lasx.md (bitimm256): Remove.  Update all
+	instruction templates to use bitimm.
+	* config/loongarch/lsx.md (lsx_vbitrevi_<lsxfmt>): Use
+	const_<bitimm>_operand instead of const_lsx_branch_operand.
+	* config/loongarch/predicates.md (const_lsx_branch_operand):
+	Remove.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/loongarch/vector/lsx/vbit-imm-range.c: New test.
+
+(cherry picked from commit a3a3f32131a9fe59b6a3a555696b63094fdea323)
+---
+ gcc/config/loongarch/lasx.md                  | 24 ++++++-------------
+ gcc/config/loongarch/lsx.md                   |  2 +-
+ gcc/config/loongarch/predicates.md            |  4 ----
+ .../loongarch/vector/lsx/vbit-imm-range.c     | 16 +++++++++++++
+ 4 files changed, 24 insertions(+), 22 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/loongarch/vector/lsx/vbit-imm-range.c
+
+diff --git a/gcc/config/loongarch/lasx.md b/gcc/config/loongarch/lasx.md
+index d606bf061d02..88241ceb9aa6 100644
+--- a/gcc/config/loongarch/lasx.md
++++ b/gcc/config/loongarch/lasx.md
+@@ -346,16 +346,6 @@
+    (V16HI "exp_8")
+    (V32QI "exp_16")])
+ 
+-
+-;; This attribute is used to form an immediate operand constraint using
+-;; "const_<bitimm256>_operand".
+-(define_mode_attr bitimm256
+-  [(V32QI "uimm3")
+-   (V16HI  "uimm4")
+-   (V8SI  "uimm5")
+-   (V4DI  "uimm6")])
+-
+-
+ ;; Half modes of all LASX vector modes, in lower-case.
+ (define_mode_attr lasxhalf [(V32QI "v16qi")  (V16HI "v8hi")
+              (V8SI "v4si")  (V4DI  "v2di")
+@@ -1156,7 +1146,7 @@
+ (define_insn "lasx_xvbitclri_<lasxfmt>"
+   [(set (match_operand:ILASX 0 "register_operand" "=f")
+ 	(unspec:ILASX [(match_operand:ILASX 1 "register_operand" "f")
+-		       (match_operand 2 "const_<bitimm256>_operand" "")]
++		       (match_operand 2 "const_<bitimm>_operand" "")]
+ 		      UNSPEC_LASX_XVBITCLRI))]
+   "ISA_HAS_LASX"
+   "xvbitclri.<lasxfmt>\t%u0,%u1,%2"
+@@ -1176,7 +1166,7 @@
+ (define_insn "lasx_xvbitrevi_<lasxfmt>"
+   [(set (match_operand:ILASX 0 "register_operand" "=f")
+ 	(unspec:ILASX [(match_operand:ILASX 1 "register_operand" "f")
+-		       (match_operand 2 "const_<bitimm256>_operand" "")]
++		       (match_operand 2 "const_<bitimm>_operand" "")]
+ 		     UNSPEC_LASX_XVBITREVI))]
+   "ISA_HAS_LASX"
+   "xvbitrevi.<lasxfmt>\t%u0,%u1,%2"
+@@ -1220,7 +1210,7 @@
+ (define_insn "lasx_xvbitseti_<lasxfmt>"
+   [(set (match_operand:ILASX 0 "register_operand" "=f")
+ 	(unspec:ILASX [(match_operand:ILASX 1 "register_operand" "f")
+-		       (match_operand 2 "const_<bitimm256>_operand" "")]
++		       (match_operand 2 "const_<bitimm>_operand" "")]
+ 		      UNSPEC_LASX_XVBITSETI))]
+   "ISA_HAS_LASX"
+   "xvbitseti.<lasxfmt>\t%u0,%u1,%2"
+@@ -2000,7 +1990,7 @@
+ (define_insn "lasx_xvsat_s_<lasxfmt>"
+   [(set (match_operand:ILASX 0 "register_operand" "=f")
+ 	(unspec:ILASX [(match_operand:ILASX 1 "register_operand" "f")
+-		      (match_operand 2 "const_<bitimm256>_operand" "")]
++		      (match_operand 2 "const_<bitimm>_operand" "")]
+ 		     UNSPEC_LASX_XVSAT_S))]
+   "ISA_HAS_LASX"
+   "xvsat.<lasxfmt>\t%u0,%u1,%2"
+@@ -2010,7 +2000,7 @@
+ (define_insn "lasx_xvsat_u_<lasxfmt_u>"
+   [(set (match_operand:ILASX 0 "register_operand" "=f")
+ 	(unspec:ILASX [(match_operand:ILASX 1 "register_operand" "f")
+-		       (match_operand 2 "const_<bitimm256>_operand" "")]
++		       (match_operand 2 "const_<bitimm>_operand" "")]
+ 		      UNSPEC_LASX_XVSAT_U))]
+   "ISA_HAS_LASX"
+   "xvsat.<lasxfmt_u>\t%u0,%u1,%2"
+@@ -2512,7 +2502,7 @@
+ (define_insn "lasx_xvsllwil_s_<dlasxfmt>_<lasxfmt>"
+   [(set (match_operand:<VDMODE256> 0 "register_operand" "=f")
+ 	(unspec:<VDMODE256> [(match_operand:ILASX_WHB 1 "register_operand" "f")
+-			     (match_operand 2 "const_<bitimm256>_operand" "")]
++			     (match_operand 2 "const_<bitimm>_operand" "")]
+ 			    UNSPEC_LASX_XVSLLWIL_S))]
+   "ISA_HAS_LASX"
+   "xvsllwil.<dlasxfmt>.<lasxfmt>\t%u0,%u1,%2"
+@@ -2522,7 +2512,7 @@
+ (define_insn "lasx_xvsllwil_u_<dlasxfmt_u>_<lasxfmt_u>"
+   [(set (match_operand:<VDMODE256> 0 "register_operand" "=f")
+ 	(unspec:<VDMODE256> [(match_operand:ILASX_WHB 1 "register_operand" "f")
+-			     (match_operand 2 "const_<bitimm256>_operand" "")]
++			     (match_operand 2 "const_<bitimm>_operand" "")]
+ 			    UNSPEC_LASX_XVSLLWIL_U))]
+   "ISA_HAS_LASX"
+   "xvsllwil.<dlasxfmt_u>.<lasxfmt_u>\t%u0,%u1,%2"
+diff --git a/gcc/config/loongarch/lsx.md b/gcc/config/loongarch/lsx.md
+index 2418e62722a7..4392c84bbcef 100644
+--- a/gcc/config/loongarch/lsx.md
++++ b/gcc/config/loongarch/lsx.md
+@@ -918,7 +918,7 @@
+ (define_insn "lsx_vbitrevi_<lsxfmt>"
+   [(set (match_operand:ILSX 0 "register_operand" "=f")
+ 	(unspec:ILSX [(match_operand:ILSX 1 "register_operand" "f")
+-		       (match_operand 2 "const_lsx_branch_operand" "")]
++		       (match_operand 2 "const_<bitimm>_operand" "")]
+ 		     UNSPEC_LSX_VBITREVI))]
+   "ISA_HAS_LSX"
+   "vbitrevi.<lsxfmt>\t%w0,%w1,%2"
+diff --git a/gcc/config/loongarch/predicates.md b/gcc/config/loongarch/predicates.md
+index af3b770c4e9d..b160a010cf6a 100644
+--- a/gcc/config/loongarch/predicates.md
++++ b/gcc/config/loongarch/predicates.md
+@@ -87,10 +87,6 @@
+   (and (match_code "const_int")
+        (match_test "IN_RANGE (INTVAL (op), 1, 4)")))
+ 
+-(define_predicate "const_lsx_branch_operand"
+-  (and (match_code "const_int")
+-       (match_test "IN_RANGE (INTVAL (op), -1024, 1023)")))
+-
+ (define_predicate "const_uimm3_operand"
+   (and (match_code "const_int")
+        (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
+diff --git a/gcc/testsuite/gcc.target/loongarch/vector/lsx/vbit-imm-range.c b/gcc/testsuite/gcc.target/loongarch/vector/lsx/vbit-imm-range.c
+new file mode 100644
+index 000000000000..bd1f1198c453
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/loongarch/vector/lsx/vbit-imm-range.c
+@@ -0,0 +1,16 @@
++/* { dg-do compile } */
++/* { dg-options "-mlsx" } */
++
++#include <lsxintrin.h>
++
++__m128i
++test_vbitrevi (__m128i a)
++{
++  __m128i r;
++
++  r = __lsx_vbitrevi_b (a, 8);	/* { dg-error "invalid argument to built-in function" } */
++  r = __lsx_vbitrevi_h (a, 16);	/* { dg-error "invalid argument to built-in function" } */
++  r = __lsx_vbitrevi_w (a, 32);	/* { dg-error "invalid argument to built-in function" } */
++  r = __lsx_vbitrevi_d (a, 64);	/* { dg-error "invalid argument to built-in function" } */
++  return r;
++}
