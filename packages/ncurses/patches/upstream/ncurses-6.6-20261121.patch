@@ -1,0 +1,768 @@
+# ncurses 6.6 - patch 20261121 - Thomas E. Dickey
+#
+# ------------------------------------------------------------------------------
+#
+# Ncurses 6.6 is at
+#   https://invisible-island.net/archives/ncurses/
+#   https://invisible-mirror.net/archives/ncurses/
+#   https://ftp.gnu.org/gnu/ncurses/
+#
+# Patches for ncurses 6.6 can be found at
+#   https://invisible-island.net/archives/ncurses/6.6
+#   https://invisible-mirror.net/archives/ncurses/6.6
+#
+# ------------------------------------------------------------------------------
+# https://invisible-island.net/archives/ncurses/6.6/ncurses-6.6-20261121.patch.gz
+# patch by Thomas E. Dickey <dickey@invisible-island.net>
+# created  Sun Nov 22 00:52:50 UTC 2026
+# ------------------------------------------------------------------------------
+# Ada95/aclocal.m4                 |    6 +--
+# Ada95/configure                  |    2 -
+# NEWS                             |   15 +++++---
+# VERSION                          |    2 -
+# aclocal.m4                       |    6 +--
+# configure                        |    2 -
+# dist.mk                          |    4 +-
+# misc/terminfo.src                |   59 ++++++++++++++------------------
+# ncurses/base/lib_mouse.c         |   68 +++++++++++++++++++++++++++----------
+# ncurses/curses.priv.h            |    7 ++-
+# ncurses/tinfo/lib_tparm.c        |    3 +
+# package/debian-mingw/changelog   |    4 +-
+# package/debian-mingw64/changelog |    4 +-
+# package/debian/changelog         |    4 +-
+# package/mingw-ncurses.nsi        |    4 +-
+# package/mingw-ncurses.spec       |    6 +--
+# package/ncurses.spec             |    6 +--
+# package/ncursest.spec            |    6 +--
+# progs/infocmp.c                  |   41 ++++++++++++++--------
+# 19 files changed, 150 insertions(+), 99 deletions(-)
+# ------------------------------------------------------------------------------
+Index: Ada95/aclocal.m4
+Prereq:  1.245 
+--- ncurses-6.6-20261114+/Ada95/aclocal.m4	2026-04-25 00:48:02.000000000 +0000
++++ ncurses-6.6-20261121/Ada95/aclocal.m4	2026-11-21 17:40:37.000000000 +0000
+@@ -29,7 +29,7 @@
+ dnl
+ dnl Author: Thomas E. Dickey
+ dnl
+-dnl $Id: aclocal.m4,v 1.245 2026/04/25 00:48:02 tom Exp $
++dnl $Id: aclocal.m4,v 1.246 2026/11/21 17:40:37 tom Exp $
+ dnl Macros used in NCURSES Ada95 auto-configuration script.
+ dnl
+ dnl These macros are maintained separately from NCURSES.  The copyright on
+@@ -4182,7 +4182,7 @@
+ done
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_SHARED_OPTS version: 114 updated: 2025/12/15 04:04:20
++dnl CF_SHARED_OPTS version: 115 updated: 2026/11/21 12:35:47
+ dnl --------------
+ dnl --------------
+ dnl Attempt to determine the appropriate CC/LD options for creating a shared
+@@ -4401,7 +4401,7 @@
+ 		fi
+ 		cf_cv_rm_so_locs=yes
+ 		;;
+-	(linux*|gnu*|k*bsd*-gnu)
++	(linux*|uclinux*|gnu*|k*bsd*-gnu)
+ 		if test "$DFT_LWR_MODEL" = "shared" && test -n "$LD_RPATH_OPT" ; then
+ 			LOCAL_LDFLAGS="${LD_RPATH_OPT}\$(LOCAL_LIBDIR)"
+ 			LOCAL_LDFLAGS2="$LOCAL_LDFLAGS"
+Index: Ada95/configure
+--- ncurses-6.6-20261114+/Ada95/configure	2026-04-25 00:48:29.000000000 +0000
++++ ncurses-6.6-20261121/Ada95/configure	2026-11-21 17:41:02.000000000 +0000
+@@ -13435,7 +13435,7 @@
+ 		fi
+ 		cf_cv_rm_so_locs=yes
+ 		;;
+-	(linux*|gnu*|k*bsd*-gnu)
++	(linux*|uclinux*|gnu*|k*bsd*-gnu)
+ 		if test "$DFT_LWR_MODEL" = "shared" && test -n "$LD_RPATH_OPT" ; then
+ 			LOCAL_LDFLAGS="${LD_RPATH_OPT}\$(LOCAL_LIBDIR)"
+ 			LOCAL_LDFLAGS2="$LOCAL_LDFLAGS"
+Index: NEWS
+Prereq:  1.4575 
+--- ncurses-6.6-20261114+/NEWS	2026-11-15 01:26:54.000000000 +0000
++++ ncurses-6.6-20261121/NEWS	2026-11-21 22:00:42.000000000 +0000
+@@ -26,7 +26,7 @@
+ -- sale, use or other dealings in this Software without prior written        --
+ -- authorization.                                                            --
+ -------------------------------------------------------------------------------
+--- $Id: NEWS,v 1.4575 2026/11/15 01:26:54 tom Exp $
++-- $Id: NEWS,v 1.4581 2026/11/21 22:00:42 tom Exp $
+ -------------------------------------------------------------------------------
+ 
+ This is a log of changes that ncurses has gone through since Zeyd started
+@@ -46,6 +46,13 @@
+ Changes through 1.9.9e did not credit all contributions;
+ it is not possible to add this information.
+ 
++20261121
++	+ in-progress work on new mouse functions
++	+ add uclinux to CF_SHARED_OPTS (report/patch by Yegor Yefremov).
++	+ add check for buffer-overflow in infocmp "-i" option (report/testcase
++	  by Martin Mirchev).
++	+ fix spop() underflow in lib_tparm.c (report/testcase by Chen Mengda).
++
+ 20261114
+ 	+ review/fix teraterm special keys -TD
+ 	+ add kp5/kbeg to xterm+noapp (report by Jakub Horky)
+@@ -53,7 +60,7 @@
+ 	+ add st-0.9.2 -TD
+ 	+ revise numeric keypad for iterm2, nsterm, mlterm -TD
+ 	+ make c++ binding's "operator=" private, since those do construct new
+-	  copies (patch by Martin Mirchev). 
++	  copies (patch by Martin Mirchev).
+ 
+ 20261107
+ 	+ check for terminating NUL in canonical_name() for infocmp -F
+@@ -161,7 +168,7 @@
+ 	+ improve limit-checks for trace calls in read_entry.c (report by Yeo
+ 	  JooHo).
+ 	+ improve tic warnings regarding the empty smir/rmir strings which
+-	  may be added in dump_entry.c for termcap if ich/ich1 are present but 
++	  may be added in dump_entry.c for termcap if ich/ich1 are present but
+ 	  smir/rmir are not.
+ 	+ add sun+fkeys -TD
+ 	+ add dtterm-sk, dtterm+sk -TD
+@@ -434,7 +441,7 @@
+ 	  vt100+keypad (prompted by patch by Jakub Horky) -TD
+ 	+ use vt100+keypad instead of vt220+keypad (patch by Jakub Horky)
+ 	+ use vt100+keypad in putty+keypad, replacing kpXX extension -TD
+-	+ remove vt100+fnkeys-sco from putty -TD 
++	+ remove vt100+fnkeys-sco from putty -TD
+ 	+ fix link_test.c for configuration without extended colors by
+ 	  adjusting ifdefs and improving MKlib_gen.sh by checking for #if
+ 	  statements with only a 0 or 1 parameter.
+Index: VERSION
+--- ncurses-6.6-20261114+/VERSION	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/VERSION	2026-11-21 10:26:19.000000000 +0000
+@@ -1 +1 @@
+-5:0:10	6.6	20261114
++5:0:10	6.6	20261121
+Index: aclocal.m4
+Prereq:  1.1171 
+--- ncurses-6.6-20261114+/aclocal.m4	2026-10-31 20:49:17.000000000 +0000
++++ ncurses-6.6-20261121/aclocal.m4	2026-11-21 17:36:44.000000000 +0000
+@@ -29,7 +29,7 @@
+ dnl
+ dnl Author: Thomas E. Dickey 1995-on
+ dnl
+-dnl $Id: aclocal.m4,v 1.1171 2026/10/31 20:49:17 tom Exp $
++dnl $Id: aclocal.m4,v 1.1172 2026/11/21 17:36:44 tom Exp $
+ dnl Macros used in NCURSES auto-configuration script.
+ dnl
+ dnl These macros are maintained separately from NCURSES.  The copyright on
+@@ -7586,7 +7586,7 @@
+ done
+ ])dnl
+ dnl ---------------------------------------------------------------------------
+-dnl CF_SHARED_OPTS version: 114 updated: 2025/12/15 04:04:20
++dnl CF_SHARED_OPTS version: 115 updated: 2026/11/21 12:35:47
+ dnl --------------
+ dnl --------------
+ dnl Attempt to determine the appropriate CC/LD options for creating a shared
+@@ -7805,7 +7805,7 @@
+ 		fi
+ 		cf_cv_rm_so_locs=yes
+ 		;;
+-	(linux*|gnu*|k*bsd*-gnu)
++	(linux*|uclinux*|gnu*|k*bsd*-gnu)
+ 		if test "$DFT_LWR_MODEL" = "shared" && test -n "$LD_RPATH_OPT" ; then
+ 			LOCAL_LDFLAGS="${LD_RPATH_OPT}\$(LOCAL_LIBDIR)"
+ 			LOCAL_LDFLAGS2="$LOCAL_LDFLAGS"
+Index: configure
+--- ncurses-6.6-20261114+/configure	2026-10-31 20:49:32.000000000 +0000
++++ ncurses-6.6-20261121/configure	2026-11-21 17:40:02.000000000 +0000
+@@ -9053,7 +9053,7 @@
+ 		fi
+ 		cf_cv_rm_so_locs=yes
+ 		;;
+-	(linux*|gnu*|k*bsd*-gnu)
++	(linux*|uclinux*|gnu*|k*bsd*-gnu)
+ 		if test "$DFT_LWR_MODEL" = "shared" && test -n "$LD_RPATH_OPT" ; then
+ 			LOCAL_LDFLAGS="${LD_RPATH_OPT}\$(LOCAL_LIBDIR)"
+ 			LOCAL_LDFLAGS2="$LOCAL_LDFLAGS"
+Index: dist.mk
+Prereq:  1.1760 
+--- ncurses-6.6-20261114+/dist.mk	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/dist.mk	2026-11-21 10:26:19.000000000 +0000
+@@ -26,7 +26,7 @@
+ # use or other dealings in this Software without prior written               #
+ # authorization.                                                             #
+ ##############################################################################
+-# $Id: dist.mk,v 1.1760 2026/11/14 10:37:38 tom Exp $
++# $Id: dist.mk,v 1.1761 2026/11/21 10:26:19 tom Exp $
+ # Makefile for creating ncurses distributions.
+ #
+ # This only needs to be used directly as a makefile by developers, but
+@@ -38,7 +38,7 @@
+ # These define the major/minor/patch versions of ncurses.
+ NCURSES_MAJOR = 6
+ NCURSES_MINOR = 6
+-NCURSES_PATCH = 20261114
++NCURSES_PATCH = 20261121
+ 
+ # We don't append the patch to the version, since this only applies to releases
+ VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
+Index: misc/terminfo.src
+--- ncurses-6.6-20261114+/misc/terminfo.src	2026-11-15 01:23:45.000000000 +0000
++++ ncurses-6.6-20261121/misc/terminfo.src	2026-11-15 23:55:28.000000000 +0000
+@@ -6,8 +6,8 @@
+ # Report bugs and new terminal descriptions to
+ #	bug-ncurses@gnu.org
+ #
+-#	$Revision: 1.1293 $
+-#	$Date: 2026/11/15 01:23:45 $
++#	$Revision: 1.1294 $
++#	$Date: 2026/11/15 23:55:28 $
+ #
+ # The original header is preserved below for reference.  It is noted that there
+ # is a "newer" version which differs in some cosmetic details (but actually
+@@ -3666,9 +3666,8 @@
+ 	use=xterm+alt1049, use=nsterm-build400,
+ 
+ nsterm-build472|Terminal.app in MacOS 26.6.2,
+-	ka1=\EOw, ka3=\EOy, kb2=\EOu, kc1=\EOq, kc3=\EOs, ka2=\EOx,
+-	kb1=\EOt, kb3=\EOv, kc2=\EOr, kpADD=\EOl, kpDOT=\EOn,
+-	kpSUB=\EOm, kpZRO=\EOp, use=nsterm-build440,
++	kpADD=\EOl, kpDOT=\EOn, kpSUB=\EOm, kpZRO=\EOp,
++	use=vt100+keypad, use=nsterm-build440,
+ 
+ # This is an alias which should always point to the "current" version
+ nsterm|nsterm-256color|Apple_Terminal|AppKit Terminal.app,
+@@ -6936,16 +6935,15 @@
+ 	kc1=\EOq, kc3=\EOs, rs2=\E[!p\E[?3;4l\E>,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p4%t;5%;%?%p1%p3%|%t;7%;%?
+ 	    %p7%t;8%;m%?%p9%t\E(0%e\E(B%;,
+-	ka2=\EOx, kb1=\EOt, kb3=\EOv, kc2=\EOr, kpADD=\EOk,
+-	kpDIV=\EOo, kpDOT=\EOn, kpMUL=\EOj, kpSUB=\EOm, kpZRO=\EOp,
+-	rv=\E\\[>24;279;0c,
++	kpADD=\EOk, kpDIV=\EOo, kpDOT=\EOn, kpMUL=\EOj, kpSUB=\EOm,
++	kpZRO=\EOp, rv=\E\\[>24;279;0c,
+ 	xr=\EP>\\|mlterm\\([0-9][.0-9]+\\)\E\\\\,
+ 	use=ansi+enq, use=ansi+rep, use=ecma+italics,
+ 	use=ecma+strikeout, use=xterm+app, use=xterm+pcf2,
+ 	use=xterm+pcc2, use=xterm+pce2, use=xterm+meta,
+ 	use=xterm+alt+title, use=xterm+sm+1006,
+ 	use=vt100+pfkeys-sco, use=bracketed+paste, use=mlterm2,
+-	use=report+version, use=xterm+3keys,
++	use=report+version, use=vt100+keypad, use=xterm+3keys,
+ 
+ # This is mlterm 2.9.3's mlterm.ti, with some additions/corrections -TD
+ #
+@@ -7031,23 +7029,21 @@
+ rxvt-basic|rxvt terminal base (X Window System),
+ 	OTbs, bce, eo, mir, xenl, xon, XT,
+ 	blink=\E[5m, bold=\E[1m, clear=\E[H\E[2J, cub1=^H, cud1=\n,
+-	cup=\E[%i%p1%d;%p2%dH, dch=\E[%p1%dP, dch1=\E[P, ed=\E[J,
+-	el=\E[K, el1=\E[1K, flash=\E[?5h$<100/>\E[?5l,
+-	ich=\E[%p1%d@, ich1=\E[@, is1=\E[?47l\E=\E[?1l,
++	cup=\E[%i%p1%d;%p2%dH, ed=\E[J, el=\E[K, el1=\E[1K,
++	flash=\E[?5h$<100/>\E[?5l, is1=\E[?47l\E=\E[?1l,
+ 	is2=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l\E[4l,
+-	kcbt=\E[Z, kmous=\E[M, rev=\E[7m, ri=\EM, rmir=\E[4l,
+-	rmkx=\E>,
++	kcbt=\E[Z, kmous=\E[M, rev=\E[7m, ri=\EM, rmkx=\E>,
+ 	rs1=\E>\E[1;3;4;5;6l\E[?7h\E[m\E[r\E[2J\E[H,
+ 	rs2=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l\E[4l\E>\E[?1000l\E[?
+ 	    25h,
+ 	s0ds=\E(B, s1ds=\E(0,
+ 	sgr=\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|%t;7%;%?%p4%t;5%;m%?
+ 	    %p9%t\016%e\017%;,
+-	sgr0=\E[0m\017, smir=\E[4h, smkx=\E=, use=ecma+underline,
+-	use=ecma+standout, use=ansi+csr, use=ansi+idl,
+-	use=ansi+local, use=xterm+alt47, use=vt100+enq,
+-	use=vt100+4bsd, use=rxvt+pcfkeys, use=vt220+cvis,
+-	use=vt100+keypad,
++	sgr0=\E[0m\017, smkx=\E=, use=ansi+idc,
++	use=ecma+underline, use=ecma+standout, use=ansi+csr,
++	use=ansi+idl, use=ansi+local, use=xterm+alt47,
++	use=vt100+enq, use=vt100+4bsd, use=rxvt+pcfkeys,
++	use=vt220+cvis, use=vt100+keypad,
+ 
+ # Key Codes from rxvt reference:
+ #
+@@ -8257,13 +8253,12 @@
+ # + supports XTVERSION, unlike alacritty
+ warp|warp terminal,
+ 	bce@,
+-	civis@, cnorm@, cvvis@, kcbt=\E[Z, RV=\E[>c, XF@, XR=\E[>0q, XT@,
+-	rv=\E\\[>0;95;0c,
++	civis@, cnorm@, cvvis@, kcbt=\E[Z, XF@, XT@, rv=\E\\[>0;95;0c,
+ 	xr=\EP>\\|Warp\\(([[:alnum:]._]+)\\)\E\\\\,
+ 	use=ansi+rep, use=bracketed+paste, use=ecma+italics,
+-	use=xterm+sm+1006, use=xterm+pcfkeys,
+-	use=ecma+strikeout, use=xterm+tmux, use=xterm+256color,
+-	use=xterm-basic,
++	use=report+da2, use=report+version, use=xterm+sm+1006,
++	use=xterm+pcfkeys, use=ecma+strikeout, use=xterm+tmux,
++	use=xterm+256color, use=xterm-basic,
+ 
+ #### Zutty
+ # https://git.hq.sig7.se/zutty.git
+@@ -8535,16 +8530,16 @@
+ 	setab=\E[4%p1%dm, setaf=\E[3%p1%dm,
+ 	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p2%t;4%;%?%p1%p3%|
+ 	    %t;7%;m,
+-	sgr0=\E(B\E[m, smam=\E[?7h, smkx=\E[?1h, RV=\E[>c,
++	sgr0=\E(B\E[m, smam=\E[?7h, smkx=\E[?1h,
+ 	rv=\E\\[>0;100;0c, use=ecma+underline,
+ 	use=ecma+standout, use=ecma+index, use=ansi+rep,
+ 	use=ecma+strikeout, use=xterm+pcfkeys,
+-	use=bracketed+paste, use=vt420+lrmm, use=xterm+focus,
+-	use=xterm+sm+1006, use=ecma+italics, use=ansi+csr,
+-	use=ansi+cup, use=ansi+enq, use=ansi+idc1, use=ansi+idl,
+-	use=ansi+inittabs, use=ansi+local, use=ansi+rca2,
+-	use=ansi+sgrbold, use=xterm+alt+title, use=att610+cvis,
+-	use=xterm+acs, use=vt100+4bsd,
++	use=bracketed+paste, use=report+da2, use=vt420+lrmm,
++	use=xterm+focus, use=xterm+sm+1006, use=ecma+italics,
++	use=ansi+csr, use=ansi+cup, use=ansi+enq, use=ansi+idc1,
++	use=ansi+idl, use=ansi+inittabs, use=ansi+local,
++	use=ansi+rca2, use=ansi+sgrbold, use=xterm+alt+title,
++	use=att610+cvis, use=xterm+acs, use=vt100+4bsd,
+ 
+ pangoterm-256color|pangoterm with 256-colors,
+ 	use=xterm+256setaf, use=pangoterm,
+@@ -12030,7 +12025,7 @@
+ # S2 10  DTR status (pin 20) (U = disconnected, D = connected)
+ #
+ tvi910+|TeleVideo 910+,
+-	dch1=\EW, dl1=\ER$<33*>, home=^^, ich1=\EQ, il1=\EE$<33*>,
++	dch1=\EW, dl1=\ER$<33*>, ich1=\EQ, il1=\EE$<33*>,
+ 	kf0=^A@\r, kf1=^AA\r, kf2=^AB\r, kf3=^AC\r, kf4=^AD\r,
+ 	kf5=^AE\r, kf6=^AF\r, kf7=^AG\r, kf8=^AH\r, kf9=^AI\r,
+ 	ll=\E=7\s, use=tvi910,
+Index: ncurses/base/lib_mouse.c
+Prereq:  1.264 
+--- ncurses-6.6-20261114+/ncurses/base/lib_mouse.c	2026-11-07 15:43:53.000000000 +0000
++++ ncurses-6.6-20261121/ncurses/base/lib_mouse.c	2026-11-21 22:57:15.000000000 +0000
+@@ -84,7 +84,7 @@
+ #define CUR SP_TERMTYPE
+ #endif
+ 
+-MODULE_ID("$Id: lib_mouse.c,v 1.264 2026/11/07 15:43:53 tom Exp $")
++MODULE_ID("$Id: lib_mouse.c,v 1.268 2026/11/21 22:57:15 tom Exp $")
+ 
+ #include <tic.h>
+ 
+@@ -146,7 +146,10 @@
+ 	| BUTTON_ALT \
+ 	| REPORT_MOUSE_POSITION )
+ 
+-#if NCURSES_MOUSE_VERSION > 1
++#define set_other_bit(p,q) (p)->bstate |= (q)
++#define tst_other_bit(p,q) ((p)->bstate & (q))
++
++#if NCURSES_MOUSE_VERSION == 1
+ #define MyMask	mmask_t
+ #else
+ #define MyMask	mmask2_t
+@@ -159,11 +162,17 @@
+ #define	MASK_TRIPLE_CLICK(x)	(MyMask) NCURSES_MOUSE_MASK(x, NCURSES_TRIPLE_CLICKED)
+ 
+ #if NCURSES_MOUSE_VERSION > 1
+-#define EXTRACT_MOUSE_MASK(b,m) ((MyMask)(0x1f & (m) >> (((b) - 1) * 5)))
++#define BITS_PER_BUTTON 5
+ #else
+-#define EXTRACT_MOUSE_MASK(b,m) ((MyMask)(0x3f & (m) >> (((b) - 1) * 6)))
++#define BITS_PER_BUTTON 6
+ #endif
+ 
++#define BITS_PER_OTHER 4
++
++#define EXTRACT_MOUSE_MASK(b,m) \
++	((MyMask) (((1 << BITS_PER_BUTTON) - 1) & (m) >> \
++	           (((b) - 1) * BITS_PER_BUTTON)))
++
+ #if NCURSES_MAX_BUTTON == 4
+ 
+ #define MAX_MASK(name) \
+@@ -490,6 +499,29 @@
+ 	    break;
+ 	}
+     }
++#if NCURSES_MOUSE_VERSION > 1
++    /*
++     * We use 5 bits per button, and have 4 "other" bits.  If mmask_t is 32
++     * bits, that allows for 5 buttons: ((32 - 4) / 5).  But with 64 bits,
++     * we could have 12 buttons: ((64 - 4) / 5).  Since the ABI uses 32 bits,
++     * there are extended functions which bypass this restriction and allow
++     * for working with as many buttons as we can manage internally.  To keep
++     * it simple, we will simply shift the "other" bits up to the end and
++     * use the existing logic for indexing the full set of buttons.
++     *
++     * The reason for 11 buttons (rather than 12) in ncurses is that 11 will
++     * work with either of the xterm mouse protocols.
++     */
++    sp->_max_button = MAX_BUTTON;
++    if (sizeof(mmask2_t) != sizeof(mmask_t)) {
++	sp->_max_button = (((8 * sizeof(mmask2_t)) - BITS_PER_OTHER) /
++			   BITS_PER_BUTTON);
++	TR(MY_TRACE, ("external max_button: %d", MAX_BUTTON));
++	TR(MY_TRACE, ("internal max_button: %d", sp->_max_button));
++	sp->_mouse_bshift = BITS_PER_BUTTON * (sp->_max_button - MAX_BUTTON);
++	TR(MY_TRACE, ("internal bit-shifts: %d", sp->_mouse_bshift));
++    }
++#endif
+ }
+ #endif
+ 
+@@ -921,7 +953,7 @@
+ 			eventp->bstate |= BUTTON3_RELEASED;
+ 		    break;
+ 		default:
+-		    eventp->bstate |= REPORT_MOUSE_POSITION;
++		    set_other_bit(eventp, REPORT_MOUSE_POSITION);
+ 		    break;
+ 		}
+ 
+@@ -999,9 +1031,11 @@
+ #else
+ #define PRESS_POSITION(n) \
+     do { \
+-	    eventp->bstate = (MyMask) ((sp->_mouse_bstate & MASK_PRESS(n)) \
+-				    ? REPORT_MOUSE_POSITION \
+-				    : MASK_PRESS(n)); \
++	    eventp->bstate = 0; \
++	    if (sp->_mouse_bstate & MASK_PRESS(n)) \
++		set_other_bit(eventp, REPORT_MOUSE_POSITION); \
++	    else \
++		eventp->bstate = MASK_PRESS(n); \
+ 	    sp->_mouse_bstate |= MASK_PRESS(n); \
+     } while (0)
+ #endif
+@@ -1009,11 +1043,11 @@
+ #define MODIFY_PRESS(mods) \
+     do { \
+ 	if ((mods) & 4) \
+-	    eventp->bstate |= BUTTON_SHIFT; \
++	    set_other_bit(eventp, BUTTON_SHIFT); \
+ 	if ((mods) & 8) \
+-	    eventp->bstate |= BUTTON_ALT; \
++	    set_other_bit(eventp, BUTTON_ALT); \
+ 	if ((mods) & 16) \
+-	    eventp->bstate |= BUTTON_CTRL; \
++	    set_other_bit(eventp, BUTTON_CTRL); \
+     } while (0)
+ 
+ #if NCURSES_MOUSE_VERSION > 2
+@@ -1091,7 +1125,7 @@
+ 
+     result = decode_xterm_opcode(sp, eventp, (int) (intro) - 32);
+     if (result < 0) {
+-	eventp->bstate = REPORT_MOUSE_POSITION;
++	set_other_bit(eventp, REPORT_MOUSE_POSITION);
+     } else if (result == 0) {
+ 
+ 	/*
+@@ -1116,12 +1150,12 @@
+ 	     * application know where the mouse is going, if private mode
+ 	     * 1002 or 1003 is enabled.
+ 	     */
+-	    eventp->bstate = REPORT_MOUSE_POSITION;
++	    set_other_bit(eventp, REPORT_MOUSE_POSITION);
+ 	}
+     }
+     if (result >= 0) {
+ 	MODIFY_PRESS(intro);
+-	result = (eventp->bstate & REPORT_MOUSE_POSITION) ? TRUE : FALSE;
++	result = tst_other_bit(eventp, REPORT_MOUSE_POSITION) ? TRUE : FALSE;
+     }
+     return result;
+ }
+@@ -1379,8 +1413,8 @@
+ 	} else if (data.final != 'm' || b3 > MAX_BUTTON) {
+ 	    result = -TRUE;
+ 	} else {
+-	    MyMask pressed = (MyMask) NCURSES_MOUSE_MASK(b3, NCURSES_BUTTON_PRESSED);
+-	    MyMask release = (MyMask) NCURSES_MOUSE_MASK(b3, NCURSES_BUTTON_RELEASED);
++	    MyMask pressed = MASK_PRESS(b3);
++	    MyMask release = MASK_RELEASE(b3);
+ 	    if (sp->_mouse_bstate & pressed) {
+ 		eventp->bstate = release;
+ 		sp->_mouse_bstate &= ~pressed;
+@@ -1390,7 +1424,7 @@
+ 	}
+ 	if (result >= 0) {
+ 	    MODIFY_PRESS(b);
+-	    result = (eventp->bstate & REPORT_MOUSE_POSITION) ? TRUE : FALSE;
++	    result = tst_other_bit(eventp, REPORT_MOUSE_POSITION) ? TRUE : FALSE;
+ 	    eventp->x = (data.params[1] ? (data.params[1] - 1) : 0);
+ 	    eventp->y = (data.params[2] ? (data.params[2] - 1) : 0);
+ 	}
+Index: ncurses/curses.priv.h
+Prereq:  1.764 
+--- ncurses-6.6-20261114+/ncurses/curses.priv.h	2026-11-07 15:14:52.000000000 +0000
++++ ncurses-6.6-20261121/ncurses/curses.priv.h	2026-11-21 22:31:43.000000000 +0000
+@@ -35,7 +35,7 @@
+  ****************************************************************************/
+ 
+ /*
+- * $Id: curses.priv.h,v 1.764 2026/11/07 15:14:52 Yeatol Exp $
++ * $Id: curses.priv.h,v 1.766 2026/11/21 22:31:43 tom Exp $
+  *
+  *	curses.priv.h
+  *
+@@ -1190,7 +1190,10 @@
+ 	mmask2_t	_mouse_mask;	/* set via mousemask() */
+ 	mmask2_t	_mouse_mask2;	/* OR's in press/release bits */
+ 	mmask2_t	_mouse_bstate;
+-	int		_max_button;
++#if NCURSES_MOUSE_VERSION > 1
++	int		_mouse_bshift;	/* internal "other" bits are shifted */
++	int		_max_button;	/* internal mouse button limit */
++#endif
+ 	MouseFormat	_mouse_format;	/* type of xterm mouse protocol */
+ 	NCURSES_CONST char *_mouse_xtermcap; /* string to enable/disable mouse */
+ 	MEVENT		_mouse_events[EV_MAX];	/* hold the last mouse event seen */
+Index: ncurses/tinfo/lib_tparm.c
+Prereq:  1.159 
+--- ncurses-6.6-20261114+/ncurses/tinfo/lib_tparm.c	2026-11-07 20:11:44.000000000 +0000
++++ ncurses-6.6-20261121/ncurses/tinfo/lib_tparm.c	2026-11-21 14:33:50.000000000 +0000
+@@ -53,7 +53,7 @@
+ #include <ctype.h>
+ #include <tic.h>
+ 
+-MODULE_ID("$Id: lib_tparm.c,v 1.159 2026/11/07 20:11:44 tom Exp $")
++MODULE_ID("$Id: lib_tparm.c,v 1.160 2026/11/21 14:33:50 tom Exp $")
+ 
+ /*
+  *	char *
+@@ -347,6 +347,7 @@
+          ? TPS(stack)[TPS(stack_ptr)].data.str \
+          : dummy) \
+      : (tparm_error(tps, "spop: stack underflow"), \
++        TPS(stack_ptr) = 0, \
+         dummy))
+ 
+ #if NCURSES_EXPANDED
+Index: package/debian-mingw/changelog
+--- ncurses-6.6-20261114+/package/debian-mingw/changelog	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/debian-mingw/changelog	2026-11-21 10:26:19.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261114) unstable; urgency=low
++ncurses6td (6.6+20261121) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Nov 2026 05:26:19 -0500
+ 
+ ncurses6 (5.9+20131005) unstable; urgency=low
+ 
+Index: package/debian-mingw64/changelog
+--- ncurses-6.6-20261114+/package/debian-mingw64/changelog	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/debian-mingw64/changelog	2026-11-21 10:26:19.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261114) unstable; urgency=low
++ncurses6td (6.6+20261121) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Nov 2026 05:26:19 -0500
+ 
+ ncurses6 (5.9+20131005) unstable; urgency=low
+ 
+Index: package/debian/changelog
+--- ncurses-6.6-20261114+/package/debian/changelog	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/debian/changelog	2026-11-21 10:26:19.000000000 +0000
+@@ -1,8 +1,8 @@
+-ncurses6td (6.6+20261114) unstable; urgency=low
++ncurses6td (6.6+20261121) unstable; urgency=low
+ 
+   * latest weekly patch
+ 
+- -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 14 Nov 2026 05:37:38 -0500
++ -- Thomas E. Dickey <dickey@invisible-island.net>  Sat, 21 Nov 2026 05:26:19 -0500
+ 
+ ncurses6 (5.9+20120608) unstable; urgency=low
+ 
+Index: package/mingw-ncurses.nsi
+Prereq:  1.790 
+--- ncurses-6.6-20261114+/package/mingw-ncurses.nsi	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/mingw-ncurses.nsi	2026-11-21 10:26:19.000000000 +0000
+@@ -1,4 +1,4 @@
+-; $Id: mingw-ncurses.nsi,v 1.790 2026/11/14 10:37:38 tom Exp $
++; $Id: mingw-ncurses.nsi,v 1.791 2026/11/21 10:26:19 tom Exp $
+ 
+ ; TODO add examples
+ ; TODO bump ABI to 6
+@@ -10,7 +10,7 @@
+ !define VERSION_MAJOR "6"
+ !define VERSION_MINOR "6"
+ !define VERSION_YYYY  "2026"
+-!define VERSION_MMDD  "1114"
++!define VERSION_MMDD  "1121"
+ !define VERSION_PATCH ${VERSION_YYYY}${VERSION_MMDD}
+ 
+ !define MY_ABI   "5"
+Index: package/mingw-ncurses.spec
+--- ncurses-6.6-20261114+/package/mingw-ncurses.spec	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/mingw-ncurses.spec	2026-11-21 10:26:19.000000000 +0000
+@@ -3,7 +3,7 @@
+ Summary: shared libraries for terminal handling
+ Name: mingw32-ncurses6
+ Version: 6.6
+-Release: 20261114
++Release: 20261121
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ URL: https://invisible-island.net/ncurses/
+@@ -144,8 +144,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 14 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261114
++* Sat Nov 21 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261121
+ 
+ * Sat Feb 25 2023 Thomas Dickey
+ - amend URLs per rpmlint
+Index: package/ncurses.spec
+--- ncurses-6.6-20261114+/package/ncurses.spec	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/ncurses.spec	2026-11-21 10:26:19.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: shared libraries for terminal handling
+ Name: ncurses6
+ Version: 6.6
+-Release: 20261114
++Release: 20261121
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ URL: https://invisible-island.net/ncurses/
+@@ -134,8 +134,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 14 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261114
++* Sat Nov 21 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261121
+ 
+ * Sat Feb 25 2023 Thomas Dickey
+ - amend URLs per rpmlint
+Index: package/ncursest.spec
+--- ncurses-6.6-20261114+/package/ncursest.spec	2026-11-14 10:37:38.000000000 +0000
++++ ncurses-6.6-20261121/package/ncursest.spec	2026-11-21 10:26:19.000000000 +0000
+@@ -1,7 +1,7 @@
+ Summary: Curses library with POSIX thread support.
+ Name: ncursest6
+ Version: 6.6
+-Release: 20261114
++Release: 20261121
+ License: X11 License Distribution Modification Variant
+ Group: Development/Libraries
+ Source: ncurses-%{version}-%{release}.tgz
+@@ -142,8 +142,8 @@
+ 
+ %changelog
+ 
+-* Sat Nov 14 2026 Thomas E. Dickey
+-- testing ncurses 6.6-20261114
++* Sat Nov 21 2026 Thomas E. Dickey
++- testing ncurses 6.6-20261121
+ 
+ * Tue Dec 24 2019 Thomas Dickey
+ - drop custom CC_NORMAL warning flags because setting CFLAGS interferes with
+Index: progs/infocmp.c
+Prereq:  1.184 
+--- ncurses-6.6-20261114+/progs/infocmp.c	2026-11-07 20:56:10.000000000 +0000
++++ ncurses-6.6-20261121/progs/infocmp.c	2026-11-21 16:21:20.000000000 +0000
+@@ -43,7 +43,7 @@
+ 
+ #include <dump_entry.h>
+ 
+-MODULE_ID("$Id: infocmp.c,v 1.184 2026/11/07 20:56:10 tom Exp $")
++MODULE_ID("$Id: infocmp.c,v 1.185 2026/11/21 16:21:20 tom Exp $")
+ 
+ #ifndef ACTUAL_TIC
+ #define ACTUAL_TIC "tic"
+@@ -813,6 +813,12 @@
+ 
+ #undef DATA
+ 
++/*
++ * Formatting the data for these should not be larger than the tables, unless
++ * there are duplicates.
++ */
++#define PARAM_BUFSIZ (sizeof(std_modes) + sizeof(private_modes) + sizeof(ecma_highlights))
++
+ static int
+ skip_csi(const char *cap)
+ {
+@@ -842,27 +848,32 @@
+ 
+     if (ep != NULL) {
+ 	const assoc *ap;
++	size_t remainder = PARAM_BUFSIZ;
++	size_t length;
+ 
+ 	do {
+-	    bool found = FALSE;
+-
+ 	    for (ap = table; ap->from[0]; ap++) {
+-		size_t tlen = strlen(ap->from);
++		length = strlen(ap->from);
+ 
+-		if (same_param(ap->from, ep, tlen)) {
+-		    _nc_STRCAT(dst, ap->to, MAX_TERMINFO_LENGTH);
+-		    found = TRUE;
++		if (same_param(ap->from, ep, length)) {
++		    ep = ap->to;
+ 		    break;
+ 		}
+ 	    }
+ 
+-	    if (!found)
+-		_nc_STRCAT(dst, ep, MAX_TERMINFO_LENGTH);
+-	    _nc_STRCAT(dst, ";", MAX_TERMINFO_LENGTH);
++	    length = strlen(ep) + 1;
++	    if (remainder <= length) {
++		fprintf(stderr, "%s: string is too long\n", _nc_progname);
++		break;
++	    }
++	    _nc_STRCAT(dst, ep, remainder);
++	    _nc_STRCAT(dst, ";", remainder);
++	    remainder -= length;
+ 	} while
+ 	    ((ep = strtok((char *) 0, ";")) != NULL);
+ 
+-	dst[strlen(dst) - 1] = '\0';
++	if ((length = strlen(dst)) > 0 && dst[length - 1] == ';')
++	    dst[--length] = '\0';
+ 
+ 	result = dst;
+     }
+@@ -872,7 +883,7 @@
+ static void
+ analyze_string(const char *name, const char *cap, TERMTYPE2 *tp, int many)
+ {
+-    char buf2[MAX_TERMINFO_LENGTH + 1];
++    char buf2[PARAM_BUFSIZ + 1];
+     const char *sp;
+     const assoc *ap;
+     int tp_lines = tp->Numbers[2];
+@@ -891,7 +902,7 @@
+ 	size_t len = 0;
+ 	size_t next = 0;
+ 	const char *expansion = NULL;
+-	char buf3[MAX_TERMINFO_LENGTH];
++	char buf3[PARAM_BUFSIZ];
+ 
+ 	/* first, check other capabilities in this entry */
+ 	for (i = 0; i < STRCOUNT; i++) {
+@@ -906,8 +917,8 @@
+ 	    if (VALID_STRING(cp) &&
+ 		cp[0] != '\0' &&
+ 		cp != cap) {
+-		if ((len = strlen(cp)) > MAX_TERMINFO_LENGTH)
+-		    len = MAX_TERMINFO_LENGTH;
++		if ((len = strlen(cp)) > PARAM_BUFSIZ)
++		    len = PARAM_BUFSIZ;
+ 		_nc_STRNCPY(buf2, sp, len);
+ 		buf2[len] = '\0';
+ 
