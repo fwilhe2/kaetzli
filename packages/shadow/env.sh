@@ -3,12 +3,12 @@
 # privileged step rootless containers need — an unprivileged process may only map its
 # own ID — and every rootless engine calls these two to take it. Nothing else of shadow
 # ships; accounts here are /etc/passwd and systemd-sysusers.
-VERSION="4.20.3"
+VERSION="4.20.4"
 PACKAGE="shadow-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://github.com/shadow-maint/shadow/releases/download/${VERSION}/${TARBALL}"
 SIG_URL="${URL}.asc"
-SHA256="623be9429f64fa2165bfc5957c6a642ec309c5cf23c0d53855c99f7591922297"
+SHA256="639d03cd7821b4086deba50485a1b8041acbb0d1d3c33c20ebd4708e0eeb9bc7"
 LICENSE="BSD-3-Clause"
 # Two NVD products for one upstream: most advisories are shadow_project's, the newest
 # shadow-maint's. Not debian:shadow, which is Debian's packaging.
