@@ -1,0 +1,113 @@
+From 1a1eeae833a2b3b91b97a6667da71a4b5309cae5 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Tue, 24 Nov 2026 00:21:08 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           | 33 +++++++++++++++++++++++++++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/ada/ChangeLog       |  9 +++++++++
+ gcc/testsuite/ChangeLog | 28 ++++++++++++++++++++++++++++
+ 4 files changed, 71 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 409ace7768ad..cf8453265193 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,36 @@
++2026-11-23  Igor Shevlyakov  <igor@tachyum.com>
++
++	Backported from master:
++	2026-10-26  Igor Shevlyakov  <igor@tachyum.com>
++
++	PR tree-optimization/128142
++	* match.pd ((x + y) >> 1 -> IFN_AVG_FLOOR (x, y)): Require two
++	leading zero bits for a signed type whose overflow is defined.
++
++2026-11-23  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-21  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR target/128906
++	* config/h8300/testcompare.md (store_z_<mode>): Fix length calculation
++	for SI case.
++	(store_z_<mode>_neg): Likewise.
++	(store_z_<mode>_sb): Fix length calculation for SI case.  Also fix
++	output templates.
++	(store_z_<mode>_and): Likewise.
++
++2026-11-23  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-23  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128911
++	* config/i386/i386.md (@ccmp<mode>): Compare operands 2 and 3
++	directly.  Use operand 5 for the flags register in operand 1.
++	* config/i386/i386-expand.cc (ix86_gen_ccmp_next): Keep the CC
++	mode of the previous compare and pass it as operand 5.
++
+ 2026-11-22  Ard Biesheuvel  <ardb@kernel.org>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 11cd5d9ffefc..8f1bf15f56ef 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261123
++20261124
+diff --git a/gcc/ada/ChangeLog b/gcc/ada/ChangeLog
+index ba7b5cde041c..c0fc3c801023 100644
+--- a/gcc/ada/ChangeLog
++++ b/gcc/ada/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-23  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* exp_ch4.adb (Expand_Allocator_Expression): Allocate the maximum
++	size when the designated type is a mutably tagged type.
++	(Expand_N_Allocator): Likewise.
++	* mutably_tagged.adb (Make_Mutably_Tagged_Conversion): Simplify
++	the existing condition and also reject the cases of an access to
++	object definition and the subtype mark of a qualified expression.
++
+ 2026-11-22  Konrad Schwarz  <konrad.schwarz@siemens.com>
+ 
+ 	PR ada/128510
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 25022144caa2..47fe770c4449 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,31 @@
++2026-11-23  Igor Shevlyakov  <igor@tachyum.com>
++
++	Backported from master:
++	2026-10-26  Igor Shevlyakov  <igor@tachyum.com>
++
++	PR tree-optimization/128142
++	* gcc.dg/torture/pr128142.c: New test.
++	* gcc.target/aarch64/pr128142.c: New test.
++
++2026-11-23  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-21  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR target/128906
++	* gcc.target/h8300/pr128906.c: New test.
++	* gcc.target/h8300/pr128906-2.c: New test.
++
++2026-11-23  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-23  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128911
++	* gcc.target/i386/pr128911-1.c: New test.
++	* gcc.target/i386/pr128911-2.c: Likewise.
++	* gcc.target/i386/pr128911-3.c: Likewise.
++
+ 2026-11-22  Ard Biesheuvel  <ardb@kernel.org>
+ 
+ 	Backported from master:

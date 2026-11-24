@@ -1,0 +1,165 @@
+From 2c9a0c3206e6ba1908d6c2e9c0488fddbc5f6cf3 Mon Sep 17 00:00:00 2001
+From: Jeff Law <jeffreyalaw@gmail.com>
+Date: Fri, 20 Nov 2026 21:27:30 -0700
+Subject: [PATCH] [PR target/128906] Fix length calculation and some output
+ templates for the H8
+
+So this PR is (yet another) case where the H8 port under-reported the length of
+one or more insns leading to branches going into never-never land.
+
+The really annoying thing here is there are notes that these patterns had
+incorrect lengths, presumably added by me a few years ago when I added the
+patterns.  I'm not sure why I didn't spot and then fix these before pushing.
+
+The length calculation in 2 cases failed to account for the additional length
+of the xor.l instruction.  A two register xor.[bw] form is just 2 bytes, but
+for xor.l 4 bytes are needed.
+
+There's two other cases where the SImode sequence requires an additional
+instruction and in one of those we also need to account fo the longer xor.l
+instruction.
+
+I did have an LLM scan the port for other similar instances.  It tripped a few
+false positives, but nothing real.
+
+The LLM scan also reported the missing "%" that the PR noted in a few places.
+It also reported a case where we used the wrong output modifier.  The missing
+"%" would have triggered a fatal failure in the assembler, so clearly that case
+isn't triggered building libgcc, newlib or anywhere in the testsuite.  The
+wrong modifier case will trigger a warning in the assembler, so it's not
+tripping in the testsuite anywhere, though it perhaps could be triggering
+building libgcc or newlib.
+
+After the LLM scan and manually fixing things I had the LLM write testcases for
+the problem which I've included.
+
+Regression tested on the H8 in my usual set of multilibs (-mint32 with -mh, -ms
+or -msx).
+
+Assisted-By: Claude for scanning the port for issues and testcase generation.
+
+Pushing to the trunk.
+
+	PR target/128906
+gcc/
+	* config/h8300/testcompare.md (store_z_<mode>): Fix length calculation
+	for SI case.
+	(store_z_<mode>_neg): Likewise.
+	(store_z_<mode>_sb): Fix length calculation for SI case.  Also fix
+	output templates.
+	(store_z_<mode>_and): Likewise.
+
+gcc/testsuite
+	* gcc.target/h8300/pr128906.c: New test.
+	* gcc.target/h8300/pr128906-2.c: New test.
+
+(cherry picked from commit a08af1d98c785407f47cac640ecbf01d042ffd2d)
+---
+ gcc/config/h8300/testcompare.md             | 20 ++++++++------------
+ gcc/testsuite/gcc.target/h8300/pr128906-2.c | 10 ++++++++++
+ gcc/testsuite/gcc.target/h8300/pr128906.c   | 14 ++++++++++++++
+ 3 files changed, 32 insertions(+), 12 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/h8300/pr128906-2.c
+ create mode 100644 gcc/testsuite/gcc.target/h8300/pr128906.c
+
+diff --git a/gcc/config/h8300/testcompare.md b/gcc/config/h8300/testcompare.md
+index 3b43381e64a8..2092c171f84b 100644
+--- a/gcc/config/h8300/testcompare.md
++++ b/gcc/config/h8300/testcompare.md
+@@ -524,8 +524,7 @@
+       }
+     gcc_unreachable ();
+   }
+-;; XXXSImode is 2 bytes longer
+-  [(set_attr "length" "8")])
++  [(set (attr "length") (symbol_ref "<MODE>mode == SImode ? 10 : 8"))])
+ 
+ (define_insn "*store_z_<mode>_sb"
+   [(set (match_operand:HSI 0 "register_operand" "=r")
+@@ -543,14 +542,13 @@
+     else if (<MODE>mode == SImode)
+       {
+ 	if (<CODE> == NE)
+-	  return "stc\tccr,%X0\;bld\t#2,%X0\;xor.l\t%T0,%T0\;rotxr.l\t%S0";
++	  return "stc\tccr,%X0\;bld\t#2,%X0\;xor.l\t%S0,%S0\;rotxr.l\t%S0";
+ 	else
+-	  return "stc\tccr,%X0\;bild\t#2,%X0\;xor.l\t%T0,%T0\;rotxr.l\t%S0";
++	  return "stc\tccr,%X0\;bild\t#2,%X0\;xor.l\t%S0,%S0\;rotxr.l\t%S0";
+       }
+     gcc_unreachable ();
+   }
+-  ;; XXX SImode is larger
+-  [(set_attr "length" "8")])
++  [(set (attr "length") (symbol_ref "<MODE>mode == SImode ? 10 : 8"))])
+ 
+ (define_insn "*store_z_<mode>_neg"
+   [(set (match_operand:HSI 0 "register_operand" "=r")
+@@ -573,8 +571,7 @@
+       }
+     gcc_unreachable ();
+   }
+-  ;; XXX simode is an instruction longer
+-  [(set_attr "length" "8")])
++  [(set (attr "length") (symbol_ref "<MODE>mode == SImode ? 10 : 8"))])
+ 
+ (define_insn "*store_z_<mode>_and"
+   [(set (match_operand:HSI 0 "register_operand" "=r")
+@@ -587,19 +584,18 @@
+ 	if (<CODE> == NE)
+ 	  return "bld\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.w\t%T0,%T0\;bst\t#0,%X0";
+ 	else
+-	  return "bild\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.w\t%T0,%T0\;bist\t#0,X0";
++	  return "bild\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.w\t%T0,%T0\;bist\t#0,%X0";
+       }
+     else if (<MODE>mode == SImode)
+       {
+ 	if (<CODE> == NE)
+ 	  return "bld\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.l\t%S0,%S0\;bst\t#0,%X0";
+ 	else
+-	  return "bild\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.l\t%S0,%S0\;bist\t#0,X0";
++	  return "bild\t#0,%X1\;stc\tccr,%X0\;band\t#2,%X0\;xor.l\t%S0,%S0\;bist\t#0,%X0";
+       }
+     gcc_unreachable ();
+   }
+-  ;; XXX simode is an instruction longer
+-  [(set_attr "length" "8")])
++  [(set (attr "length") (symbol_ref "<MODE>mode == SImode ? 12 : 10"))])
+ 
+ ;; We can test the upper byte of a HImode register and the upper word
+ ;; of a SImode register
+diff --git a/gcc/testsuite/gcc.target/h8300/pr128906-2.c b/gcc/testsuite/gcc.target/h8300/pr128906-2.c
+new file mode 100644
+index 000000000000..6e3f93509e97
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/h8300/pr128906-2.c
+@@ -0,0 +1,10 @@
++/* The inverted variants of *store_z_<mode>_and used to emit "X0" instead of
++   "%X0" as the bist operand.  */
++/* { dg-do compile }  */
++/* { dg-options "-mh -O2" }  */
++
++int  and_hi_ne (int a, int b, int c)    { return (a != b) & c; }
++long and_si_ne (long a, long b, long c) { return (a != b) & c; }
++
++/* { dg-final { scan-assembler-times "bist\t#0,r0l" 2 } }  */
++/* { dg-final { scan-assembler-not "X0" } }  */
+diff --git a/gcc/testsuite/gcc.target/h8300/pr128906.c b/gcc/testsuite/gcc.target/h8300/pr128906.c
+new file mode 100644
+index 000000000000..7f270678e1f2
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/h8300/pr128906.c
+@@ -0,0 +1,14 @@
++/* { dg-do compile }  */
++/* { dg-options "-mh -O2 -dp" }  */
++
++long z_si (long a, long b)       { return a != b; }
++long sb_si (long a, long b)      { return (long)(a != b) << 15; }
++long neg_si (long a, long b)     { return -(a != b); }
++long and_si (long a, long b, long c) { return (a != b) & c; }
++int and_hi (int a, int b, int c) { return (a != b) & c; }
++
++/* { dg-final { scan-assembler "l=10\\\]\[ \t\]+\\*store_z_si\\M" } }  */
++/* { dg-final { scan-assembler "l=10\\\]\[ \t\]+\\*store_z_si_sb\\M" } }  */
++/* { dg-final { scan-assembler "l=10\\\]\[ \t\]+\\*store_z_si_neg\\M" } }  */
++/* { dg-final { scan-assembler "l=12\\\]\[ \t\]+\\*store_z_si_and\\M" } }  */
++/* { dg-final { scan-assembler "l=10\\\]\[ \t\]+\\*store_z_hi_and\\M" } }  */
