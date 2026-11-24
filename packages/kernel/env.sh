@@ -1,8 +1,8 @@
-VERSION="7.3.5"
+VERSION="7.3.6"
 PACKAGE="linux-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://cdn.kernel.org/pub/linux/kernel/v${VERSION%%.*}.x/${TARBALL}"
-SHA256="8f293f83d54f0b7b9be56863ebc5e4ea79d73e530b4ae55c572be97ef39f0990"
+SHA256="8183d475a76a0faffa92d6cd500af421f589dfd0300a0f1060bb875e11d45723"
 LICENSE="GPL-2.0-only WITH Linux-syscall-note"
 CPE="cpe:2.3:o:linux:linux_kernel:${VERSION}:*:*:*:*:*:*:*"
 # Debian's linux source package pulls in a whole distro kernel toolchain (and its
