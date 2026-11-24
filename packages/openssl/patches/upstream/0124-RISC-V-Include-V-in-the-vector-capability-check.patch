@@ -1,0 +1,34 @@
+From 20d13b0afd31c8ce269dd16465fb2d9c7fb07db7 Mon Sep 17 00:00:00 2001
+From: Julian Zhu <julian.oerv@isrc.iscas.ac.cn>
+Date: Sun, 8 Nov 2026 00:11:33 +0800
+Subject: [PATCH] RISC-V: Include V in the vector capability check
+
+The vector capability check covers bits 15 through 23, but V itself
+occupies bit 14.
+
+Extend the checked range to include V itself so that both V and its
+dependent extensions require the V bit in AT_HWCAP.
+
+Signed-off-by: Julian Zhu <julian.oerv@isrc.iscas.ac.cn>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Mounir Idrassi <mounir.idrassi@idrix.fr>
+Merge-date: Mon Nov 23 17:28:09 2026
+Merged-from: https://github.com/openssl/openssl/pull/33597
+(cherry picked from commit 888fa4ed34b478cb4c39eef0281b9c5e7e223227)
+---
+ include/crypto/riscv_arch.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/crypto/riscv_arch.h b/include/crypto/riscv_arch.h
+index 782e341c7a5d..227160ca194f 100644
+--- a/include/crypto/riscv_arch.h
++++ b/include/crypto/riscv_arch.h
+@@ -25,7 +25,7 @@
+ #include <asm/hwcap.h>
+ extern unsigned int OPENSSL_riscv_hwcap_P;
+ #define VECTOR_CAPABLE (OPENSSL_riscv_hwcap_P & COMPAT_HWCAP_ISA_V)
+-#define ZVX_MIN 15
++#define ZVX_MIN 14
+ #define ZVX_MAX 23
+ #define IS_IN_DEPEND_VECTOR(offset) ((ZVX_MIN <= offset) && (offset <= ZVX_MAX))
+ #endif
