@@ -1,0 +1,149 @@
+From 6d769e4ed5f44a18c146a020e161c608efa17dd6 Mon Sep 17 00:00:00 2001
+From: Igor Shevlyakov <igor@tachyum.com>
+Date: Sat, 24 Oct 2026 13:03:20 -0700
+Subject: [PATCH] match.pd: Don't fold wrapping signed (x + y) >> 1 to
+ AVG_FLOOR [PR128142]
+
+The fold of (x + y) >> 1 into IFN_AVG_FLOOR (x, y) for vectors checks
+that each element of x and y has a leading zero bit, so that x + y
+cannot wrap.  That is enough for an unsigned type, or for a signed one
+whose overflow is undefined, but with -fwrapv two nonnegative signed
+values can add up to a negative one.  For example
+
+  v4si f (v4si a, v4si b)
+  {
+    return ((a & 0x7fffffff) + (b & 0x7fffffff)) >> 1;
+  }
+
+with a = b = { INT_MAX, ... } returns -1 per lane, but became
+.AVG_FLOOR (a & 0x7fffffff, b & 0x7fffffff), which is INT_MAX: an
+shadd on AArch64.
+
+Require two leading zero bits for a signed type whose overflow is
+defined.
+
+Assisted-by: Claude Opus 5.5
+
+	PR tree-optimization/128142
+
+gcc/ChangeLog:
+
+	* match.pd ((x + y) >> 1 -> IFN_AVG_FLOOR (x, y)): Require two
+	leading zero bits for a signed type whose overflow is defined.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.dg/torture/pr128142.c: New test.
+	* gcc.target/aarch64/pr128142.c: New test.
+
+Signed-off-by: Igor Shevlyakov <igor@tachyum.com>
+(cherry picked from commit f630eb20113fa594480583e65c1eaf7daac64bf0)
+---
+ gcc/match.pd                                | 19 +++++++++----
+ gcc/testsuite/gcc.dg/torture/pr128142.c     | 25 +++++++++++++++++
+ gcc/testsuite/gcc.target/aarch64/pr128142.c | 31 +++++++++++++++++++++
+ 3 files changed, 70 insertions(+), 5 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128142.c
+ create mode 100644 gcc/testsuite/gcc.target/aarch64/pr128142.c
+
+diff --git a/gcc/match.pd b/gcc/match.pd
+index 21ebe3a0bf6a..82dfae920946 100644
+--- a/gcc/match.pd
++++ b/gcc/match.pd
+@@ -2247,14 +2247,23 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
+ 
+ #if GIMPLE
+  /* Fold ((x + y) >> 1 into IFN_AVG_FLOOR (x, y) if x and y are vectors in
+-    which each element is known to have at least one leading zero bit.  */
++    which x + y cannot wrap: each element is known to have at least one
++    leading zero bit, or two if the type is signed and its overflow is
++    defined, since the sum of two nonnegative values can then wrap to a
++    negative one.  */
+ (simplify
+  (rshift (plus:cs @0 @1) integer_onep)
+  (if (VECTOR_TYPE_P (type)
+-      && direct_internal_fn_supported_p (IFN_AVG_FLOOR, type, OPTIMIZE_FOR_BOTH)
+-      && wi::clz (get_nonzero_bits (@0)) > 0
+-      && wi::clz (get_nonzero_bits (@1)) > 0)
+-  (IFN_AVG_FLOOR @0 @1)))
++      && direct_internal_fn_supported_p (IFN_AVG_FLOOR, type,
++					 OPTIMIZE_FOR_BOTH))
++  (with
++   {
++     int min_clz = (TYPE_UNSIGNED (type) || TYPE_OVERFLOW_UNDEFINED (type)
++		    ? 1 : 2);
++   }
++   (if (wi::clz (get_nonzero_bits (@0)) >= min_clz
++	&& wi::clz (get_nonzero_bits (@1)) >= min_clz)
++    (IFN_AVG_FLOOR @0 @1)))))
+ #endif
+ 
+ /* Try to fold (type) X op CST -> (type) (X op ((type-x) CST))
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128142.c b/gcc/testsuite/gcc.dg/torture/pr128142.c
+new file mode 100644
+index 000000000000..f9704b98fc76
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128142.c
+@@ -0,0 +1,25 @@
++/* PR tree-optimization/128142 */
++/* With -fwrapv the sum of two nonnegative shorts can wrap to a negative
++   value, so (x + y) >> 1 must not become an average.  */
++/* { dg-do run } */
++/* { dg-additional-options "-fwrapv -Wno-psabi" } */
++
++typedef short v8hi __attribute__ ((vector_size (16)));
++
++__attribute__ ((noipa)) v8hi
++f (v8hi a, v8hi b)
++{
++  return ((a & 0x7fff) + (b & 0x7fff)) >> 1;
++}
++
++int
++main ()
++{
++  v8hi a = { 0x7fff, 0x7fff, 0x4000, 3, 0, -1, 0x7ffe, 100 };
++  v8hi b = { 0x7fff, 1, 0x4000, 4, 0, -1, 1, 200 };
++  v8hi r = f (a, b);
++  if (r[0] != -1 || r[1] != -0x4000 || r[2] != -0x4000 || r[3] != 3
++      || r[4] != 0 || r[5] != -1 || r[6] != 0x3fff || r[7] != 150)
++    __builtin_abort ();
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.target/aarch64/pr128142.c b/gcc/testsuite/gcc.target/aarch64/pr128142.c
+new file mode 100644
+index 000000000000..acbbfbb2be2c
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/aarch64/pr128142.c
+@@ -0,0 +1,31 @@
++/* PR tree-optimization/128142 */
++/* With -fwrapv, (x + y) >> 1 is an average only if x + y cannot wrap.  */
++/* { dg-do compile } */
++/* { dg-options "-O2 -fwrapv" } */
++
++typedef int v4si __attribute__ ((vector_size (16)));
++typedef unsigned int v4usi __attribute__ ((vector_size (16)));
++
++/* Signed with one leading zero bit: the sum can wrap.  */
++v4si
++f1 (v4si a, v4si b)
++{
++  return ((a & 0x7fffffff) + (b & 0x7fffffff)) >> 1;
++}
++
++/* Signed with two leading zero bits: the sum cannot wrap.  */
++v4si
++f2 (v4si a, v4si b)
++{
++  return ((a & 0x3fffffff) + (b & 0x3fffffff)) >> 1;
++}
++
++/* Unsigned with one leading zero bit: the sum cannot wrap.  */
++v4usi
++f3 (v4usi a, v4usi b)
++{
++  return ((a & 0x7fffffff) + (b & 0x7fffffff)) >> 1;
++}
++
++/* { dg-final { scan-assembler-times {\tshadd\tv[0-9]+\.4s,} 1 } } */
++/* { dg-final { scan-assembler-times {\tuhadd\tv[0-9]+\.4s,} 1 } } */

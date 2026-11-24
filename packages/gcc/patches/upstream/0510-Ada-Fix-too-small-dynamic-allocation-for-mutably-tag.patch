@@ -1,0 +1,181 @@
+From db998326c8e95d3e59e1d616968ad1dbc59052b2 Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Mon, 23 Nov 2026 10:10:15 +0100
+Subject: [PATCH] Ada: Fix too small dynamic allocation for mutably tagged type
+
+The problem is that, when the type of an allocator designates a mutably
+tagged type, the allocated size is that of the root type instead of the
+maximum size specified by the Size'Class aspect.
+
+gcc/ada/
+	* exp_ch4.adb (Expand_Allocator_Expression): Allocate the maximum
+	size when the designated type is a mutably tagged type.
+	(Expand_N_Allocator): Likewise.
+	* mutably_tagged.adb (Make_Mutably_Tagged_Conversion): Simplify
+	the existing condition and also reject the cases of an access to
+	object definition and the subtype mark of a qualified expression.
+---
+ gcc/ada/exp_ch4.adb        | 46 +++++++++++++++++++++++++++--------
+ gcc/ada/mutably_tagged.adb | 49 ++++++++++++++++++--------------------
+ 2 files changed, 59 insertions(+), 36 deletions(-)
+
+diff --git a/gcc/ada/exp_ch4.adb b/gcc/ada/exp_ch4.adb
+index ed606a2bf5df..386360d6614b 100644
+--- a/gcc/ada/exp_ch4.adb
++++ b/gcc/ada/exp_ch4.adb
+@@ -907,13 +907,26 @@ package body Exp_Ch4 is
+             return;
+          end if;
+ 
+-         --  For a class wide allocation generate the following code:
++         --  If the designated type is a mutably tagged type, then allocate
++         --  the specified maximum size by means of the CW-equivalent type.
++
++         if Is_Mutably_Tagged_Type (DesigT) then
++            declare
++               CW_Equiv : constant Entity_Id :=
++                            Class_Wide_Equivalent_Type (DesigT);
++            begin
++               Rewrite (Indic, New_Occurrence_Of (CW_Equiv, Loc));
++               Rewrite (Exp, Unchecked_Convert_To (CW_Equiv, Exp));
++               Analyze_And_Resolve (Expression (N), CW_Equiv);
++            end;
++
++         --  For a regular class-wide allocation generate the following code:
+ 
+          --    type Equiv_Record is record ... end record;
+-         --    implicit subtype CW is <Class_Wide_Subytpe>;
++         --    [subtype CW is <Class_Wide_Subtype>];
+          --    Temp : PtrT := new CW'(CW!(expr));
+ 
+-         if Is_Class_Wide_Type (T) then
++         elsif Is_Class_Wide_Type (T) then
+             Expand_Subtype_From_Expr (Empty, T, Indic, Exp);
+ 
+             --  Ada 2005 (AI-251): If the expression is a class-wide interface
+@@ -942,7 +955,6 @@ package body Exp_Ch4 is
+             end if;
+ 
+             Analyze_And_Resolve (Expression (N), Entity (Indic));
+-         end if;
+ 
+          --  If the designated type is class-wide, then the alignment and the
+          --  controlled nature of the expression are computed dynamically by
+@@ -951,7 +963,7 @@ package body Exp_Ch4 is
+          --  test on Exp needs to have its final form to decide whether or not
+          --  to generate an Adjust call, so we preventively remove them here.
+ 
+-         if Is_Class_Wide_Type (DesigT)
++         elsif Is_Class_Wide_Type (DesigT)
+            and then Nkind (Exp) = N_Function_Call
+            and then not Special_Pool
+          then
+@@ -4868,13 +4880,22 @@ package body Exp_Ch4 is
+       if Nkind (Expression (N)) = N_Qualified_Expression then
+          Expand_Allocator_Expression (N);
+ 
+-      --  If no initialization is necessary, just create a custom Allocate if
+-      --  the context requires it; that is the case only for allocators built
+-      --  for the special return objects because, in other cases, the custom
+-      --  Allocate will be created later during the expansion of the original
+-      --  allocator without the No_Initialization flag.
++      --  If no initialization is necessary, perform minimal processing
+ 
+       elsif No_Initialization (N) then
++         --  If the designated type is a mutably tagged type, then allocate
++         --  the specified maximum size by means of the CW-equivalent type.
++
++         if Is_Mutably_Tagged_Type (Dtyp) then
++            Rewrite (Expression (N),
++              New_Occurrence_Of (Class_Wide_Equivalent_Type (Dtyp), Loc));
++         end if;
++
++         --  Create a custom Allocate if the context requires it; that is the
++         --  case only for the allocators built for the special return objects
++         --  because, in other cases, the custom Allocate will be created later
++         --  during the expansion of the original allocator.
++
+          if For_Special_Return_Object (N) then
+             Build_Allocate_Deallocate_Proc (Parent (N));
+          end if;
+@@ -5057,7 +5078,12 @@ package body Exp_Ch4 is
+ 
+             Temp := Make_Temporary (Loc, 'P');
+ 
++            --  If the designated type is a mutably tagged type, then allocate
++            --  the specified maximum size by means of the CW-equivalent type.
++
+             if Is_Mutably_Tagged_Type (Dtyp) then
++               Rewrite (Expression (N),
++                 New_Occurrence_Of (Class_Wide_Equivalent_Type (Dtyp), Loc));
+                Init_Stmts :=
+                  Build_Default_Initialization (N, Etype (Etyp), Temp,
+                    For_CW     => False,
+diff --git a/gcc/ada/mutably_tagged.adb b/gcc/ada/mutably_tagged.adb
+index 971e9de95286..3fac80853211 100644
+--- a/gcc/ada/mutably_tagged.adb
++++ b/gcc/ada/mutably_tagged.adb
+@@ -288,40 +288,37 @@ package body Mutably_Tagged is
+       --  Allow "forcing" the rewrite to an unchecked conversion
+ 
+       if Force
++        or else No (Parent (N))
+ 
+         --  Otherwise, don't make the conversion when N is on the left-hand
+         --  side of the assignment, in cases where we need the actual type
+-        --  such as a subtype or object renaming declaration, or a generic or
+-        --  parameter specification.
++        --  such as an access definition, or a subtype or object renaming
++        --  declaration, or a generic association or a parameter specification.
+ 
+         --  Additionally, prevent generation of the conversion if N is already
+-        --  part of an unchecked conversion or a part of a selected component.
++        --  part of an unchecked conversion, or a part of a selected component
++        --  or part of the subtype mark of a qualified expression.
++
++        --  Exclude the case where we have a 'Size so that we get the proper
++        --  size of the class-wide equivalent type. Are there other cases ???
+ 
+         or else (not Known_To_Be_Assigned (N, Only_LHS => True)
+-                  and then (No (Parent (N))
+-                             or else Nkind (Parent (N))
+-                               not in N_Selected_Component
+-                                    | N_Subtype_Declaration
+-                                    | N_Parameter_Specification
+-                                    | N_Generic_Association
+-                                    | N_Unchecked_Type_Conversion
+-                                    | N_Object_Renaming_Declaration))
++                  and then Nkind (Parent (N))
++                             not in N_Access_To_Object_Definition
++                                  | N_Subtype_Declaration
++                                  | N_Object_Renaming_Declaration
++                                  | N_Generic_Association
++                                  | N_Parameter_Specification
++                                  | N_Unchecked_Type_Conversion
++                                  | N_Selected_Component
++                  and then not
++                    (Nkind (Parent (N)) = N_Qualified_Expression
++                      and then N = Subtype_Mark (Parent (N)))
++                  and then not
++                    (Nkind (Parent (N)) = N_Attribute_Reference
++                      and then Attribute_Name (Parent (N)) in Name_Size))
+       then
+-         --  Exclude the case where we have a 'Size so that we get the proper
+-         --  size of the class-wide equivalent type. Are there other cases ???
+-
+-         if Present (Parent (N))
+-           and then Nkind (Parent (N)) = N_Attribute_Reference
+-           and then Attribute_Name (Parent (N)) in Name_Size
+-         then
+-            return;
+-         end if;
+-
+-         --  Create the conversion
+-
+-         Rewrite (N,
+-           Unchecked_Convert_To
+-             (Conv_Typ, Relocate_Node (N)));
++         Rewrite (N, Unchecked_Convert_To (Conv_Typ, N));
+       end if;
+    end Make_Mutably_Tagged_Conversion;
+ 
