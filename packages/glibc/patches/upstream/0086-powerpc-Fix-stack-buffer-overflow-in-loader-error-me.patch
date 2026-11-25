@@ -1,0 +1,694 @@
+From d3528b8e93901ee3a00fef66d91b8ba126c1c3a9 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Wed, 19 Aug 2026 11:29:58 +0200
+Subject: [PATCH] powerpc: Fix stack buffer overflow in loader error messages
+ (bug 34541)
+
+Use _dl_exception_create_format instead string operation on a fixed
+buffer, which allocates a message of the exact size.
+
+The powerpc32 and powerpc64 _dl_reloc_overflow implementations
+are consolidated and the powerpc32 message now says "reloc at" instead
+of "relocation at" (as on powerpc64).
+
+The new tst-reloc-overflow and tst-localentry (powerpc64le) tests load a
+module that must be rejected because of an out of range R_PPC*_ADDR16
+relocation, or because of a PLT call optimized with --plt-localentry
+that resolves to a function with a non-zero local entry point.  Both use
+a symbol name of more than 8 KiB, and check that dlerror reports it.
+tst-localentry-mod is built with -mno-pcrel, since ld does not apply the
+localentry optimization to PC-relative calls.
+
+Checked on powerpc-linux-gnu, powerpc64-linux-gnu, and
+powerpc64le-linux-gnu (also with --with-cpu=power10).
+
+Co-authored-by: Florian Weimer <fweimer@redhat.com>
+Reviewed-by: Peter Bergner <bergner@tenstorrent.com>
+(cherry picked from commit cae50527eec1498a9030245036658bee47fc0e04)
+---
+ NEWS                                          |  1 +
+ sysdeps/powerpc/Makefile                      |  7 ++-
+ sysdeps/powerpc/dl-reloc_overflow.c           | 40 +++++++++++++++++
+ sysdeps/powerpc/ldsodefs.h                    |  8 ++++
+ sysdeps/powerpc/powerpc32/dl-machine.c        | 25 -----------
+ sysdeps/powerpc/powerpc32/dl-machine.h        |  6 ---
+ sysdeps/powerpc/powerpc64/dl-machine.c        | 43 +++----------------
+ sysdeps/powerpc/powerpc64/dl-machine.h        |  8 +---
+ sysdeps/powerpc/powerpc64/le/Makefile         | 16 +++++++
+ .../powerpc64/le/tst-localentry-callee-v0.S   | 36 ++++++++++++++++
+ .../powerpc64/le/tst-localentry-callee.S      | 35 +++++++++++++++
+ .../powerpc/powerpc64/le/tst-localentry-mod.c | 27 ++++++++++++
+ .../powerpc64/le/tst-localentry-name.h        | 41 ++++++++++++++++++
+ sysdeps/powerpc/powerpc64/le/tst-localentry.c | 40 +++++++++++++++++
+ sysdeps/powerpc/tst-reloc-overflow-lib.c      | 21 +++++++++
+ sysdeps/powerpc/tst-reloc-overflow-mod.S      | 29 +++++++++++++
+ sysdeps/powerpc/tst-reloc-overflow-name.h     | 41 ++++++++++++++++++
+ sysdeps/powerpc/tst-reloc-overflow.c          | 40 +++++++++++++++++
+ 18 files changed, 388 insertions(+), 76 deletions(-)
+ create mode 100644 sysdeps/powerpc/dl-reloc_overflow.c
+ create mode 100644 sysdeps/powerpc/powerpc64/le/tst-localentry-callee-v0.S
+ create mode 100644 sysdeps/powerpc/powerpc64/le/tst-localentry-callee.S
+ create mode 100644 sysdeps/powerpc/powerpc64/le/tst-localentry-mod.c
+ create mode 100644 sysdeps/powerpc/powerpc64/le/tst-localentry-name.h
+ create mode 100644 sysdeps/powerpc/powerpc64/le/tst-localentry.c
+ create mode 100644 sysdeps/powerpc/tst-reloc-overflow-lib.c
+ create mode 100644 sysdeps/powerpc/tst-reloc-overflow-mod.S
+ create mode 100644 sysdeps/powerpc/tst-reloc-overflow-name.h
+ create mode 100644 sysdeps/powerpc/tst-reloc-overflow.c
+
+diff --git a/NEWS b/NEWS
+index c0c2fb7e97d3..affb18785291 100644
+--- a/NEWS
++++ b/NEWS
+@@ -46,6 +46,7 @@ The following bugs are resolved with this release:
+     (CVE-2026-19499)
+   [34530] libc: Regression in POWER fortified longjmp with pointer guard
+     rotation
++  [34541] libc: Stack buffer overflow in _dl_reloc_overflow on POWER
+   [34556] locale: SHIFT_JISX0213 converter hang in shift_jisx0213.c
+     (CVE-2026-77117)
+   [34568] locale: EUC_JISX0213 converter hang in euc-jisx0213.c
+diff --git a/sysdeps/powerpc/Makefile b/sysdeps/powerpc/Makefile
+index 5cdb64f29bac..ba786379308a 100644
+--- a/sysdeps/powerpc/Makefile
++++ b/sysdeps/powerpc/Makefile
+@@ -4,7 +4,7 @@ endif
+ 
+ ifeq ($(subdir),elf)
+ # extra shared linker files to link into dl-allobjs.so and libc
+-sysdep-dl-routines += dl-machine hwcapinfo
++sysdep-dl-routines += dl-machine dl-reloc_overflow hwcapinfo
+ sysdep_routines += dl-machine hwcapinfo
+ # extra shared linker files to link only into dl-allobjs.so
+ sysdep-rtld-routines += dl-machine hwcapinfo
+@@ -14,6 +14,11 @@ mod-tlsopt-powerpc.so-no-z-defs = yes
+ tests += tst-tlsopt-powerpc
+ $(objpfx)tst-tlsopt-powerpc: $(objpfx)mod-tlsopt-powerpc.so
+ 
++tests += tst-reloc-overflow
++modules-names += tst-reloc-overflow-mod tst-reloc-overflow-lib
++$(objpfx)tst-reloc-overflow.out: $(objpfx)tst-reloc-overflow-mod.so
++$(objpfx)tst-reloc-overflow-mod.so: $(objpfx)tst-reloc-overflow-lib.so
++
+ tests-static += tst-cache-ppc-static
+ tests-internal += tst-cache-ppc-static
+ 
+diff --git a/sysdeps/powerpc/dl-reloc_overflow.c b/sysdeps/powerpc/dl-reloc_overflow.c
+new file mode 100644
+index 000000000000..bf6355a43a7b
+--- /dev/null
++++ b/sysdeps/powerpc/dl-reloc_overflow.c
+@@ -0,0 +1,40 @@
++/* Relocation overflow reporting for POWER.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Library General Public License as
++   published by the Free Software Foundation; either version 2 of the
++   License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Library General Public License for more details.
++
++   You should have received a copy of the GNU Library General Public
++   License along with the GNU C Library; see the file COPYING.LIB.  If
++   not, see <https://www.gnu.org/licenses/>.  */
++
++#include <ldsodefs.h>
++
++void
++_dl_reloc_overflow (struct link_map *map, const char *name,
++		    ElfW(Addr) *const reloc_addr, const ElfW(Sym) *refsym)
++{
++  struct dl_exception exc;
++
++  if (refsym != NULL)
++    {
++      const char *strtab = (const void *) D_PTR (map, l_info[DT_STRTAB]);
++      _dl_exception_create_format
++	(&exc, map->l_name, "%s reloc at 0x%lx for symbol `%s' out of range",
++	 name, (unsigned long int) reloc_addr, strtab + refsym->st_name);
++    }
++  else
++    _dl_exception_create_format
++      (&exc, map->l_name, "%s reloc at 0x%lx out of range",
++       name, (unsigned long int) reloc_addr);
++
++  _dl_signal_exception (0, &exc, NULL);
++}
+diff --git a/sysdeps/powerpc/ldsodefs.h b/sysdeps/powerpc/ldsodefs.h
+index 0803b9f8a2f2..9fee2141c667 100644
+--- a/sysdeps/powerpc/ldsodefs.h
++++ b/sysdeps/powerpc/ldsodefs.h
+@@ -66,4 +66,12 @@ struct La_ppc64v2_retval;
+ 
+ #include_next <ldsodefs.h>
+ 
++/* Signal an error for the relocation NAME at RELOC_ADDR in MAP, whose
++   resolved value does not fit the relocated field.  REFSYM is the
++   referenced symbol, or NULL.  */
++extern void _dl_reloc_overflow (struct link_map *map, const char *name,
++				ElfW(Addr) *const reloc_addr,
++				const ElfW(Sym) *refsym)
++     attribute_hidden __attribute__ ((__noreturn__));
++
+ #endif
+diff --git a/sysdeps/powerpc/powerpc32/dl-machine.c b/sysdeps/powerpc/powerpc32/dl-machine.c
+index 7127ebc32c55..91cc0eeba230 100644
+--- a/sysdeps/powerpc/powerpc32/dl-machine.c
++++ b/sysdeps/powerpc/powerpc32/dl-machine.c
+@@ -23,7 +23,6 @@
+ #include <ldsodefs.h>
+ #include <elf/dynamic-link.h>
+ #include <dl-machine.h>
+-#include <_itoa.h>
+ 
+ /* Stuff for the PLT.  */
+ #define PLT_INITIAL_ENTRY_WORDS 18
+@@ -377,30 +376,6 @@ __elf_machine_fixup_plt (struct link_map *map,
+   return finaladdr;
+ }
+ 
+-void
+-_dl_reloc_overflow (struct link_map *map,
+-		    const char *name,
+-		    Elf32_Addr *const reloc_addr,
+-		    const Elf32_Sym *refsym)
+-{
+-  char buffer[128];
+-  char *t;
+-  t = stpcpy (buffer, name);
+-  t = stpcpy (t, " relocation at 0x00000000");
+-  _itoa_word ((unsigned) reloc_addr, t, 16, 0);
+-  if (refsym)
+-    {
+-      const char *strtab;
+-
+-      strtab = (const void *) D_PTR (map, l_info[DT_STRTAB]);
+-      t = stpcpy (t, " for symbol `");
+-      t = stpcpy (t, strtab + refsym->st_name);
+-      t = stpcpy (t, "'");
+-    }
+-  t = stpcpy (t, " out of range");
+-  _dl_signal_error (0, map->l_name, NULL, buffer);
+-}
+-
+ void
+ __process_machine_rela (struct link_map *map,
+ 			const Elf32_Rela *reloc,
+diff --git a/sysdeps/powerpc/powerpc32/dl-machine.h b/sysdeps/powerpc/powerpc32/dl-machine.h
+index e07a44a5a5ba..75d508944550 100644
+--- a/sysdeps/powerpc/powerpc32/dl-machine.h
++++ b/sysdeps/powerpc/powerpc32/dl-machine.h
+@@ -277,12 +277,6 @@ extern void __process_machine_rela (struct link_map *map,
+ 				    int rinfo, bool skip_ifunc)
+   attribute_hidden;
+ 
+-/* Call _dl_signal_error when a resolved value overflows a relocated area.  */
+-extern void _dl_reloc_overflow (struct link_map *map,
+-				const char *name,
+-				Elf32_Addr *const reloc_addr,
+-				const Elf32_Sym *refsym) attribute_hidden;
+-
+ /* Perform the relocation specified by RELOC and SYM (which is fully resolved).
+    LOADADDR is the load address of the object; INFO is an array indexed
+    by DT_* of the .dynamic section info.  */
+diff --git a/sysdeps/powerpc/powerpc64/dl-machine.c b/sysdeps/powerpc/powerpc64/dl-machine.c
+index 29fd15c8c7d5..ea454da436b4 100644
+--- a/sysdeps/powerpc/powerpc64/dl-machine.c
++++ b/sysdeps/powerpc/powerpc64/dl-machine.c
+@@ -16,51 +16,18 @@
+    License along with the GNU C Library; see the file COPYING.LIB.  If
+    not, see <https://www.gnu.org/licenses/>.  */
+ 
+-#include <string.h>
+-#include <unistd.h>
+ #include <ldsodefs.h>
+-#include <_itoa.h>
+ #include <dl-machine.h>
+ 
+-void
+-_dl_reloc_overflow (struct link_map *map,
+-		    const char *name,
+-		    Elf64_Addr *const reloc_addr,
+-		    const Elf64_Sym *refsym)
+-{
+-  char buffer[1024];
+-  char *t;
+-  t = stpcpy (buffer, name);
+-  /* Notice that _itoa_word() writes characters from the higher address to the
+-     lower address, requiring the destination string to reserve all the
+-     required size before the call.  */
+-  t = stpcpy (t, " reloc at 0x0000000000000000");
+-  _itoa_word ((unsigned long) reloc_addr, t, 16, 0);
+-  if (refsym)
+-    {
+-      const char *strtab;
+-
+-      strtab = (const void *) D_PTR (map, l_info[DT_STRTAB]);
+-      t = stpcpy (t, " for symbol `");
+-      t = stpcpy (t, strtab + refsym->st_name);
+-      t = stpcpy (t, "'");
+-    }
+-  t = stpcpy (t, " out of range");
+-  _dl_signal_error (0, map->l_name, NULL, buffer);
+-}
+-
+ #if _CALL_ELF == 2
+ void
+ _dl_error_localentry (struct link_map *map, const Elf64_Sym *refsym)
+ {
+-  char buffer[1024];
+-  char *t;
+-  const char *strtab;
++  const char *strtab = (const void *) D_PTR (map, l_info[DT_STRTAB]);
+ 
+-  strtab = (const void *) D_PTR (map, l_info[DT_STRTAB]);
+-  t = stpcpy (buffer, "expected localentry:0 `");
+-  t = stpcpy (t, strtab + refsym->st_name);
+-  t = stpcpy (t, "'");
+-  _dl_signal_error (0, map->l_name, NULL, buffer);
++  struct dl_exception exc;
++  _dl_exception_create_format (&exc, map->l_name, "expected localentry:0 `%s'",
++			       strtab + refsym->st_name);
++  _dl_signal_exception (0, &exc, NULL);
+ }
+ #endif
+diff --git a/sysdeps/powerpc/powerpc64/dl-machine.h b/sysdeps/powerpc/powerpc64/dl-machine.h
+index f1ce639843eb..32d790b8bdbd 100644
+--- a/sysdeps/powerpc/powerpc64/dl-machine.h
++++ b/sysdeps/powerpc/powerpc64/dl-machine.h
+@@ -443,7 +443,8 @@ elf_machine_runtime_setup (struct link_map *map, struct r_scope_elem *scope[],
+ 
+ #if _CALL_ELF == 2
+ extern void attribute_hidden _dl_error_localentry (struct link_map *map,
+-						   const Elf64_Sym *refsym);
++						   const Elf64_Sym *refsym)
++     __attribute__ ((__noreturn__));
+ 
+ /* If the PLT entry resolves to a function in the same object, return
+    the target function's local entry point offset if usable.  */
+@@ -606,11 +607,6 @@ ppc_init_fake_thread_pointer (void)
+ 
+ #define dont_expect(X) __builtin_expect ((X), 0)
+ 
+-extern void attribute_hidden _dl_reloc_overflow (struct link_map *map,
+-						 const char *name,
+-						 Elf64_Addr *const reloc_addr,
+-						 const Elf64_Sym *refsym);
+-
+ static inline void __attribute__ ((always_inline))
+ elf_machine_rela_relative (Elf64_Addr l_addr, const Elf64_Rela *reloc,
+ 			   void *const reloc_addr_arg)
+diff --git a/sysdeps/powerpc/powerpc64/le/Makefile b/sysdeps/powerpc/powerpc64/le/Makefile
+index b77775cf955e..5f6c8a0afdd7 100644
+--- a/sysdeps/powerpc/powerpc64/le/Makefile
++++ b/sysdeps/powerpc/powerpc64/le/Makefile
+@@ -237,4 +237,20 @@ ifeq (no,$(build-hardcoded-path-in-tests))
+ tests-container += tst-glibc-hwcaps-cache
+ endif
+ 
++tests += tst-localentry
++modules-names += tst-localentry-mod tst-localentry-callee \
++		 tst-localentry-callee-v0
++
++# Both callees share a soname, so the module records a DT_NEEDED on
++# tst-localentry-callee.so while being linked against the v0 definition.
++LDFLAGS-tst-localentry-callee-v0.so += -Wl,-soname,tst-localentry-callee.so
++LDFLAGS-tst-localentry-mod.so += -Wl,--plt-localentry
++# ld only applies the localentry:0 optimization to TOC-based calls, so
++# PC-relative code (the default for power10) would not exercise the check.
++CFLAGS-tst-localentry-mod.c += -mno-pcrel
++
++$(objpfx)tst-localentry.out: $(objpfx)tst-localentry-mod.so \
++			     $(objpfx)tst-localentry-callee.so
++$(objpfx)tst-localentry-mod.so: $(objpfx)tst-localentry-callee-v0.so
++
+ endif # $(subdir) == elf
+diff --git a/sysdeps/powerpc/powerpc64/le/tst-localentry-callee-v0.S b/sysdeps/powerpc/powerpc64/le/tst-localentry-callee-v0.S
+new file mode 100644
+index 000000000000..cafd82844184
+--- /dev/null
++++ b/sysdeps/powerpc/powerpc64/le/tst-localentry-callee-v0.S
+@@ -0,0 +1,36 @@
++/* Callee with a local entry point of zero, used at link time.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "tst-localentry-name.h"
++
++/* The modules required st_other to have localentry:0, because that is what
++   makes ld optimize the module's call under --plt-localentry.
++
++   This is written in assembly to assure the code generation decision
++   regardless of compiler flags (like stack protection) which change how
++   the leaf function returns the value.  */
++
++	.abiversion 2
++	.section	".text"
++	.globl	LOCALENTRY_SYMBOL
++	.type	LOCALENTRY_SYMBOL, @function
++LOCALENTRY_SYMBOL:
++	.localentry	LOCALENTRY_SYMBOL, 0
++	li	3, 42
++	blr
++	.size	LOCALENTRY_SYMBOL, .-LOCALENTRY_SYMBOL
+diff --git a/sysdeps/powerpc/powerpc64/le/tst-localentry-callee.S b/sysdeps/powerpc/powerpc64/le/tst-localentry-callee.S
+new file mode 100644
+index 000000000000..a1b8f6ff4eed
+--- /dev/null
++++ b/sysdeps/powerpc/powerpc64/le/tst-localentry-callee.S
+@@ -0,0 +1,35 @@
++/* Callee with a non-zero local entry point, substituted at run time.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "tst-localentry-name.h"
++
++/* The same symbol with a global entry sequence that sets up r2, so st_other
++   says localentry:8.  Resolving the module's optimized call to this
++   definition is the ABI violation ld.so has to reject.  */
++
++	.abiversion 2
++	.section	".text"
++	.globl	LOCALENTRY_SYMBOL
++	.type	LOCALENTRY_SYMBOL, @function
++LOCALENTRY_SYMBOL:
++0:	addis	2, 12, .TOC.-0b@ha
++	addi	2, 2, .TOC.-0b@l
++	.localentry	LOCALENTRY_SYMBOL, .-LOCALENTRY_SYMBOL
++	li	3, 43
++	blr
++	.size	LOCALENTRY_SYMBOL, .-LOCALENTRY_SYMBOL
+diff --git a/sysdeps/powerpc/powerpc64/le/tst-localentry-mod.c b/sysdeps/powerpc/powerpc64/le/tst-localentry-mod.c
+new file mode 100644
+index 000000000000..497070f9b019
+--- /dev/null
++++ b/sysdeps/powerpc/powerpc64/le/tst-localentry-mod.c
+@@ -0,0 +1,27 @@
++/* Module whose PLT call was optimized for a localentry:0 callee.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "tst-localentry-name.h"
++
++extern int LOCALENTRY_SYMBOL (void);
++
++int
++call_it (void)
++{
++  return LOCALENTRY_SYMBOL ();
++}
+diff --git a/sysdeps/powerpc/powerpc64/le/tst-localentry-name.h b/sysdeps/powerpc/powerpc64/le/tst-localentry-name.h
+new file mode 100644
+index 000000000000..0587f914cc79
+--- /dev/null
++++ b/sysdeps/powerpc/powerpc64/le/tst-localentry-name.h
+@@ -0,0 +1,41 @@
++/* Overly long symbol name shared by the local entry point test.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#ifndef _TST_LOCALENTRY_NAME_H
++#define _TST_LOCALENTRY_NAME_H 1
++
++#define CAT_(a, b) a##b
++#define CAT(a, b) CAT_(a, b)
++
++#define N16   xxxxxxxxxxxxxxxx
++#define N32   CAT (N16, N16)
++#define N64   CAT (N32, N32)
++#define N128  CAT (N64, N64)
++#define N256  CAT (N128, N128)
++#define N512  CAT (N256, N256)
++#define N1024 CAT (N512, N512)
++#define N2048 CAT (N1024, N1024)
++#define N4096 CAT (N2048, N2048)
++#define N8192 CAT (N4096, N4096)
++
++#define LOCALENTRY_SYMBOL CAT (tst_localentry_symbol_, N8192)
++
++#define STR_(x) #x
++#define STR(x) STR_(x)
++
++#endif
+diff --git a/sysdeps/powerpc/powerpc64/le/tst-localentry.c b/sysdeps/powerpc/powerpc64/le/tst-localentry.c
+new file mode 100644
+index 000000000000..f3619ead2630
+--- /dev/null
++++ b/sysdeps/powerpc/powerpc64/le/tst-localentry.c
+@@ -0,0 +1,40 @@
++/* Check the message for a local entry point mismatch (bug 34541).
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <dlfcn.h>
++#include <string.h>
++#include <support/check.h>
++
++#include "tst-localentry-name.h"
++
++static int
++do_test (void)
++{
++  void *h = dlopen ("tst-localentry-mod.so", RTLD_NOW);
++  TEST_VERIFY (h == NULL);
++
++  const char *msg = dlerror ();
++  TEST_VERIFY_EXIT (msg != NULL);
++
++  TEST_VERIFY (strstr (msg, STR (LOCALENTRY_SYMBOL)) != NULL);
++  TEST_VERIFY (strstr (msg, "expected localentry:0") != NULL);
++
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/sysdeps/powerpc/tst-reloc-overflow-lib.c b/sysdeps/powerpc/tst-reloc-overflow-lib.c
+new file mode 100644
+index 000000000000..217e5bb5911d
+--- /dev/null
++++ b/sysdeps/powerpc/tst-reloc-overflow-lib.c
+@@ -0,0 +1,21 @@
++/* Definition of the symbol the relocation overflow test refers to.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "tst-reloc-overflow-name.h"
++
++int OVERFLOW_SYMBOL = 42;
+diff --git a/sysdeps/powerpc/tst-reloc-overflow-mod.S b/sysdeps/powerpc/tst-reloc-overflow-mod.S
+new file mode 100644
+index 000000000000..5595ac20c474
+--- /dev/null
++++ b/sysdeps/powerpc/tst-reloc-overflow-mod.S
+@@ -0,0 +1,29 @@
++/* Module with an out of range R_PPC*_ADDR16 relocation.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "tst-reloc-overflow-name.h"
++
++/* _dl_reloc_overflow is only reached for relocation types that store an
++   address into a field narrower than a pointer.  */
++
++	.data
++	.globl	refword
++	.type	refword, @object
++refword:
++	.short	OVERFLOW_SYMBOL
++	.size	refword, 2
+diff --git a/sysdeps/powerpc/tst-reloc-overflow-name.h b/sysdeps/powerpc/tst-reloc-overflow-name.h
+new file mode 100644
+index 000000000000..7eb010f774c8
+--- /dev/null
++++ b/sysdeps/powerpc/tst-reloc-overflow-name.h
+@@ -0,0 +1,41 @@
++/* Overly long symbol name shared by the relocation overflow test.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#ifndef _TST_RELOC_OVERFLOW_NAME_H
++#define _TST_RELOC_OVERFLOW_NAME_H 1
++
++#define CAT_(a, b) a##b
++#define CAT(a, b) CAT_(a, b)
++
++#define N16   xxxxxxxxxxxxxxxx
++#define N32   CAT (N16, N16)
++#define N64   CAT (N32, N32)
++#define N128  CAT (N64, N64)
++#define N256  CAT (N128, N128)
++#define N512  CAT (N256, N256)
++#define N1024 CAT (N512, N512)
++#define N2048 CAT (N1024, N1024)
++#define N4096 CAT (N2048, N2048)
++#define N8192 CAT (N4096, N4096)
++
++#define OVERFLOW_SYMBOL CAT (tst_reloc_overflow_symbol_, N8192)
++
++#define STR_(x) #x
++#define STR(x) STR_(x)
++
++#endif
+diff --git a/sysdeps/powerpc/tst-reloc-overflow.c b/sysdeps/powerpc/tst-reloc-overflow.c
+new file mode 100644
+index 000000000000..99d3289330fc
+--- /dev/null
++++ b/sysdeps/powerpc/tst-reloc-overflow.c
+@@ -0,0 +1,40 @@
++/* Check the message for an out of range relocation (bug 34541).
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <dlfcn.h>
++#include <string.h>
++#include <support/check.h>
++
++#include "tst-reloc-overflow-name.h"
++
++static int
++do_test (void)
++{
++  void *h = dlopen ("tst-reloc-overflow-mod.so", RTLD_NOW);
++  TEST_VERIFY (h == NULL);
++
++  const char *msg = dlerror ();
++  TEST_VERIFY_EXIT (msg != NULL);
++
++  TEST_VERIFY (strstr (msg, STR (OVERFLOW_SYMBOL)) != NULL);
++  TEST_VERIFY (strstr (msg, "out of range") != NULL);
++
++  return 0;
++}
++
++#include <support/test-driver.c>
