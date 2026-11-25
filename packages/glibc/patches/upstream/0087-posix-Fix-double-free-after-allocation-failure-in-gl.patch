@@ -1,0 +1,211 @@
+From 809fd7179d4391debd553459e58c414ef59a32c8 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Wed, 11 Nov 2026 15:26:05 -0300
+Subject: [PATCH] posix: Fix double free after allocation failure in glob (BZ
+ 34993)
+
+prefix_array prepends the directory name to each match in place.  If an
+allocation fails partway through, it frees the names it has already
+replaced but leaves them in the vector.  All of its callers then
+release the vector with globfree, which frees those names again.
+
+Checked on x86_64-linux-gnu.
+
+Reviewed-by: Yury Khrustalev <yury.khrustalev@arm.com>
+Tested-by: Yury Khrustalev <yury.khrustalev@arm.com>
+(cherry picked from commit b21dfcc4121b9a1b46e6f3cdafa6994824ed6fb0)
+---
+ posix/Makefile           |   1 +
+ posix/glob.c             |  25 ++++----
+ posix/tst-glob-nospace.c | 125 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 138 insertions(+), 13 deletions(-)
+ create mode 100644 posix/tst-glob-nospace.c
+
+diff --git a/posix/Makefile b/posix/Makefile
+index e3a24c6a8515..b672f5cad413 100644
+--- a/posix/Makefile
++++ b/posix/Makefile
+@@ -291,6 +291,7 @@ tests := \
+   tst-gai_strerror \
+   tst-getopt_long1 \
+   tst-glob-bz30635 \
++  tst-glob-nospace \
+   tst-glob-tilde \
+   tst-glob_symlinks \
+   tst-gnuglob \
+diff --git a/posix/glob.c b/posix/glob.c
+index 17b8b90cde79..7594d41cb765 100644
+--- a/posix/glob.c
++++ b/posix/glob.c
+@@ -1227,7 +1227,10 @@ collated_compare (const void *a, const void *b)
+ /* Prepend DIRNAME to each of N members of ARRAY, replacing ARRAY's
+    elements in place.  Return nonzero if out of memory, zero if successful.
+    A slash is inserted between DIRNAME and each elt of ARRAY,
+-   unless DIRNAME is just "/".  Each old element of ARRAY is freed.  */
++   unless DIRNAME is just "/".  Each old element of ARRAY is freed.
++   If out of memory, ARRAY keeps the elements already replaced and the
++   original ones after them, so the caller can free all of them with
++   globfree.  */
+ static int
+ prefix_array (const char *dirname, char **array, size_t n)
+ {
+@@ -1259,20 +1262,16 @@ prefix_array (const char *dirname, char **array, size_t n)
+     {
+       size_t eltlen = strlen (array[i]) + 1;
+       char *new = malloc (dirlen + 1 + eltlen);
+-      if (new == NULL)
++      if (new != NULL)
+         {
+-          while (i > 0)
+-            free (array[--i]);
+-          return 1;
++          char *endp = mempcpy (new, dirname, dirlen);
++          *endp++ = dirsep_char;
++          mempcpy (endp, array[i], eltlen);
++          free (array[i]);
++          array[i] = new;
+         }
+-
+-      {
+-        char *endp = mempcpy (new, dirname, dirlen);
+-        *endp++ = dirsep_char;
+-        mempcpy (endp, array[i], eltlen);
+-      }
+-      free (array[i]);
+-      array[i] = new;
++      else
++        return 1;
+     }
+ 
+   return 0;
+diff --git a/posix/tst-glob-nospace.c b/posix/tst-glob-nospace.c
+new file mode 100644
+index 000000000000..1768f4f76524
+--- /dev/null
++++ b/posix/tst-glob-nospace.c
+@@ -0,0 +1,125 @@
++/* Test glob with injected allocation failures (BZ 34993).
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <errno.h>
++#include <fcntl.h>
++#include <glob.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <support/check.h>
++#include <support/namespace.h>
++#include <support/support.h>
++#include <support/temp_file.h>
++#include <support/xunistd.h>
++
++struct shared_data
++{
++  /* Number of malloc calls performed so far.  */
++  volatile unsigned int allocation_count;
++
++  /* If this number is reached, one allocation fails.  */
++  volatile unsigned int failing_allocation;
++};
++
++static struct shared_data *shared;
++
++void *
++malloc (size_t size)
++{
++  if (shared != NULL)
++    {
++      unsigned int count = shared->allocation_count;
++      shared->allocation_count = count + 1;
++      if (count == shared->failing_allocation)
++	{
++	  errno = ENOMEM;
++	  return NULL;
++	}
++    }
++  extern __typeof (malloc) __libc_malloc;
++  return __libc_malloc (size);
++}
++
++/* The pattern, which do_prepare creates.  */
++static char *pattern;
++
++static void
++run_glob (void *ignored)
++{
++  glob_t g;
++  int ret = glob (pattern, 0, NULL, &g);
++  if (shared->failing_allocation == ~0U)
++    {
++      TEST_COMPARE (ret, 0);
++      TEST_COMPARE (g.gl_pathc, 4);
++    }
++  else
++    /* glob skips a directory that opendir fails to allocate memory for,
++       as for any other error opening it.  */
++    TEST_VERIFY (ret == 0 || ret == GLOB_NOSPACE || ret == GLOB_NOMATCH);
++  globfree (&g);
++}
++
++static void
++do_prepare (int argc, char *argv[])
++{
++  /* Two directories with two files each.  */
++  char *dir = support_create_temp_directory ("tst-glob-nospace-");
++  for (char d = 'a'; d <= 'b'; d++)
++    {
++      char *sub = xasprintf ("%s/%c", dir, d);
++      xmkdir (sub, 0700);
++      add_temp_file (sub);
++      for (char f = 'a'; f <= 'b'; f++)
++	{
++	  char *file = xasprintf ("%s/%c", sub, f);
++	  xclose (xopen (file, O_WRONLY | O_CREAT, 0600));
++	  add_temp_file (file);
++	  free (file);
++	}
++      free (sub);
++    }
++  pattern = xasprintf ("%s/*/*", dir);
++  free (dir);
++}
++
++static int
++do_test (void)
++{
++  shared = support_shared_allocate (sizeof (*shared));
++  shared->failing_allocation = ~0U;
++
++  shared->allocation_count = 0;
++  support_isolate_in_subprocess (run_glob, NULL);
++  unsigned int count = shared->allocation_count;
++  printf ("info: successful call performs %u allocations\n", count);
++
++  for (unsigned int i = 0; i < count; i++)
++    {
++      shared->allocation_count = 0;
++      shared->failing_allocation = i;
++      support_isolate_in_subprocess (run_glob, NULL);
++    }
++  shared->failing_allocation = ~0U;
++
++  support_shared_free (shared);
++  return 0;
++}
++
++#define PREPARE do_prepare
++#include <support/test-driver.c>

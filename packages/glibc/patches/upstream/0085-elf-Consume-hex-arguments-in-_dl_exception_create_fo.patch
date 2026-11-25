@@ -1,0 +1,58 @@
+From d64d0b800d827e3e284712a54a8aca59b06fbda4 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Mon, 28 Sep 2026 10:00:00 -0300
+Subject: [PATCH] elf: Consume hex arguments in _dl_exception_create_format
+ length pass
+
+The problem was latent, where the only existing caller that uses a hex
+conversion (the static TLS exhaustion message in
+_dl_allocate_static_tls) places %zx last.
+
+Consume the argument for each hex conversion, and add tests with a %s
+after %x, %lx and %zx.
+
+Checked on x86_64-linux-gnu, powerpc-linux-gnu, powerpc64-linux-gnu,
+and powerpc64le-linux-gnu.
+
+Reviewed-by: Florian Weimer <fweimer@redhat.com>
+(cherry picked from commit 7159ab34a59b2698665245369d68d4db8855bc09)
+---
+ elf/dl-exception.c       | 2 ++
+ elf/tst-create_format1.c | 5 +++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/elf/dl-exception.c b/elf/dl-exception.c
+index 392c7b4b2d12..d7034e71e561 100644
+--- a/elf/dl-exception.c
++++ b/elf/dl-exception.c
+@@ -130,12 +130,14 @@ _dl_exception_create_format (struct dl_exception *exception, const char *objname
+ 	    case 'z':
+ 	      if (p[1] == 'x')
+ 		{
++		  va_arg (ap, unsigned long int);
+ 		  length += LONG_WIDTH / 4;
+ 		  ++p;
+ 		  break;
+ 		}
+ 	      [[fallthrough]];
+ 	    case 'x':
++	      va_arg (ap, unsigned int);
+ 	      length += INT_WIDTH / 4;
+ 	      break;
+             default:
+diff --git a/elf/tst-create_format1.c b/elf/tst-create_format1.c
+index 3190c7b579cb..14ce8ea5a5ee 100644
+--- a/elf/tst-create_format1.c
++++ b/elf/tst-create_format1.c
+@@ -90,6 +90,11 @@ do_test (void)
+   TEST_LONG ("fffffffe",      "test", "%zx",      (size_t)~1ul);
+   TEST_LONG ("fffffffe-test", "test", "%zx-test", (size_t)~1ul);
+ 
++  TEST ("0000007b-test",       NULL, "%x-%s",       123, "test");
++  TEST ("0000007b-test-000001c8", NULL, "%x-%s-%x", 123, "test", 456);
++  TEST_LONG ("fffffffd-test",  NULL, "%lx-%s",      (long int)~2ul, "test");
++  TEST_LONG ("fffffffe-test",  NULL, "%zx-%s",      (size_t)~1ul, "test");
++
+   struct support_capture_subprocess result;
+   result = support_capture_subprocess (do_test_invalid_conversion, NULL);
+   support_capture_subprocess_check (&result, "dl-exception",
