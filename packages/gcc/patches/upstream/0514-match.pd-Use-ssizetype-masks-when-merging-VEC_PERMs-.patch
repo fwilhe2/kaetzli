@@ -1,0 +1,179 @@
+From 88b1a284d3a68bdaa24c6a3562b8fb7f6dbc77e8 Mon Sep 17 00:00:00 2001
+From: Igor Shevlyakov <igor@tachyum.com>
+Date: Wed, 21 Oct 2026 15:52:39 -0700
+Subject: [PATCH] match.pd: Use ssizetype masks when merging VEC_PERMs
+ [PR128080]
+
+The patterns merging two VEC_PERM_EXPRs give the new selector the
+element type of the outer permute's mask.  The new selector indexes two
+vectors of N elements, so its elements range over 0 .. 2N-1, and with
+256 or more byte elements an 8-bit mask element cannot hold them:
+build_int_cst truncates the index and the merged permute reads the
+wrong input.  For example
+
+  c = VEC_PERM_EXPR <b, b, { 255, 254, ..., 0 }>;
+  d = VEC_PERM_EXPR <x, c, { 0, -1, ... }>;
+
+was merged to VEC_PERM_EXPR <x, x, { 0, 0, ... }>, the index 256 of
+b[0] having become 0.
+
+A constant permute mask is not tied to the element type of the vectors
+it permutes, so build the new one with ssizetype elements, as the
+vectorizer and forwprop do, in all three patterns.
+
+Assisted-by: Claude Opus 5.5
+
+	PR tree-optimization/128080
+
+gcc/ChangeLog:
+
+	* match.pd (vec_perm (vec_perm) merges): Give the new mask
+	ssizetype elements.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.dg/torture/pr128080.c: New test.
+	* gcc.dg/torture/pr128080-2.c: New test.
+
+Signed-off-by: Igor Shevlyakov <igor@tachyum.com>
+(cherry picked from commit f4c8d2716469a587a97f8a325d032d539f00e2f0)
+---
+ gcc/match.pd                              | 21 +++++++++++--
+ gcc/testsuite/gcc.dg/torture/pr128080-2.c | 37 +++++++++++++++++++++++
+ gcc/testsuite/gcc.dg/torture/pr128080.c   | 37 +++++++++++++++++++++++
+ 3 files changed, 92 insertions(+), 3 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128080-2.c
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128080.c
+
+diff --git a/gcc/match.pd b/gcc/match.pd
+index 82dfae920946..d01badac1f3f 100644
+--- a/gcc/match.pd
++++ b/gcc/match.pd
+@@ -11810,7 +11810,12 @@ and,
+ 	       ? (!can_vec_perm_const_p (result_mode, op_mode, sel0, true)
+ 		  || !can_vec_perm_const_p (result_mode, op_mode, sel1, true))
+ 	       : !can_vec_perm_const_p (result_mode, op_mode, sel1, true)))
+-	 op0 = vec_perm_indices_to_tree (TREE_TYPE (@5), sel2);
++	 /* Give the new mask ssizetype elements, as the vectorizer does:
++	    the element type of VCST1 can be too narrow to index both a
++	    and b.  */
++	 op0
++	   = vec_perm_indices_to_tree (build_vector_type (ssizetype, nelts),
++				       sel2);
+      }
+      (if (op0)
+       (view_convert (vec_perm @2 @3 { op0; }))))))))
+@@ -11874,7 +11879,12 @@ and,
+ 		 ? (!can_vec_perm_const_p (result_mode, op_mode, sel0, true)
+ 		    || !can_vec_perm_const_p (result_mode, op_mode, sel1, true))
+ 		 : !can_vec_perm_const_p (result_mode, op_mode, sel1, true)))
+-	   op0 = vec_perm_indices_to_tree (TREE_TYPE (@4), sel2);
++	   /* Give the new mask ssizetype elements, as the vectorizer does:
++	      the element type of d's mask can be too narrow to index both
++	      inputs.  */
++	   op0
++	     = vec_perm_indices_to_tree (build_vector_type (ssizetype, nelts),
++					 sel2);
+        }
+        (if (op0)
+ 	(switch
+@@ -11935,7 +11945,12 @@ and,
+ 		 ? (!can_vec_perm_const_p (result_mode, op_mode, sel0, true)
+ 		    || !can_vec_perm_const_p (result_mode, op_mode, sel1, true))
+ 		 : !can_vec_perm_const_p (result_mode, op_mode, sel1, true)))
+-	   op0 = vec_perm_indices_to_tree (TREE_TYPE (@4), sel2);
++	   /* Give the new mask ssizetype elements, as the vectorizer does:
++	      the element type of d's mask can be too narrow to index both
++	      inputs.  */
++	   op0
++	     = vec_perm_indices_to_tree (build_vector_type (ssizetype, nelts),
++					 sel2);
+        }
+        (if (op0)
+ 	(switch
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128080-2.c b/gcc/testsuite/gcc.dg/torture/pr128080-2.c
+new file mode 100644
+index 000000000000..d6c5d9850ca8
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128080-2.c
+@@ -0,0 +1,37 @@
++/* PR tree-optimization/128080 */
++/* { dg-do run } */
++/* { dg-additional-options "-Wno-psabi" } */
++
++typedef signed char V __attribute__((vector_size (256)));
++
++/* 0, 257, 258, ..., 511.  */
++#define M1(n) ((n) == 0 ? 0 : 256 + (n))
++#define M4(n) M1 (n), M1 (n + 1), M1 (n + 2), M1 (n + 3)
++#define M16(n) M4 (n), M4 (n + 4), M4 (n + 8), M4 (n + 12)
++#define M64(n) M16 (n), M16 (n + 16), M16 (n + 32), M16 (n + 48)
++
++V x, b, r;
++
++__attribute__((noipa)) void
++f (void)
++{
++  /* c = { x[0], b[1], b[2], ..., b[255] }.  */
++  V c = __builtin_shufflevector (x, b, M64 (0), M64 (64), M64 (128), M64 (192));
++  /* d = { c[1], c[0], ... } = { b[1], x[0], ... }.  */
++  V m = { 1, 0 };
++  r = __builtin_shuffle (c, m);
++}
++
++int
++main ()
++{
++  for (int i = 0; i < 256; i++)
++    {
++      x[i] = 1;
++      b[i] = 2;
++    }
++  f ();
++  if (r[0] != 2 || r[1] != 1)
++    __builtin_abort ();
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128080.c b/gcc/testsuite/gcc.dg/torture/pr128080.c
+new file mode 100644
+index 000000000000..cb0410c4997c
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128080.c
+@@ -0,0 +1,37 @@
++/* PR tree-optimization/128080 */
++/* { dg-do run } */
++/* { dg-additional-options "-Wno-psabi" } */
++
++typedef signed char V __attribute__((vector_size (256)));
++
++/* 255, 254, ..., 0.  */
++#define R1(n) (255 - (n))
++#define R4(n) R1 (n), R1 (n + 1), R1 (n + 2), R1 (n + 3)
++#define R16(n) R4 (n), R4 (n + 4), R4 (n + 8), R4 (n + 12)
++#define R64(n) R16 (n), R16 (n + 16), R16 (n + 32), R16 (n + 48)
++
++V x, b, r;
++
++__attribute__((noipa)) void
++f (void)
++{
++  /* c[i] = b[255 - i].  */
++  V c = __builtin_shufflevector (b, b, R64 (0), R64 (64), R64 (128), R64 (192));
++  /* Index -1 selects element 511 of { x, c }, i.e. c[255] = b[0].  */
++  V m = { 0, -1 };
++  r = __builtin_shuffle (x, c, m);
++}
++
++int
++main ()
++{
++  for (int i = 0; i < 256; i++)
++    {
++      x[i] = 1;
++      b[i] = 2;
++    }
++  f ();
++  if (r[0] != 1 || r[1] != 2)
++    __builtin_abort ();
++  return 0;
++}
