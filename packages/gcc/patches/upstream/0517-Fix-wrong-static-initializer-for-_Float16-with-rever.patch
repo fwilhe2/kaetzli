@@ -1,0 +1,69 @@
+From 3df3b6a03e238694b4cca86abc76065b2539224d Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Tue, 24 Nov 2026 19:53:46 +0100
+Subject: [PATCH] Fix wrong static initializer for _Float16 with reverse
+ storage order
+
+The problem is simply that the reverse storage order code path present in
+assemble_real is not prepared for floating-point modes smaller than 4 bytes.
+
+gcc/
+	PR middle-end/128920
+	* varasm.cc (assemble_real): In the reverse storage order case,
+	deal with modes smaller than 4 bytes.
+
+gcc/testsuite/
+	* gcc.dg/sso-22.c: New test.
+---
+ gcc/testsuite/gcc.dg/sso-22.c | 26 ++++++++++++++++++++++++++
+ gcc/varasm.cc                 |  4 +++-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/gcc.dg/sso-22.c
+
+diff --git a/gcc/testsuite/gcc.dg/sso-22.c b/gcc/testsuite/gcc.dg/sso-22.c
+new file mode 100644
+index 000000000000..1633348415f8
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/sso-22.c
+@@ -0,0 +1,26 @@
++/* PR debug/128920 */
++
++/* { dg-do run } */
++/* { dg-options "-std=c23" }
++/* { dg-require-effective-target float16 } */
++
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++struct __attribute__((scalar_storage_order("big-endian"))) S
++{
++  _Float16 x;
++};
++#else
++struct __attribute__((scalar_storage_order("little-endian"))) S
++{
++  _Float16 x;
++};
++#endif
++
++struct S s = { 1.5f16 };
++
++int main(void)
++{
++  if (s.x != 1.5f16)
++    __builtin_abort ();
++  return 0;
++}
+diff --git a/gcc/varasm.cc b/gcc/varasm.cc
+index 5999f1e5420c..921f0e5ecd42 100644
+--- a/gcc/varasm.cc
++++ b/gcc/varasm.cc
+@@ -3228,7 +3228,9 @@ assemble_real (REAL_VALUE_TYPE d, scalar_float_mode mode, unsigned int align,
+ 
+   /* Put out the first word with the specified alignment.  */
+   unsigned int chunk_nunits = MIN (nunits, units_per);
+-  if (reverse)
++  if (reverse && nunits == 2)
++    elt = flip_storage_order (HImode, gen_int_mode (data[nelts - 1], HImode));
++  else if (reverse && nunits >= 4)
+     elt = flip_storage_order (SImode, gen_int_mode (data[nelts - 1], SImode));
+   else
+     elt = GEN_INT (sext_hwi (data[0], chunk_nunits * BITS_PER_UNIT));

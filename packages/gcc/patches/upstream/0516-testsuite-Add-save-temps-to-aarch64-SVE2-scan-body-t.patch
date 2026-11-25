@@ -1,0 +1,49 @@
+From eb8db035877a4f93817210e46d3b1a1f6c97b3ae Mon Sep 17 00:00:00 2001
+From: Sendao Yan <yansendao@126.com>
+Date: Tue, 24 Nov 2026 13:55:18 +0800
+Subject: [PATCH] testsuite: Add -save-temps to aarch64 SVE2 scan/body tests
+
+With binutils that supports the SVE2.1/SVE2.2 instructions,
+whilelt_1.c and whilele_1.c switch from dg-do compile to
+dg-do assemble.  Assemble mode does not leave the .s file, so
+check-function-bodies and scan-assembler report "output file does not
+exist" and the tests become UNRESOLVED.  Add -save-temps, as other
+assemble-mode scan tests do, so the .s file is available.
+
+PR testsuite/128980
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/aarch64/sve2/acle/general/whilelt_1.c: Likewise.
+	* gcc.target/aarch64/sve2/acle/general/whilele_1.c: Likewise.
+
+Signed-off-by: Sendao Yan <yansendao@126.com>
+---
+ gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilele_1.c | 2 +-
+ gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilelt_1.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilele_1.c b/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilele_1.c
+index 7e5905fd3c7f..b4a6a961f70c 100644
+--- a/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilele_1.c
++++ b/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilele_1.c
+@@ -1,6 +1,6 @@
+ /* { dg-do compile { target { ! aarch64_asm_sve2p1_ok } } } */
+ /* { dg-do assemble { target { aarch64_asm_sve2p1_ok } } } */
+-/* { dg-options "-O2" } */
++/* { dg-options "-O2 -save-temps" } */
+ 
+ #include <arm_sve.h>
+ 
+diff --git a/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilelt_1.c b/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilelt_1.c
+index ea70d7272b1c..6d4970d4c92e 100644
+--- a/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilelt_1.c
++++ b/gcc/testsuite/gcc.target/aarch64/sve2/acle/general/whilelt_1.c
+@@ -1,6 +1,6 @@
+ /* { dg-do compile { target { ! aarch64_asm_sve2p1_ok } } } */
+ /* { dg-do assemble { target { aarch64_asm_sve2p1_ok } } } */
+-/* { dg-options "-O2" } */
++/* { dg-options "-O2 -save-temps" } */
+ 
+ #include <arm_sve.h>
+ 

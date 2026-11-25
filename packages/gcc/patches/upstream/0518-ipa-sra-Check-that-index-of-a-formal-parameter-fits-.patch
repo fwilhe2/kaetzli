@@ -1,0 +1,79 @@
+From 93c1073f569b177869f4a92c9e9dd058806bdfd8 Mon Sep 17 00:00:00 2001
+From: Martin Jambor <mjambor@suse.cz>
+Date: Tue, 3 Nov 2026 10:41:34 +0100
+Subject: [PATCH] ipa-sra: Check that index of a formal parameter fits unsigned
+ char (PR128106)
+
+PR 128106 revealed that only two of the three places that need to
+check that the index of a formal parameter (among the parameters of
+the the caller function) is small enough to fit unsigned char, one
+did not do so.  The indices are stored as unsigned char because the
+array that holds as many as 7 of them is stored per each argument of
+each call and so we want to keep it small.  The fix is to add the
+missing check.
+
+gcc/ChangeLog:
+
+2026-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/128106
+	* ipa-sra.cc (scan_expr_access): Add a check that the formal parameter
+	being passed in a call has index fitting an unsigned char.
+
+gcc/testsuite/ChangeLog:
+
+2026-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/128106
+	* g++.dg/ipa/pr128106.C: New test.
+
+(cherry picked from commit 75bbfaeb8ba0ad95e7c0fb306790ca71dbb55bbd)
+---
+ gcc/ipa-sra.cc                      |  7 +++++++
+ gcc/testsuite/g++.dg/ipa/pr128106.C | 19 +++++++++++++++++++
+ 2 files changed, 26 insertions(+)
+ create mode 100644 gcc/testsuite/g++.dg/ipa/pr128106.C
+
+diff --git a/gcc/ipa-sra.cc b/gcc/ipa-sra.cc
+index fd33e2028a0c..2adcf6004826 100644
+--- a/gcc/ipa-sra.cc
++++ b/gcc/ipa-sra.cc
+@@ -1958,6 +1958,13 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
+     {
+       gcc_checking_assert (call_info);
+ 
++      if (desc->param_number > UCHAR_MAX)
++	{
++	  disqualify_split_candidate (desc, "Caller parameter with a large "
++				      "index passed in a call.");
++	  return;
++	}
++
+       if (!deref)
+ 	record_nonregister_call_use (desc, call_info, offset / BITS_PER_UNIT,
+ 				     size / BITS_PER_UNIT);
+diff --git a/gcc/testsuite/g++.dg/ipa/pr128106.C b/gcc/testsuite/g++.dg/ipa/pr128106.C
+new file mode 100644
+index 000000000000..82ddf3bfe550
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/ipa/pr128106.C
+@@ -0,0 +1,19 @@
++/* { dg-do compile { target c++17 } } */
++/* { dg-options "-O2" } */
++
++#include <array>
++#include <string_view>
++#include <tuple>
++
++struct F { std::string_view name = "x"; };
++constexpr std::array<F, 256> fields{};
++
++[[gnu::noinline]] void emit(std::string_view name) {
++    if (name != "x") __builtin_puts("miscompiled");
++}
++
++int main() {
++    long value{};
++    std::apply([&](auto... f) { ((emit(f.name), value += value), ...); }, fields);
++    return value;
++}

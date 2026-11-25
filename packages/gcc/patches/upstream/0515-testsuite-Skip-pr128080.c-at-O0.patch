@@ -1,0 +1,35 @@
+From 458e0605fa8c10d8f80c73d2862b26ed54473eb7 Mon Sep 17 00:00:00 2001
+From: Igor Shevlyakov <igor@tachyum.com>
+Date: Tue, 27 Oct 2026 14:32:59 -0700
+Subject: [PATCH] testsuite: Skip pr128080.c at -O0
+
+The permutations in pr128080.c are merged only when optimizing, so at
+-O0 the test checks nothing.  It is also slow there on some targets:
+on arm-eabi with -march=armv6s-m (Thumb-1) LRA spends more than ten
+minutes on the two 256-element shuffles that survive to RTL, and the
+compilation times out.
+
+Assisted-by: Claude Opus 5.5
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.dg/torture/pr128080.c: Skip at -O0.
+
+Signed-off-by: Igor Shevlyakov <igor@tachyum.com>
+(cherry picked from commit 2563111c38bc59ba4a1fc60cbfd714d4bac94b15)
+---
+ gcc/testsuite/gcc.dg/torture/pr128080.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128080.c b/gcc/testsuite/gcc.dg/torture/pr128080.c
+index cb0410c4997c..b84e6c1640ba 100644
+--- a/gcc/testsuite/gcc.dg/torture/pr128080.c
++++ b/gcc/testsuite/gcc.dg/torture/pr128080.c
+@@ -1,5 +1,7 @@
+ /* PR tree-optimization/128080 */
+ /* { dg-do run } */
++/* The permutations are merged only when optimizing.  */
++/* { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
+ /* { dg-additional-options "-Wno-psabi" } */
+ 
+ typedef signed char V __attribute__((vector_size (256)));
