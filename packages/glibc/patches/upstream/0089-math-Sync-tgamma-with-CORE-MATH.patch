@@ -1,0 +1,96 @@
+From e769121e677007f7d2669f6a239d2c1568815b67 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Sun, 20 Sep 2026 11:50:39 -0500
+Subject: [PATCH] math: Sync tgamma with CORE-MATH
+
+Import the following changes from CORE-MATH (up to revision c537979a):
+
+  - The error bounds of two fast paths were too tight to cover all the
+    hard-to-round cases found by exhaustive search, so the rounding test
+    wrongly accepted the fast-path result.
+
+  - The conversion of floor(x) to int64_t is undefined for x below
+    INT64_MIN, so k is now computed only on the paths that use it, and
+    clamped on the negative non-integer path.
+
+  - The comparisons against 0.0f on the integer path are made against 0.0
+    (x is a double).
+
+Checked on aarch64-linux-gnu.
+
+(cherry picked from commit 90156a65a6318b2e1a5ef44501f50fe87db1b601)
+---
+ SHARED-FILES                       |  2 +-
+ sysdeps/ieee754/dbl-64/e_gamma_r.c | 14 ++++++++------
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/SHARED-FILES b/SHARED-FILES
+index c2156cdf717c..d5594d2059a9 100644
+--- a/SHARED-FILES
++++ b/SHARED-FILES
+@@ -268,7 +268,7 @@ core-math:
+   sysdeps/ieee754/dbl-64/e_atanh.c
+   # src/binary64/cosh/cosh.c, revision 5d0c89d5
+   sysdeps/ieee754/dbl-64/e_cosh.c
+-  # src/binary64/tgamma/tgamma.c, revision 0f185e23
++  # src/binary64/tgamma/tgamma.c, revision c537979a
+   sysdeps/ieee754/dbl-64/e_gamma_r.c
+   # src/binary64/lgamma/lgamma.c, revision c537979a
+   sysdeps/ieee754/dbl-64/e_lgamma_r.c
+diff --git a/sysdeps/ieee754/dbl-64/e_gamma_r.c b/sysdeps/ieee754/dbl-64/e_gamma_r.c
+index 997c63a7dfe6..a94381cede33 100644
+--- a/sysdeps/ieee754/dbl-64/e_gamma_r.c
++++ b/sysdeps/ieee754/dbl-64/e_gamma_r.c
+@@ -3,7 +3,7 @@
+ Copyright (c) 2024-2025 Alexei Sibidanov <sibid@uvic.ca>.
+ 
+ The original version of this file was copied from the CORE-MATH
+-project (file src/binary64/tgamma/tgamma.c, revision 0f185e23).
++project (file src/binary64/tgamma/tgamma.c, revision c537979a).
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+@@ -772,13 +772,14 @@ __ieee754_gamma_r (double x, int *signgamp)
+   double fx = floor (x);
+   /* compute k only after the overflow check, otherwise the cast to integer
+      might overflow */
+-  int64_t k = fx;
++  int64_t k;
+   if (__glibc_unlikely (fx == x))
+     { /* x is integer */
+-      if (x == 0.0f)
++      if (x == 0.0)
+ 	return __math_divzero (0);
+-      if (x < 0.0f)
++      if (x < 0.0)
+ 	return __math_invalid (0);
++      k = fx;
+       double t0h = 1, t0l = 0, x0 = 1;
+       for (int i = 1; i < k; i++, x0 += 1.0)
+ 	t0h = mulddd2 (x0, t0h, t0l, &t0l);
+@@ -789,6 +790,7 @@ __ieee754_gamma_r (double x, int *signgamp)
+     { /* negative non-integer */
+       /* For x <= -184, x non-integer, |gamma(x)| < 2^-1078.  */
+       static const double sgn[2] = { 0x1p-1022, -0x1p-1022 };
++      k = fx < (double) INT64_MIN ? INT64_MIN : fx;
+       return __math_erange (0x1p-1022 * sgn[k & 1]);
+     }
+ 
+@@ -810,7 +812,7 @@ __ieee754_gamma_r (double x, int *signgamp)
+ 	  rh = -rh;
+ 	  rl = -rl;
+ 	}
+-      double eps = rh * (0x1.eb2049057bc61p-68 - x * 0x1.61019f74442b7p-73);
++      double eps = rh * (0x1.48ad3caefe28p-67 - x * 0x1.61019f74442b7p-73);
+       uint64_t th;
+       if (__glibc_likely (ip >= -170))
+ 	{
+@@ -855,7 +857,7 @@ __ieee754_gamma_r (double x, int *signgamp)
+       double ll = 0, lh = as_lgamma_asym (x, &ll);
+       int e;
+       lh = as_expd (lh, &ll, &e);
+-      double eps = lh * (0x1.2e3b40a0e9b4fp-69 + x * 0x1.6aad80c11872cp-73);
++      double eps = lh * (0x1.2e3b40a0e9b4fp-69 + x * 0x1.bce27bce24d11p-73);
+       double ub = lh + (ll + eps), lb = lh + (ll - eps);
+       if (ub != lb)
+ 	return as_tgamma_accurate (x);
