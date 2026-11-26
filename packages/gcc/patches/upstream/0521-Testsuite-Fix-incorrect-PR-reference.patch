@@ -1,0 +1,22 @@
+From ff030222747e9eb118ff2f6f648f73b098d3a25d Mon Sep 17 00:00:00 2001
+From: Eric Botcazou <ebotcazou@adacore.com>
+Date: Wed, 25 Nov 2026 10:05:02 +0100
+Subject: [PATCH] Testsuite: Fix incorrect PR reference
+
+gcc/testsuite/
+	* gcc.dg/sso-22.c: Fix incorrect PR reference.
+---
+ gcc/testsuite/gcc.dg/sso-22.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/testsuite/gcc.dg/sso-22.c b/gcc/testsuite/gcc.dg/sso-22.c
+index 08078c24cd6c..b6839df3fc50 100644
+--- a/gcc/testsuite/gcc.dg/sso-22.c
++++ b/gcc/testsuite/gcc.dg/sso-22.c
+@@ -1,4 +1,5 @@
+-/* PR debug/128920 */
++/* PR middle-end/128920 */
++
+ /* { dg-do run } */
+ /* { dg-options "-std=c23" }
+ /* { dg-require-effective-target float16 } */
