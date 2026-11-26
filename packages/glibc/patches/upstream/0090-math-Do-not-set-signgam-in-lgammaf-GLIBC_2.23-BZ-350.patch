@@ -1,0 +1,94 @@
+From 94eb1bac6e16d4f399f8b8357c461e9df6753224 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Wed, 25 Nov 2026 12:57:37 -0300
+Subject: [PATCH] math: Do not set signgam in lgammaf@GLIBC_2.23 (BZ 35053)
+
+Commit de0e623434f made the GLIBC_2.23 compat lgammaf set signgam
+again, which overwrites an ISO C program's own signgam object.
+
+Checked on x86_64-linux-gnu.
+
+Suggested-by: Ramses de Norre <ramses@anthropic.com>
+(cherry picked from commit 39f739010caa53bb78f848b6f2323c8e4cdd367d)
+---
+ math/Makefile              |  1 +
+ math/lgamma-compat.h       |  2 +-
+ math/test-signgam-compat.c | 44 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+), 1 deletion(-)
+ create mode 100644 math/test-signgam-compat.c
+
+diff --git a/math/Makefile b/math/Makefile
+index 5b48e5330027..47be479e9794 100644
+--- a/math/Makefile
++++ b/math/Makefile
+@@ -607,6 +607,7 @@ ifeq ($(have-GLIBC_2.26)$(build-shared),yesyes)
+ tests += \
+   test-matherr \
+   test-matherr-2 \
++  test-signgam-compat \
+   # tests
+ tests-2.0 += \
+   test-matherr-2 \
+diff --git a/math/lgamma-compat.h b/math/lgamma-compat.h
+index e548127527b1..4e880fb2bf96 100644
+--- a/math/lgamma-compat.h
++++ b/math/lgamma-compat.h
+@@ -70,7 +70,7 @@
+   ({							\
+     TYPE lgamma_tmp;					\
+     int local_signgam;					\
+-    if (USE_AS_COMPAT)					\
++    if (USE_AS_COMPAT == 1)				\
+       {							\
+ 	lgamma_tmp = FUNC ((ARG), &local_signgam);	\
+ 	if (_LIB_VERSION != _ISOC_)			\
+diff --git a/math/test-signgam-compat.c b/math/test-signgam-compat.c
+new file mode 100644
+index 000000000000..749c715d79d8
+--- /dev/null
++++ b/math/test-signgam-compat.c
+@@ -0,0 +1,44 @@
++/* Test that lgammaf@GLIBC_2.23 does not set signgam (BZ 35053).
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <shlib-compat.h>
++#include <support/check.h>
++
++float lgammaf (float);
++compat_symbol_reference (libm, lgammaf, lgammaf, GLIBC_2_23);
++
++int signgam = 123;
++
++static void
++check (float x, float expected)
++{
++  volatile float vx = x;
++  volatile float y = lgammaf (vx);
++  TEST_VERIFY (y == expected);
++  TEST_COMPARE (signgam, 123);
++}
++
++static int
++do_test (void)
++{
++  check (0.5f, 0x1.250d04p-1f);
++  check (-0.5f, 0x1.43f89ap+0f);
++  return 0;
++}
++
++#include <support/test-driver.c>

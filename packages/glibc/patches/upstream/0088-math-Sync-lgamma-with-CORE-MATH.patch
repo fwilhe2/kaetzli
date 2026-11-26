@@ -1,0 +1,57 @@
+From 72c99610ae9eaf0882d9f2f3e12869662dca9c97 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Sun, 20 Sep 2026 11:51:15 -0500
+Subject: [PATCH] math: Sync lgamma with CORE-MATH
+
+Checked on aarch64-linux-gnu.
+
+(cherry picked from commit 1555d46b08dba3a9abbcd956237108b3072f4290)
+---
+ SHARED-FILES                        | 2 +-
+ sysdeps/ieee754/dbl-64/e_lgamma_r.c | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/SHARED-FILES b/SHARED-FILES
+index 9f17c6bf4802..c2156cdf717c 100644
+--- a/SHARED-FILES
++++ b/SHARED-FILES
+@@ -270,7 +270,7 @@ core-math:
+   sysdeps/ieee754/dbl-64/e_cosh.c
+   # src/binary64/tgamma/tgamma.c, revision 0f185e23
+   sysdeps/ieee754/dbl-64/e_gamma_r.c
+-  # src/binary64/lgamma/lgamma.c, revision 0413bb7e
++  # src/binary64/lgamma/lgamma.c, revision c537979a
+   sysdeps/ieee754/dbl-64/e_lgamma_r.c
+   # src/binary64/sinh/sinh.c, revision 8127b7ac
+   sysdeps/ieee754/dbl-64/e_sinh.c
+diff --git a/sysdeps/ieee754/dbl-64/e_lgamma_r.c b/sysdeps/ieee754/dbl-64/e_lgamma_r.c
+index aab7b4d1443b..ce184f046150 100644
+--- a/sysdeps/ieee754/dbl-64/e_lgamma_r.c
++++ b/sysdeps/ieee754/dbl-64/e_lgamma_r.c
+@@ -4,7 +4,7 @@ value.
+ Copyright (c) 2025 Alexei Sibidanov <sibid@uvic.ca>
+ 
+ The original version of this file was copied from the CORE-MATH
+-project (file src/binary64/lgamma/lgamma.c, revision 0413bb7e).
++project (file src/binary64/lgamma/lgamma.c, revision c537979a).
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+@@ -1349,7 +1349,7 @@ __ieee754_lgamma_r (double x, int *signgamp)
+ 	      z = ax - 2;
+ 	      fh = mulddd2 (z, fh, fl, &fl);
+ 	    }
+-	  eps = fabs (fh) * 8.3e-20 + 1e-24;
++	  eps = fabs (fh) * 8.7e-20 + 1e-24;
+ 	}
+       if (t >> 63)
+ 	{ // x<0 so use reflection formula
+@@ -1359,7 +1359,7 @@ __ieee754_lgamma_r (double x, int *signgamp)
+ 	  ll += sl / sh;
+ 	  fh = -sumdd (fh, fl, lh, ll, &fl);
+ 	  fl = -fl;
+-	  eps += fabs (lh) * 4e-22;
++	  eps += fabs (lh) * 8e-22;
+ 	  int64_t k = fx;
+ 	  *signgamp = 1 - 2 * (k & 1);
+ 	}
