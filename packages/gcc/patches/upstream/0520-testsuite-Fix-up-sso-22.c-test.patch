@@ -1,0 +1,35 @@
+From 86331f2377317798cc6690ac9667ecb0acc09a34 Mon Sep 17 00:00:00 2001
+From: Jakub Jelinek <jakub@redhat.com>
+Date: Wed, 25 Nov 2026 09:30:12 +0100
+Subject: [PATCH] testsuite: Fix up sso-22.c test
+
+The new gcc.dg/sso-22.c test FAILs on i686-linux:
+FAIL: gcc.dg/sso-22.c (test for excess errors)
+Excess errors:
+/home/jakub/src/gcc/gcc/testsuite/gcc.dg/sso-22.c:19:8: error: invalid conversion to type '_Float16' without option '-msse2'
+/home/jakub/src/gcc/gcc/testsuite/gcc.dg/sso-22.c:23:11: error: operation not permitted on type '_Float16' without option '-msse2'
+All tests which require float16 effective target should also have
+corresponding dg-add-options float16 which arranges to add options
+needed for that, but this one didn't have it.
+
+2026-11-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/sso-22.c: Add dg-add-options float16 directive.
+---
+ gcc/testsuite/gcc.dg/sso-22.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/testsuite/gcc.dg/sso-22.c b/gcc/testsuite/gcc.dg/sso-22.c
+index 1633348415f8..08078c24cd6c 100644
+--- a/gcc/testsuite/gcc.dg/sso-22.c
++++ b/gcc/testsuite/gcc.dg/sso-22.c
+@@ -1,8 +1,8 @@
+ /* PR debug/128920 */
+-
+ /* { dg-do run } */
+ /* { dg-options "-std=c23" }
+ /* { dg-require-effective-target float16 } */
++/* { dg-add-options float16 } */
+ 
+ #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+ struct __attribute__((scalar_storage_order("big-endian"))) S

@@ -1,0 +1,97 @@
+From 888cd4d1bbd43ef8ae211d69759441bf27e448fc Mon Sep 17 00:00:00 2001
+From: Jeff Law <jeffreyalaw@gmail.com>
+Date: Sat, 21 Nov 2026 07:09:43 -0700
+Subject: [PATCH] [PR rtl-optimization/128910] Fix incorrect equivalence
+ between SUBREGS with different promotion state
+
+Wow, this one was fun.  I fully expected this to be a RISC-V target problem,
+but in the end it's generic and very old.  It's just been latent for decades!
+
+The core problem is exp_equiv_p (used by CSE and GCSE) returns true for SUBREG
+expressions with different promotion states.
+
+A RISC-V backend change in this cycle stopped pretending we always had zero
+extension insns during expansion.  Instead the port now emits the shift pair
+when the appropriate extensions are not available.
+
+That caused the testcase from the PR to use expanded shift pairs for zero
+extension.  We had an underlying SUBREG object in those newly exposed shifts.
+In one context that SUBREG object had promoted state and in another context it
+did not.  GCSE (incorrectly) determined the SUBREGs were equivalent and created
+the dominating definition allowing the two instances to be removed.  The
+representative instance GCSE inserted had the promotion state markers, but was
+inserted into a point where the promoted state did not hold.  combine then came
+along saw we had a shift pair implementing zero extension on a value that was
+marked as already extended, so combine removed the zero extension.  Boom,
+incorrect code.
+
+Bootstrapped and regression tested on x86 and aarch64.  Also tested on
+riscv32-elf and riscv64-elf.  Pushing to the trunk.
+
+Assisted-By: Claude for dumpfile analysis
+
+	PR rtl-optimization/128910
+gcc/
+	* cse.cc (exp_equiv_p): Return false for SUBREGs that have different
+	promotion states.
+
+gcc/testsuite
+	* gcc.dg/torture/pr128910.c: New test.
+
+(cherry picked from commit 7565093dd76ecbbb9b5e664db38f01680b72ac1a)
+---
+ gcc/cse.cc                              |  9 +++++++++
+ gcc/testsuite/gcc.dg/torture/pr128910.c | 24 ++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+)
+ create mode 100644 gcc/testsuite/gcc.dg/torture/pr128910.c
+
+diff --git a/gcc/cse.cc b/gcc/cse.cc
+index 25b2bf500a96..a1987e43d8f1 100644
+--- a/gcc/cse.cc
++++ b/gcc/cse.cc
+@@ -2688,6 +2688,15 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
+ 	}
+       break;
+ 
++    case SUBREG:
++      /* Two SUBREGs of the same REG are not interchangeable if they differ
++	 in their promotion state.  */
++      if (SUBREG_PROMOTED_VAR_P (x) != SUBREG_PROMOTED_VAR_P (y)
++	  || (SUBREG_PROMOTED_VAR_P (x)
++	      && SUBREG_PROMOTED_GET (x) != SUBREG_PROMOTED_GET (y)))
++	return false;
++      break;
++
+     /*  For commutative operations, check both orders.  */
+     case PLUS:
+     case MULT:
+diff --git a/gcc/testsuite/gcc.dg/torture/pr128910.c b/gcc/testsuite/gcc.dg/torture/pr128910.c
+new file mode 100644
+index 000000000000..c42640081993
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr128910.c
+@@ -0,0 +1,24 @@
++/* { dg-do run } */
++/* { dg-require-effective-target int32plus } */
++
++__attribute__((noipa)) int
++f (unsigned long long x, int b)
++{
++  int t = 0, r = 0;
++  unsigned lo = x;
++  for (int i = 0; i < 3 && (unsigned) x; i++)
++    {
++      if (b || t)
++	r = x == lo;
++      t = x = i != 0;
++    }
++  return r;
++}
++
++int
++main (void)
++{
++  if (f (0x100000001ULL, 1) != 0)
++    __builtin_abort ();
++  __builtin_exit (0);
++}

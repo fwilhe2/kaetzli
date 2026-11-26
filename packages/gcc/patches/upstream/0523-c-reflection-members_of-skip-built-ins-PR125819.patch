@@ -1,0 +1,76 @@
+From 716eda5505b1f8b4bdec913c37404393f2245896 Mon Sep 17 00:00:00 2001
+From: Marek Polacek <polacek@redhat.com>
+Date: Thu, 18 Jun 2026 15:08:00 -0400
+Subject: [PATCH] c++/reflection: members_of: skip built-ins [PR125819]
+
+Currently, we include all the built-ins like __builtin_fdimf32x in
+the result of members_of.  We probably should skip them.  This patch
+uses DECL_IS_UNDECLARED_BUILTIN so that we skip __builtin_abs but
+include abs.
+
+On ^^:: this reduces the # of elements from 2591 to 651.
+
+	PR c++/125819
+
+gcc/cp/ChangeLog:
+
+	* reflect.cc (namespace_members_of): Skip
+	DECL_IS_UNDECLARED_BUILTIN decls.
+
+gcc/testsuite/ChangeLog:
+
+	* g++.dg/reflect/members_of17.C: New test.
+
+Reviewed-by: Jason Merrill <jason@redhat.com>
+(cherry picked from commit 8ee8f2beab432c57a5b68b8816910c985c8e9356)
+---
+ gcc/cp/reflect.cc                           |  4 ++++
+ gcc/testsuite/g++.dg/reflect/members_of17.C | 24 +++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
+ create mode 100644 gcc/testsuite/g++.dg/reflect/members_of17.C
+
+diff --git a/gcc/cp/reflect.cc b/gcc/cp/reflect.cc
+index 591216171f5f..e9aaa086285c 100644
+--- a/gcc/cp/reflect.cc
++++ b/gcc/cp/reflect.cc
+@@ -7031,6 +7031,10 @@ namespace_members_of (location_t loc, tree ns)
+ 	  return;
+ 	}
+ 
++      /* Skip GCC built-ins.  */
++      if (DECL_P (b) && DECL_IS_UNDECLARED_BUILTIN (b))
++	return;
++
+       /* eval_is_accessible should be always true for namespace members,
+ 	 so don't bother calling it here.  */
+       CONSTRUCTOR_APPEND_ELT (data->elts, NULL_TREE,
+diff --git a/gcc/testsuite/g++.dg/reflect/members_of17.C b/gcc/testsuite/g++.dg/reflect/members_of17.C
+new file mode 100644
+index 000000000000..ea84b3970916
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/reflect/members_of17.C
+@@ -0,0 +1,24 @@
++// PR c++/125819
++// { dg-do compile { target c++26 } }
++// { dg-additional-options "-freflection" }
++
++#include <cstdlib>
++#include <meta>
++
++consteval bool
++check ()
++{
++  bool found = false;
++  for (auto m : members_of (^^::, std::meta::access_context::current ()))
++    if (has_identifier (m))
++      {
++	if (identifier_of (m) == "__builtin_abs"
++	    || identifier_of (m) == "__builtin_va_list")
++	  return false;
++	if (identifier_of (m) == "abs")
++	  found = true;
++      }
++  return found;
++}
++
++static_assert (check ());

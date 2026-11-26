@@ -1,0 +1,85 @@
+From b81d5de735df2c8e458cde42c1c132100c93100a Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Thu, 26 Nov 2026 00:21:17 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           |  9 +++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/cp/ChangeLog        |  9 +++++++++
+ gcc/testsuite/ChangeLog | 24 ++++++++++++++++++++++++
+ 4 files changed, 43 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 89e422b2f61c..5f95899e9e27 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-25  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-21  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR rtl-optimization/128910
++	* cse.cc (exp_equiv_p): Return false for SUBREGs that have different
++	promotion states.
++
+ 2026-11-24  Martin Jambor  <mjambor@suse.cz>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 93a862f4d2b8..cc7af6be3b56 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261125
++20261126
+diff --git a/gcc/cp/ChangeLog b/gcc/cp/ChangeLog
+index eca87c3363b7..72e2d6079a5d 100644
+--- a/gcc/cp/ChangeLog
++++ b/gcc/cp/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-25  Marek Polacek  <polacek@redhat.com>
++
++	Backported from master:
++	2026-07-02  Marek Polacek  <polacek@redhat.com>
++
++	PR c++/125819
++	* reflect.cc (namespace_members_of): Skip
++	DECL_IS_UNDECLARED_BUILTIN decls.
++
+ 2026-10-29  Jakub Jelinek  <jakub@redhat.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index 6297fd7b15cf..b6920813a806 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,27 @@
++2026-11-25  Marek Polacek  <polacek@redhat.com>
++
++	Backported from master:
++	2026-07-02  Marek Polacek  <polacek@redhat.com>
++
++	PR c++/125819
++	* g++.dg/reflect/members_of17.C: New test.
++
++2026-11-25  Jeff Law  <jeffreyalaw@gmail.com>
++
++	Backported from master:
++	2026-11-21  Jeff Law  <jeffreyalaw@gmail.com>
++
++	PR rtl-optimization/128910
++	* gcc.dg/torture/pr128910.c: New test.
++
++2026-11-25  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* gcc.dg/sso-22.c: Fix incorrect PR reference.
++
++2026-11-25  Jakub Jelinek  <jakub@redhat.com>
++
++	* gcc.dg/sso-22.c: Add dg-add-options float16 directive.
++
+ 2026-11-24  Martin Jambor  <mjambor@suse.cz>
+ 
+ 	Backported from master:
