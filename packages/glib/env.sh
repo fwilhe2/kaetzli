@@ -8,11 +8,11 @@
 #
 # The stable series is the even minor; odd minors are development snapshots, which
 # UPSTREAM_IGNORE keeps tools/check-updates.py from proposing.
-VERSION="2.90.1"
+VERSION="2.90.2"
 PACKAGE="glib-${VERSION}"
 TARBALL="$PACKAGE.tar.xz"
 URL="https://download.gnome.org/sources/glib/${VERSION%.*}/${TARBALL}"
-SHA256="93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396"
+SHA256="edf473b4f5ee70a31d2410622ee605dc4a2c8c46dbc0ec53c9abbaf3960232fd"
 LICENSE="LGPL-2.1-or-later"
 CPE="cpe:2.3:a:gnome:glib:${VERSION}:*:*:*:*:*:*:*"
 UPSTREAM_INDEX="https://download.gnome.org/sources/glib/"
