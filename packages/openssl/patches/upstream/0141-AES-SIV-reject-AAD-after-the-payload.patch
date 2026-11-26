@@ -1,0 +1,50 @@
+From d48c5f13ade12430eb6ada25224ba04261310c41 Mon Sep 17 00:00:00 2001
+From: Trust-Worthy <jondeveloper0@gmail.com>
+Date: Thu, 8 Oct 2026 20:12:50 -0400
+Subject: [PATCH] AES-SIV: reject AAD after the payload
+
+AES-SIV computes the tag when the payload is processed, but accepted
+AAD passed after it, updating state that is never used, so that AAD
+was not authenticated.  Reject it, as GCM does.
+
+Fixes: CVE-2026-120666
+Assisted-by: Claude:claude-opus-5-5
+Reviewed-by: Billy Bob Brumley <bbb@iki.fi>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Wed Nov 25 15:24:15 2026
+Merged-from: https://github.com/openssl/openssl/pull/33904
+(cherry picked from commit 95d360af8701a486b6b334513ed33016f4a619ae)
+---
+ providers/implementations/ciphers/cipher_aes_siv_hw.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/providers/implementations/ciphers/cipher_aes_siv_hw.c b/providers/implementations/ciphers/cipher_aes_siv_hw.c
+index d24124065e19..7badc7354fa8 100644
+--- a/providers/implementations/ciphers/cipher_aes_siv_hw.c
++++ b/providers/implementations/ciphers/cipher_aes_siv_hw.c
+@@ -13,6 +13,7 @@
+  */
+ #include "internal/deprecated.h"
+ 
++#include <openssl/proverr.h>
+ #include "cipher_aes_siv.h"
+ 
+ static void aes_siv_cleanup(void *vctx);
+@@ -114,9 +115,13 @@ static int aes_siv_cipher(void *vctx, unsigned char *out,
+     if (in == NULL)
+         return ossl_siv128_finish(sctx) == 0;
+ 
+-    /* Deal with associated data */
+-    if (out == NULL)
+-        return (ossl_siv128_aad(sctx, in, len) == 1);
++    if (out == NULL) {
++        if (sctx->final_ret == 0) {
++            ERR_raise(ERR_LIB_PROV, PROV_R_UPDATE_CALL_OUT_OF_ORDER);
++            return 0;
++        }
++        return ossl_siv128_aad(sctx, in, len) == 1;
++    }
+ 
+     if (ctx->enc)
+         return ossl_siv128_encrypt(sctx, in, out, len) > 0;

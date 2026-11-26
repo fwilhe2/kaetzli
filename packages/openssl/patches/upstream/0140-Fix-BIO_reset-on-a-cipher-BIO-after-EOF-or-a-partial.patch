@@ -1,0 +1,109 @@
+From 8d5cd7c5fd107818af2fe4539774ab8e82683294 Mon Sep 17 00:00:00 2001
+From: s-sharar <ssharar@uwaterloo.ca>
+Date: Fri, 20 Nov 2026 23:57:28 -0500
+Subject: [PATCH] Fix BIO_reset() on a cipher BIO after EOF or a partial read
+
+BIO_reset() on a BIO_f_cipher() BIO re-initialised the cipher context
+and reset the next BIO, but kept the rest of the state of the previous
+stream:
+
+- cont kept the value (0 at EOF) that ended the previous read, so the
+  next read returned at once without data, although BIO_reset()
+  returned 1.
+- buf_len and buf_off still described output of the previous stream
+  that had not been read yet, or not yet written to the next BIO after
+  it asked to retry, so the next read or write handled those bytes
+  first.
+- read_start and read_end still pointed at input read from the next
+  BIO but not yet processed, which was then fed to the re-initialised
+  cipher.
+
+Reset these fields to the values enc_new() gives them as well.
+
+Add a test that reads through an encrypting AES-128-CBC cipher BIO to
+EOF and after a partial read, and checks that a read after BIO_reset()
+returns the same data again.
+
+Fixes: https://github.com/openssl/openssl/issues/21065
+
+Assisted-by: Claude Code:claude-opus-5-5
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Merge-date: Wed Nov 25 14:51:52 2026
+Merged-from: https://github.com/openssl/openssl/pull/33900
+(cherry picked from commit 4706516dc06beab4871ce36d683fd6e539e56cd2)
+---
+ crypto/evp/bio_enc.c |  4 ++++
+ test/bio_enc_test.c  | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
+
+diff --git a/crypto/evp/bio_enc.c b/crypto/evp/bio_enc.c
+index 4ffa366cb687..6efe1c6eddb4 100644
+--- a/crypto/evp/bio_enc.c
++++ b/crypto/evp/bio_enc.c
+@@ -313,6 +313,10 @@ static long enc_ctrl(BIO *b, int cmd, long num, void *ptr)
+     case BIO_CTRL_RESET:
+         ctx->ok = 1;
+         ctx->finished = 0;
++        ctx->cont = 1;
++        ctx->buf_len = 0;
++        ctx->buf_off = 0;
++        ctx->read_end = ctx->read_start = &(ctx->buf[BUF_OFFSET]);
+         if (!EVP_CipherInit_ex(ctx->cipher, NULL, NULL, NULL, NULL,
+                 EVP_CIPHER_CTX_is_encrypting(ctx->cipher)))
+             return 0;
+diff --git a/test/bio_enc_test.c b/test/bio_enc_test.c
+index 0d2385ce2422..c50bfb61b0a0 100644
+--- a/test/bio_enc_test.c
++++ b/test/bio_enc_test.c
+@@ -349,6 +349,43 @@ err:
+     return ret;
+ }
+ 
++static int read_to_eof(BIO *b, unsigned char *out)
++{
++    int len, n;
++
++    for (len = 0; (n = BIO_read(b, out + len, BUF_SIZE - len)) > 0;)
++        len += n;
++    return len;
++}
++
++static int test_bio_enc_reset(void)
++{
++    static const unsigned char inp[DATA_SIZE];
++    unsigned char ref[BUF_SIZE], out[BUF_SIZE];
++    BIO *b = NULL, *mem = NULL;
++    int reflen, ret = 0;
++
++    if (!TEST_ptr(b = BIO_new(BIO_f_cipher()))
++        || !TEST_true(BIO_set_cipher(b, EVP_aes_128_cbc(), KEY, IV, ENCRYPT))
++        || !TEST_ptr(mem = BIO_new_mem_buf(inp, sizeof(inp))))
++        goto err;
++    BIO_push(b, mem);
++
++    if (!TEST_int_gt((reflen = read_to_eof(b, ref)), 0)
++        || !TEST_int_eq(BIO_reset(b), 1)
++        || !TEST_mem_eq(out, read_to_eof(b, out), ref, reflen)
++        || !TEST_int_eq(BIO_reset(b), 1)
++        || !TEST_int_eq(BIO_read(b, out, 1), 1)
++        || !TEST_int_eq(BIO_reset(b), 1)
++        || !TEST_mem_eq(out, read_to_eof(b, out), ref, reflen))
++        goto err;
++
++    ret = 1;
++err:
++    BIO_free_all(b);
++    return ret;
++}
++
+ int setup_tests(void)
+ {
+     ADD_ALL_TESTS(test_bio_enc_aes_128_cbc, 2);
+@@ -363,5 +400,6 @@ int setup_tests(void)
+ #endif
+     ADD_TEST(test_bio_enc_eof_read_flush);
+     ADD_TEST(test_bio_enc_dup);
++    ADD_TEST(test_bio_enc_reset);
+     return 1;
+ }
