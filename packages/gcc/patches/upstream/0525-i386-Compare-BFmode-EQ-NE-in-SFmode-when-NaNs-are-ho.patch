@@ -1,0 +1,149 @@
+From 6def98963e5c1e174318d513a8dd45b1002090ae Mon Sep 17 00:00:00 2001
+From: Hongyu Wang <hongyu.wang@intel.com>
+Date: Tue, 24 Nov 2026 16:25:45 +0800
+Subject: [PATCH] i386: Compare BFmode EQ/NE in SFmode when NaNs are honored
+ [PR128985]
+
+vcomisbf16 sets the flags like comiss, so EQ and NE need both ZF and PF,
+but under -mavx10.2 -fno-trapping-math they were treated as single-flag
+tests and NaN operands compared equal. Convert BFmode EQ/NE to SFmode
+when HONOR_NANS then vucomxss handles it with one flag correctly.
+
+gcc/ChangeLog:
+
+	PR target/128985
+	* config/i386/i386-expand.cc (ix86_prepare_fp_compare_args):
+	Convert BFmode EQ/NE to SFmode under AVX10.2 when NaNs are honored.
+
+gcc/testsuite/ChangeLog:
+
+	PR target/128985
+	* gcc.target/i386/avx10_2-comibf-1.c: Adjust scan.
+	* gcc.target/i386/avx10_2-comibf-3.c: Likewise.
+	* gcc.target/i386/avx10_2-comibf-2.c: Test NaN.
+	* gcc.target/i386/avx10_2-comibf-5.c: New test.
+	* gcc.target/i386/avx10_2-comibf-6.c: Likewise.
+
+(cherry picked from commit 48688cfeadf6ec3b2dd22783f5048db6fc444d04)
+---
+ gcc/config/i386/i386-expand.cc                | 12 ++++++++
+ .../gcc.target/i386/avx10_2-comibf-1.c        |  3 +-
+ .../gcc.target/i386/avx10_2-comibf-2.c        |  3 +-
+ .../gcc.target/i386/avx10_2-comibf-3.c        |  3 +-
+ .../gcc.target/i386/avx10_2-comibf-5.c        | 29 +++++++++++++++++++
+ .../gcc.target/i386/avx10_2-comibf-6.c        |  6 ++++
+ 6 files changed, 53 insertions(+), 3 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/avx10_2-comibf-5.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/avx10_2-comibf-6.c
+
+diff --git a/gcc/config/i386/i386-expand.cc b/gcc/config/i386/i386-expand.cc
+index dd07b340bc0a..765e4a3fddf0 100644
+--- a/gcc/config/i386/i386-expand.cc
++++ b/gcc/config/i386/i386-expand.cc
+@@ -2824,6 +2824,18 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
+   machine_mode op_mode = GET_MODE (op0);
+   bool is_sse = SSE_FLOAT_MODE_SSEMATH_OR_HFBF_P (op_mode);
+ 
++  /* vcomisbf16 sets the flags like comiss, so EQ and NE would need both
++     ZF and PF when NaNs are honored; compare them in SFmode instead.  */
++  if (op_mode == BFmode
++      && TARGET_AVX10_2
++      && (code == EQ || code == NE)
++      && HONOR_NANS (BFmode))
++    {
++      *pop0 = ix86_expand_fast_convert_bf_to_sf (op0);
++      *pop1 = ix86_expand_fast_convert_bf_to_sf (op1);
++      return ix86_prepare_fp_compare_args (code, pop0, pop1);
++    }
++
+   if (op_mode == BFmode && (!TARGET_AVX10_2 || flag_trapping_math))
+     {
+       rtx op = gen_lowpart (HImode, op0);
+diff --git a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-1.c b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-1.c
+index 532a9a045add..144338288f4d 100644
+--- a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-1.c
++++ b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-1.c
+@@ -1,6 +1,7 @@
+ /* { dg-do compile } */
+ /* { dg-options "-march=x86-64-v3 -mavx10.2 -O2 -fno-trapping-math -fno-shrink-wrap" } */
+-/* { dg-final { scan-assembler-times "vcomisbf16\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 6 } } */
++/* { dg-final { scan-assembler-times "vcomisbf16\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 4 } } */
++/* { dg-final { scan-assembler-times "vucomxss\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 2 } } */
+ /* { dg-final { scan-assembler-times {j[a-z]+\s} 6 } } */
+ 
+ __bf16
+diff --git a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-2.c b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-2.c
+index a70904c9fade..80bb84178670 100644
+--- a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-2.c
++++ b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-2.c
+@@ -96,7 +96,8 @@ main (void)
+     return 0;
+ 
+   float test_values[] = {
+-    -10.0f, -1.0f, -0.5f, 0.0f, 0.5f, 1.0f, 10.0f, 100.0f, -100.0f
++    -10.0f, -1.0f, -0.5f, 0.0f, 0.5f, 1.0f, 10.0f, 100.0f, -100.0f,
++    __builtin_nanf ("")
+   };
+ 
+   size_t num_values = sizeof (test_values) / sizeof (test_values[0]);
+diff --git a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-3.c b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-3.c
+index 28b2ad35975c..2142d835462d 100644
+--- a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-3.c
++++ b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-3.c
+@@ -1,7 +1,8 @@
+ /* { dg-do compile } */
+ /* { dg-options "-march=x86-64-v3 -O2" } */
+ 
+-/* { dg-final { scan-assembler-times "vcomisbf16\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 6 } } */
++/* { dg-final { scan-assembler-times "vcomisbf16\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 4 } } */
++/* { dg-final { scan-assembler-times "vucomxss\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 2 } } */
+ /* { dg-final { scan-assembler-times "set\[aeglnb\]+" 6 } } */
+ 
+ #define AVX10_ATTR \
+diff --git a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-5.c b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-5.c
+new file mode 100644
+index 000000000000..df2355c471da
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-5.c
+@@ -0,0 +1,29 @@
++/* { dg-do compile } */
++/* { dg-options "-march=x86-64-v3 -mavx10.2 -O2 -fno-trapping-math" } */
++/* { dg-final { scan-assembler-not "vcomisbf16" } } */
++/* { dg-final { scan-assembler-times "vucomxss\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 4 } } */
++
++int
++eq (__bf16 a, __bf16 b)
++{
++  return a == b;
++}
++
++int
++ne (__bf16 a, __bf16 b)
++{
++  return a != b;
++}
++
++double
++sel (__bf16 a, __bf16 b, double x, double y)
++{
++  return a == b ? x : y;
++}
++
++void
++br (__bf16 a, __bf16 b, int *p)
++{
++  if (a != b)
++    *p = 1;
++}
+diff --git a/gcc/testsuite/gcc.target/i386/avx10_2-comibf-6.c b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-6.c
+new file mode 100644
+index 000000000000..18b4d10b214e
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/avx10_2-comibf-6.c
+@@ -0,0 +1,6 @@
++/* { dg-do compile } */
++/* { dg-options "-march=x86-64-v3 -mavx10.2 -O2 -fno-trapping-math -ffinite-math-only" } */
++/* { dg-final { scan-assembler-not "vucomxss" } } */
++/* { dg-final { scan-assembler-times "vcomisbf16\[ \\t\]+\[^{}\n\]*%xmm\[0-9\]+(?:\n|\[ \\t\]+#)" 4 } } */
++
++#include "avx10_2-comibf-5.c"
