@@ -1,0 +1,69 @@
+From f0b7abebbd8d7dbcdeb7e84ab045095bbf690aa9 Mon Sep 17 00:00:00 2001
+From: Alexandr Nedvedicky <sashan@openssl.org>
+Date: Thu, 19 Nov 2026 12:26:24 +0100
+Subject: [PATCH] test/radix/quic_ops.c: add OP_CONNECT_WAIT_OR_FAIL()
+
+This is a partial backport of commit af3173bd11a8 "Port script_54",
+that only includes changes pertaining introduction
+of the OP_CONNECT_WAIT_OR_FAIL() operation.
+
+This operation will be used later in script_75, that checks for unknown
+version handling in the version negotioation packet.
+
+Original-Commit: af3173bd11a8 "Port script_54",
+Original-PR: https://github.com/openssl/openssl/pull/32469
+Co-Authored-by: Andrew Dinh <andrewd@openssl.org>
+Reviewed-by: Eugene Syromiatnikov <esyr@openssl.org>
+Reviewed-by: Bob Beck <beck@openssl.org>
+Merge-date: Thu Nov 26 09:11:21 2026
+Merged-from: https://github.com/openssl/openssl/pull/33530
+---
+ test/radix/quic_ops.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/test/radix/quic_ops.c b/test/radix/quic_ops.c
+index 6f3dea17a782..ad67cf5beb7e 100644
+--- a/test/radix/quic_ops.c
++++ b/test/radix/quic_ops.c
+@@ -650,11 +650,19 @@ err:
+     return ok;
+ }
+ 
++/*
++ * If tolerate_failure is set, tolerates the connection attempt itself failing
++ * (rather than the connection later closing after a successful handshake),
++ * for scripts where fault injection is expected to prevent the handshake
++ * from completing at all.
++ */
+ DEF_FUNC(hf_connect_wait)
+ {
+     int ok = 0, ret;
+     SSL *ssl;
++    uint64_t tolerate_failure;
+ 
++    F_POP(tolerate_failure);
+     REQUIRE_SSL(ssl);
+ 
+     /* if not started */
+@@ -678,7 +686,7 @@ DEF_FUNC(hf_connect_wait)
+         if (is_want(ssl, ret))
+             F_SPIN_AGAIN();
+ 
+-        if (!TEST_int_eq(ret, 1))
++        if (!tolerate_failure && !TEST_int_eq(ret, 1))
+             goto err;
+     }
+ 
+@@ -1181,6 +1189,12 @@ err:
+ 
+ #define OP_CONNECT_WAIT(name) \
+     (OP_SELECT_SSL(0, name),  \
++        OP_PUSH_U64(0),       \
++        OP_FUNC(hf_connect_wait))
++
++#define OP_CONNECT_WAIT_OR_FAIL(name) \
++    (OP_SELECT_SSL(0, name),          \
++        OP_PUSH_U64(1),               \
+         OP_FUNC(hf_connect_wait))
+ 
+ #define OP_LISTEN(name)      \
