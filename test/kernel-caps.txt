@@ -75,6 +75,20 @@ DUMMY               dummy interfaces: kube-proxy IPVS, NodeLocal DNSCache, node 
 IP_SET              ipset; Calico's Felix panics without it, even with its nftables dataplane
 NETFILTER_XT_TARGET_NETMAP  -j NETMAP, how Gardener's VPN maps a shoot's networks into ranges of its own
 NETFILTER_XT_MATCH_OWNER  -m owner, how Gardener's vpn-seed-server matches its own traffic
+NETFILTER_XT_MATCH_STATISTIC  -m statistic; kube-proxy (iptables mode) cannot spread a service over its endpoints
+NETFILTER_XT_MATCH_RECENT  -m recent; kube-proxy's sessionAffinity: ClientIP (iptables mode)
+IP_NF_TARGET_REJECT  -j REJECT; kube-proxy (iptables mode) cannot restore its rules once a service has no endpoints
+IP6_NF_TARGET_REJECT  the same for IPv6 services
+NET_IPIP            Calico's IPIP overlay, Gardener's default: pods on different nodes cannot reach each other
+NETFILTER_XT_SET    -m set; Calico's iptables dataplane matches policies and pools against ipsets
+NETFILTER_XT_MATCH_MULTIPORT  -m multiport; Calico's policy rules with port lists
+NETFILTER_XT_CONNMARK  -m connmark and -j CONNMARK; Calico's marks that follow a connection
+NETFILTER_XT_MATCH_LIMIT  -m limit; Calico's rate-limited drop logging
+IP_NF_MATCH_RPFILTER  -m rpfilter; Calico's anti-spoofing check on workload interfaces
+IP6_NF_MATCH_RPFILTER  the same for IPv6
+NET_CLS_BPF         tc BPF classifiers; Cilium's datapath cannot attach
+NET_ACT_BPF         tc BPF actions, likewise
+GENEVE              Cilium's Geneve tunnel mode
 VIRTIO_BLK          the root and /var disks on every VMM
 VIRTIO_NET          the network on every VMM
 VIRTIO_PCI          qemu's and Virtualization.framework's devices

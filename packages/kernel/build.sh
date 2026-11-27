@@ -109,6 +109,17 @@ make container.config
 #                  shoot and its seed: vpn-shoot and vpn-seed-server map the shoot's networks
 #                  into ranges of their own with -j NETMAP, and the seed side matches its own
 #                  traffic with -m owner --gid-owner
+#   NETFILTER_XT_MATCH_STATISTIC, NETFILTER_XT_MATCH_RECENT, IP_NF_TARGET_REJECT,
+#   IP6_NF_TARGET_REJECT  kube-proxy's iptables mode, Gardener's default for a shoot:
+#                  -m statistic spreads a service over its endpoints, -m recent is
+#                  sessionAffinity, -j REJECT a service with none (all through NFT_COMPAT)
+#   NET_IPIP       Calico's IPIP encapsulation, networking-calico's default overlay
+#   NETFILTER_XT_SET, NETFILTER_XT_MATCH_MULTIPORT, NETFILTER_XT_CONNMARK,
+#   NETFILTER_XT_MATCH_LIMIT, IP_NF_MATCH_RPFILTER, IP6_NF_MATCH_RPFILTER  what Calico's
+#                  Felix writes in its iptables dataplane (felix/iptables/match_builder.go):
+#                  -m set, multiport, connmark, limit, and rpfilter in the raw table
+#   NET_CLS_BPF, NET_ACT_BPF, GENEVE  Cilium: its datapath is tc BPF programs on every
+#                  interface, and Geneve one of its tunnel modes
 cat > kernel/configs/k8s.config <<'EOF'
 CONFIG_NFT_NUMGEN=y
 CONFIG_NFT_REJECT=y
@@ -122,6 +133,20 @@ CONFIG_DUMMY=y
 CONFIG_IP_SET=y
 CONFIG_NETFILTER_XT_TARGET_NETMAP=y
 CONFIG_NETFILTER_XT_MATCH_OWNER=y
+CONFIG_NETFILTER_XT_MATCH_STATISTIC=y
+CONFIG_NETFILTER_XT_MATCH_RECENT=y
+CONFIG_IP_NF_TARGET_REJECT=y
+CONFIG_IP6_NF_TARGET_REJECT=y
+CONFIG_NET_IPIP=y
+CONFIG_NETFILTER_XT_SET=y
+CONFIG_NETFILTER_XT_MATCH_MULTIPORT=y
+CONFIG_NETFILTER_XT_CONNMARK=y
+CONFIG_NETFILTER_XT_MATCH_LIMIT=y
+CONFIG_IP_NF_MATCH_RPFILTER=y
+CONFIG_IP6_NF_MATCH_RPFILTER=y
+CONFIG_NET_CLS_BPF=y
+CONFIG_NET_ACT_BPF=y
+CONFIG_GENEVE=y
 EOF
 make k8s.config
 
