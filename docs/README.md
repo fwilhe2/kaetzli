@@ -40,5 +40,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
   to Python, and in what order.
 - [Persistent volumes](proposals/persistent-volumes.md): storage for PersistentVolumeClaims
   on Kubernetes nodes, which a cluster has none of today.
+- [Auditability](proposals/compliance.md): what a corporate audit would find, and what
+  would make one easier (change control, evidence, security policy).
 
 Host architecture and tool requirements are summarized in the [project README](../README.md#host-requirements).
