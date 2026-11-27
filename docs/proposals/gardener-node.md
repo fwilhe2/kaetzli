@@ -92,8 +92,8 @@ OpenStack VM benefits. No config drive yet: the kernel has no `ISO9660_FS`.
 Gardener's CRI is containerd, with no CRI-O path, so containerd replaced CRI-O there: one
 CRI for kubeadm and Gardener alike. containerd 2.4 builds offline from its own `vendor/`. The
 extension ships `containerd`, `ctr`, the runc v2 shim and `containerd.service`, upheld from
-`basic.target` and ordered before `kaetzli-user-data.service`, since gardener-node-init
-runs `ctr` from the user data. Its confext has `/etc/containerd/config.toml`, which is
+`basic.target` and started by a `kaetzli-user-data.service` drop-in before the user data
+runs, since gardener-node-init runs `ctr` from it. Its confext has `/etc/containerd/config.toml`, which is
 upstream's defaults with four changes:
 - the shim's `BinaryName = '/usr/bin/crun'`, so runc never ships;
 - `SystemdCgroup = true`;

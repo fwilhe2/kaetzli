@@ -55,11 +55,17 @@ cat > "$ROOTFS/usr/lib/systemd/system/basic.target.d/10-containerd.conf" <<'UNIT
 [Unit]
 Upholds=containerd.service
 UNIT
-# Ordering only: the boot transaction that started the user data was computed before the
-# extension merged, so a Wants= here would pull nothing in; Upholds= above starts it.
+# The user data's own start: the boot transaction that queued it was computed before the
+# extension merged, so a Wants= here pulls nothing in, and After= orders only against a
+# start job that exists — Upholds= queues one lazily, and on a quick boot (CI's arm64) the
+# user data ran first. So it starts containerd itself, which returns once containerd is
+# ready (Type=notify); containerd is ordered after nothing of the user data's.
 cat > "$ROOTFS/usr/lib/systemd/system/kaetzli-user-data.service.d/10-containerd.conf" <<'UNIT'
 [Unit]
 After=containerd.service
+
+[Service]
+ExecStartPre=/usr/bin/systemctl start containerd.service
 UNIT
 
 # containerd's own defaults, with the runc v2 shim running the base's crun (which takes
