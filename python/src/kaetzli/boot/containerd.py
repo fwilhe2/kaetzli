@@ -10,9 +10,9 @@ containers get and ctr's do not.
 Overrides, from the environment: TIMEOUT, MEM/CPUS, LOG (default
 output/containerd-test.log), as in test/podman.py.
 
-No registry: the container's root is the image's own read-only /, which `ctr run
---rootfs` takes as it is, so nothing is pulled. There is no runc in the image, so a
-container that ran at all ran on crun.
+No registry: the container's root is the image's own read-only /, bind-mounted under /run
+(crun refuses / itself as a rootfs, as test/container.py says), so nothing is pulled.
+There is no runc in the image, so a container that ran at all ran on crun.
 
 The user data, from test/user-data.py's metadata service, is `ctr version`, which fails
 unless the daemon answers: a Gardener node's user data pulls its node agent with ctr
@@ -41,8 +41,10 @@ CHECK = (
     "[[ $(systemctl is-active containerd.service) == active ]] && "
     "ctr plugins ls | grep -E 'io.containerd.grpc.v1 +cri +- +ok' >/dev/null && "
     "! ctr plugins ls | grep -E ' error *$' && "
-    "[[ $(ctr run --rm --rootfs / --runtime io.containerd.runc.v2 "
+    "mkdir -p /run/ctr-root && mount --bind / /run/ctr-root && "
+    "[[ $(ctr run --rm --rootfs /run/ctr-root --runtime io.containerd.runc.v2 "
     "--runc-binary /usr/bin/crun kaetzli-test /usr/bin/cat /proc/self/cgroup) == 0::/* ]] && "
+    "umount /run/ctr-root && "
     "grep -q \"BinaryName = '/usr/bin/crun'\" /etc/containerd/config.toml && "
     "[[ $(systemctl is-active kaetzli-user-data.service) == active ]] && "
     "[[ $(tail -n 1 /run/containerd-user-data) == 'exit 0' ]] && "
