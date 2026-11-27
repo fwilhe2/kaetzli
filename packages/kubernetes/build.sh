@@ -55,8 +55,8 @@ cat > "$ROOTFS/usr/lib/systemd/system/kubelet.service" <<'UNIT'
 [Unit]
 Description=kubelet: The Kubernetes Node Agent
 Documentation=https://kubernetes.io/docs/
-Wants=network-online.target crio.service
-After=network-online.target crio.service
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
 ExecStartPre=/usr/bin/bash -c '[ "$(stat -f -c %%T /var)" != tmpfs ] || { echo "kubelet: /var is a tmpfs, and a node needs a disk for it (docs/guides/sysext.md)" >&2; exit 78; }'

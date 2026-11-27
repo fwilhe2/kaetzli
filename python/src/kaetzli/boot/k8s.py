@@ -1,5 +1,5 @@
 """test/k8s.py: a three-node cluster through tools/k8s-demo.py (kaetzli.k8s_demo), up, its
-guests listed, and down again, so that a change which breaks kubeadm, CRI-O, the pod
+guests listed, and down again, so that a change which breaks kubeadm, containerd, the pod
 network or the Service across nodes fails CI.
 
     ./test/k8s.py [rootfs.erofs] [bzImage]

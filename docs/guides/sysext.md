@@ -14,8 +14,10 @@ rebuilding extensions.
 
 - **`podman`**: Podman, Quadlet, netavark, aardvark-dns, pasta, and rootless ID mapping
   tools.
-- **`kubernetes`**: kubelet, kubeadm, kubectl, CRI-O, crictl, and CNI plugins. Its
-  configuration extension supplies the matching `/etc` entries.
+- **`kubernetes`**: kubelet, kubeadm, kubectl, containerd (with `ctr` and the runc v2
+  shim, running crun), crictl, and CNI plugins. Its configuration extension supplies the
+  matching `/etc` entries, `/etc/containerd/config.toml` among them. containerd starts at
+  boot, before a cloud's [user data](user-data.md) runs.
 - **`debug`**: strace, perf, bpftool, tcpdump, gdbserver, socat, and jq.
 
 The base provides the kernel, `crun`, `conmon`, and libraries used by the extensions.
@@ -68,7 +70,8 @@ package tree, the image build uses `./tools/build-extension.sh staged <name>` in
 ## Kubernetes node and demo
 
 Kubernetes runs on the base plus the `kubernetes` sysext and confext. Paths that Kubernetes
-expects to write under `/etc` are links into `/var` or `/run`; the root remains read-only.
+expects to write under `/etc` are links into `/var` or `/run`, so they work under Secure
+Boot too, where `/etc` has no writable overlay; the root remains read-only.
 A node needs a persistent `/var` disk for its identity and state.
 
 Start the included three-node demo with:

@@ -687,14 +687,15 @@ jobs:
       # qemu-system-arm is the package with qemu-system-aarch64. virtiofsd, socat and
       # vhost_vsock are test/vmm.py's, which skips what the host cannot provide. ovmf is
       # the Secure Boot firmware the launcher finds through qemu's firmware descriptors,
-      # swtpm the vTPM test/secureboot.py reads PCR 11 from.
+      # swtpm the vTPM test/secureboot.py reads PCR 11 from, qemu-utils the qemu-img
+      # tools/build-disk.sh makes its qcow2 with.
       - name: Install qemu
         run: |
           sudo apt-get -o Acquire::Retries=5 update
           if [ "${{ matrix.arch }}" = arm64 ]; then
             sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-arm ipxe-qemu qemu-efi-aarch64
           else
-            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf swtpm
+            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf swtpm qemu-utils
           fi
           sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
@@ -733,6 +734,19 @@ jobs:
           podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$REGISTRY_TOKEN"
           ./tools/sign-uki.sh artifacts/kaetzli.efi
           ./test/secureboot.py artifacts/rootfs.erofs
+
+      # The image as a bootable disk (tools/build-disk.sh), booted by OVMF from its ESP as a
+      # VMM or cloud boots one: both buses, with and without /var, and OpenStack's preset.
+      # amd64 for now.
+      - name: Check the bootable disk
+        if: matrix.arch == 'amd64'
+        run: |
+          ./tools/build-disk.sh --image artifacts --name disk
+          DISK_BUS=virtio ./test/disk.py output/disk.qcow2
+          ./tools/build-disk.sh --image artifacts --name disk-scsi --bus scsi --var-size 0
+          DISK_BUS=scsi ./test/disk.py output/disk-scsi.qcow2
+          ./tools/build-disk.sh --image artifacts --name disk-openstack --cloud openstack
+          ./test/disk.py output/disk-openstack.qcow2
 
       # The same from the launcher, as a user runs it: its own key made, the UKI signed and
       # the variable store written in Go (go/internal/authenticode, efivars), the host's
@@ -806,6 +820,12 @@ jobs:
 
       - name: Check system extensions
         run: ./test/sysext.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
+      - name: Check user data from a metadata service
+        run: ./test/user-data.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
+      - name: Check containerd (the kubernetes extension)
+        run: ./test/containerd.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
       - name: Check Firecracker- and Virtualization.framework-shaped boots
         run: ./test/vmm.py artifacts/rootfs.erofs rootfs/boot/bzImage

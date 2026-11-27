@@ -8,7 +8,7 @@ The suite is Kubernetes' own e2e_node.test, built by tools/build-node-e2e.sh fro
 tarball packages/kubernetes pins, and driven by ginkgo inside the guest. It needs no
 cluster: it runs etcd and kube-apiserver linked into itself, and starts the node's
 kubelet (the extension's /usr/bin/kubelet) through systemd-run against the extension's
-CRI-O. This is how upstream's node e2e jobs run it, and what replaced the containerized
+containerd. This is how upstream's node e2e jobs run it, and what replaced the containerized
 node-test image the Kubernetes documentation still describes, which expects the API
 server's long-gone insecure port.
 
@@ -20,13 +20,13 @@ changed:
 
   - the extension's kubelet.service masked, since the suite starts a kubelet of its own
   - a bridge CNI config, as a cluster's CNI DaemonSet would write it
-  - a CRI-O runtime handler named test-handler, which the RuntimeClass and PodOverhead
+  - a containerd runtime handler named test-handler, which the RuntimeClass and PodOverhead
     specs expect every test node to define (crun, under another name)
 
 Failures are listed by spec name at the end, and in CI also as error annotations and in
 the job summary. The full ginkgo output is in
 output/node-conformance/run.log, and the suite's own results (junit, kubelet.log,
-services.log for etcd and the API server, crio.log) in output/node-conformance/results/.
+services.log for etcd and the API server, containerd.log) in output/node-conformance/results/.
 The guest's console is output/node-conformance-console.log.
 
 Overrides, from the environment:
@@ -80,19 +80,23 @@ cat > /etc/cni/net.d/10-node-e2e.conflist <<'EOF'
 }
 EOF
 
-# CRI-O reads one drop-in directory, and the confext's is read-only: a copy of it in /run,
-# plus the handler, named on CRI-O's command line for this boot only.
-mkdir -p /run/node-e2e/crio.conf.d /run/systemd/system/crio.service.d
-cp /etc/crio/crio.conf.d/* /run/node-e2e/crio.conf.d/
-cat > /run/node-e2e/crio.conf.d/90-test-handler.conf <<'EOF'
-[crio.runtime.runtimes.test-handler]
-runtime_path = "/usr/bin/crun"
-runtime_root = "/run/crun"
+# containerd's configuration with the handler added, in /run and named on its command
+# line for this boot only, so nothing is written into /etc: the extension's runc handler
+# under another name (crun, through the runc v2 shim).
+mkdir -p /run/node-e2e /run/systemd/system/containerd.service.d
+cp /etc/containerd/config.toml /run/node-e2e/containerd.toml
+cat >> /run/node-e2e/containerd.toml <<'EOF'
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.test-handler]
+  runtime_type = 'io.containerd.runc.v2'
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.test-handler.options]
+    BinaryName = '/usr/bin/crun'
+    SystemdCgroup = true
 EOF
-printf '[Service]\nExecStart=\nExecStart=/usr/bin/crio --config-dir=/run/node-e2e/crio.conf.d\n' \
-    > /run/systemd/system/crio.service.d/90-node-e2e.conf
+printf '[Service]\nExecStart=\nExecStart=/usr/bin/containerd --config /run/node-e2e/containerd.toml\n' \
+    > /run/systemd/system/containerd.service.d/90-node-e2e.conf
 systemctl daemon-reload
-systemctl restart crio
+systemctl restart containerd
 crictl info > /dev/null
 mkdir -p /var/lib/node-e2e
 # The suite looks for the kubelet next to itself.
@@ -240,13 +244,13 @@ class Node:
             time.sleep(3)
 
     def versions(self) -> str:
-        # cut -d' ' -f2, awk 'NR == 1 {print "CRI-O " $3}', head -1, as bash had them.
+        # cut -d' ' -f2, the third field of `containerd --version`, head -1.
         kubelet = self.out("kubelet", "--version").rstrip("\n")
         kubelet = kubelet.split(" ")[1] if " " in kubelet else kubelet
-        crio = [*self.out("crio", "--version").split("\n")[0].split(), "", "", ""][2]
+        containerd = [*self.out("containerd", "--version").split("\n")[0].split(), "", "", ""][2]
         crun = self.out("crun", "--version").split("\n")[0]
         kernel = self.out("uname", "-r").rstrip("\n")
-        return f"   kubelet {kubelet}, CRI-O {crio}, {crun}, kernel {kernel}"
+        return f"   kubelet {kubelet}, containerd {containerd}, {crun}, kernel {kernel}"
 
 
 def suite_command(focus: str, skip: str, procs: str, timeout: str) -> str:
@@ -254,10 +258,10 @@ def suite_command(focus: str, skip: str, procs: str, timeout: str) -> str:
         f"cd /var/lib/node-e2e && ./ginkgo --no-color --silence-skips --procs={procs} "
         f"--timeout={timeout} --focus={shlex.quote(focus)} --skip={shlex.quote(skip)} "
         "./e2e_node.test -- "
-        "--container-runtime-endpoint=unix:///run/crio/crio.sock "
-        "--container-runtime-process-name=/usr/bin/crio --container-runtime-pid-file= "
+        "--container-runtime-endpoint=unix:///run/containerd/containerd.sock "
+        "--container-runtime-process-name=/usr/bin/containerd --container-runtime-pid-file= "
         "--kubelet-flags='--cgroup-driver=systemd --cgroups-per-qos=true --cgroup-root=/ "
-        "--runtime-cgroups=/system.slice/crio.service' "
+        "--runtime-cgroups=/system.slice/containerd.service' "
         "--report-dir=/var/lib/node-e2e/results --prepull-images=false"
     )
 
@@ -349,7 +353,7 @@ def tee(node: Node, command: str, path: Path) -> int:
 def copy_results(node: Node) -> None:
     ssh = subprocess.Popen(
         ["ssh", "-F", node.config, "-o", "ServerAliveInterval=30", "kaetzli",
-         "journalctl -u crio --no-pager > /var/lib/node-e2e/results/crio.log; "
+         "journalctl -u containerd --no-pager > /var/lib/node-e2e/results/containerd.log; "
          "tar -C /var/lib/node-e2e -c results"],
         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
     )  # fmt: skip

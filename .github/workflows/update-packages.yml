@@ -323,7 +323,7 @@ jobs:
           Release notes: $URL
 
           The builder tag changes, so CI rebuilds the builder and every package; what this
-          compiler builds is podman, Kubernetes, CRI-O, the CNI plugins (Go) or netavark
+          compiler builds is podman, Kubernetes, containerd, the CNI plugins (Go) or netavark
           and aardvark-dns (Rust).
 
           Opened automatically by \`.github/workflows/update-packages.yml\`. Closing this

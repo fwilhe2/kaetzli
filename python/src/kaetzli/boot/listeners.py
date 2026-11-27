@@ -6,7 +6,7 @@ test/image-files/ holds the files to a list; this holds the sockets to one.
     ./test/listeners.py [rootfs.erofs] [bzImage]
 
 One boot per round: the base image, then with each extension that starts a daemon at
-boot attached (SYSEXTS): kubernetes, for CRI-O. podman's starts nothing at boot, so a
+boot attached (SYSEXTS): kubernetes, for containerd. podman's starts nothing at boot, so a
 round of its own would boot the base again. kubelet runs only once kubeadm has
 configured it, so its :10250 is test/k8s.py's.
 
@@ -31,7 +31,7 @@ import sys
 from kaetzli.boot import boot, run
 
 # What each round must listen on, as "proto address:port process". A round lists only
-# what it adds to the base. sshd, on both families, is all the base has; CRI-O's
+# what it adds to the base. sshd, on both families, is all the base has; containerd's
 # streaming server is on loopback.
 EXPECTED: dict[str, list[str]] = {
     "base": ["tcp 0.0.0.0:22 sshd", "tcp [::]:22 sshd"],

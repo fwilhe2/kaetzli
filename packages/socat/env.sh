@@ -1,6 +1,6 @@
 # socat: a bidirectional pipe between any two of TCP, UDP, unix sockets, vsock, ptys and
 # files. Here for talking to the sockets things on this image listen on — podman's API,
-# CRI-O's, systemd's varlink services — and for the vsock a Firecracker or
+# containerd's, systemd's varlink services — and for the vsock a Firecracker or
 # Virtualization.framework host reaches the guest through. curl covers HTTP over a unix
 # socket; socat is everything that is not HTTP. C, against the OpenSSL the base ships.
 VERSION="1.8.1.3"
