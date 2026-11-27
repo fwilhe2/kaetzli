@@ -817,42 +817,12 @@ jobs:
           name: boot-console-log-${{ matrix.arch }}
           path: output/*.log
 
-  # grind from main, which turns the CVE reports into a workbook (test/cve-workbook.sh).
-  # Builds alongside the image. Gates nothing.
-  grind:
-    needs: changes
-    if: needs.changes.outputs.build == 'true'
-    runs-on: *runner
-    continue-on-error: true
-    permissions:
-      contents: read
-    strategy: *per-arch
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: fwilhe2/grind
-
-      - name: Build grind
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          cargo build --locked --release --no-default-features -p grind-cli
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: grind-${{ matrix.arch }}
-          path: target/release/grind
-          if-no-files-found: error
-
   # Known vulnerabilities in what this build ships (test/cve-scan.py), and how the count
   # has moved over the last builds on main (test/cve-history.py). Observing only: nothing
   # waits on it, and it cannot fail the run.
   cve-scan:
     runs-on: *runner
-    needs:
-      - rootfs
-      - grind
-    # Without grind the scan still runs, and the workbook step ends in a note.
+    needs: rootfs
     if: ${{ !cancelled() && needs.rootfs.result == 'success' }}
     continue-on-error: true
     permissions:
@@ -901,19 +871,16 @@ jobs:
           GO_TREES: trees
         run: ./test/cve-scan.py output
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      # grind, which turns the CVE reports into a workbook (test/cve-workbook.sh): its
+      # released binary, checked against the release's SHA-256, on the PATH. Without it the
+      # workbook step ends in a note.
+      - uses: fwilhe2/grind@1e7b4cf0ec3de27ab946275cc10500cf60ed056c # main, its setup action
         continue-on-error: true
         with:
-          name: grind-${{ matrix.arch }}
-          path: grind
+          version: v0.2.0
 
       - name: The reports as a workbook
-        run: |
-          if [ -f grind/grind ]; then
-            chmod +x grind/grind # an artifact does not keep the mode
-            export GRIND=$PWD/grind/grind
-          fi
-          ./test/cve-workbook.sh output
+        run: ./test/cve-workbook.sh output
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
