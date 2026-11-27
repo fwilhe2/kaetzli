@@ -63,21 +63,47 @@ After=containerd.service
 UNIT
 
 # containerd's own defaults, with the runc v2 shim running the base's crun (which takes
-# runc's command line), the systemd cgroup driver, and the opt plugin's directory in /var
-# rather than the read-only /opt/containerd, and the CNI plugins cni-plugins ships in
-# /usr/libexec/cni ahead of /opt/cni/bin, where a cluster's CNI DaemonSet copies its own.
-# Goes to the extension's confext.
+# runc's command line), the systemd cgroup driver, the base spec below, the opt plugin's
+# directory in /var rather than the read-only /opt/containerd, and the CNI plugins
+# cni-plugins ships in /usr/libexec/cni ahead of /opt/cni/bin, where a cluster's CNI
+# DaemonSet copies its own. Goes to the extension's confext.
 # Gardener's node agent keeps a config.toml it finds and patches only the sandbox image,
 # CNI directories, SystemdCgroup and the OSC's plugin entries into it (pkg/nodeagent/
 # controller/operatingsystemconfig/containerd_config.go), so BinaryName survives; without
 # this file it writes `containerd config default`, whose shim looks for runc.
 install -d "$ROOTFS/etc/containerd"
 "$ROOTFS/usr/bin/containerd" config default > /tmp/containerd-config.toml
+
+# The base OCI spec of every pod container, for one annotation. With the systemd cgroup
+# driver crun puts a container's processes in a `container` subgroup below the cgroup
+# containerd names, unless run.oci.systemd.subgroup says otherwise, and kubelet's
+# cAdvisor counts that cgroup's processes: 0, which the node e2e Summary API test fails
+# (CRI-O set the same annotation by default). runc has no subgroup, so this is how a
+# containerd pod is laid out anywhere else. containerd's CRI has no default annotations,
+# only a base spec: ctr's (the same defaults the CRI starts from) without what the CRI
+# would otherwise clear when there is no base spec (WithoutDefaultSecuritySettings:
+# AppArmor, seccomp, rlimits), so the rest of a pod's spec is unchanged.
+"$ROOTFS/usr/bin/ctr" oci spec > /tmp/containerd-base-spec.json
+python3 - /tmp/containerd-base-spec.json "$ROOTFS/etc/containerd/cri-base.json" <<'PY2'
+import json, sys
+spec = json.load(open(sys.argv[1]))
+spec["process"].pop("apparmorProfile", None)
+spec["process"].pop("rlimits", None)
+spec.get("linux", {}).pop("seccomp", None)
+spec.setdefault("annotations", {})["run.oci.systemd.subgroup"] = ""
+with open(sys.argv[2], "w") as f:
+    json.dump(spec, f, indent=2, sort_keys=True)
+    f.write("\n")
+PY2
 # The table, at whatever depth the TOML encoder indents it.
 runc_options="^ *\[plugins\.'io\.containerd\.cri\.v1\.runtime'\.containerd\.runtimes\.runc\.options\]$"
 grep -qE "$runc_options" /tmp/containerd-config.toml || {
     echo "containerd: no runc options table in its default config" >&2; exit 1; }
-sed -E "/$runc_options/,/^ *\[/{
+runc_table="^ *\[plugins\.'io\.containerd\.cri\.v1\.runtime'\.containerd\.runtimes\.runc\]$"
+sed -E "/$runc_table/,/^ *\[/{
+    s#^( *)base_runtime_spec = .*#\1base_runtime_spec = '/etc/containerd/cri-base.json'#
+}
+/$runc_options/,/^ *\[/{
     s#^( *)BinaryName = .*#\1BinaryName = '/usr/bin/crun'#
     s#^( *)SystemdCgroup = .*#\1SystemdCgroup = true#
 }
@@ -90,7 +116,8 @@ sed -E "/$runc_options/,/^ *\[/{
 grep -q "BinaryName = '/usr/bin/crun'" "$ROOTFS/etc/containerd/config.toml" \
     && grep -q "SystemdCgroup = true" "$ROOTFS/etc/containerd/config.toml" \
     && grep -q "path = '/var/lib/containerd/opt'" "$ROOTFS/etc/containerd/config.toml" \
-    && grep -q "bin_dirs = \['/usr/libexec/cni', '/opt/cni/bin'\]" "$ROOTFS/etc/containerd/config.toml" || {
-    echo "containerd: could not set BinaryName, SystemdCgroup, the opt path and the CNI directories in config.toml" >&2
+    && grep -q "bin_dirs = \['/usr/libexec/cni', '/opt/cni/bin'\]" "$ROOTFS/etc/containerd/config.toml" \
+    && grep -q "base_runtime_spec = '/etc/containerd/cri-base.json'" "$ROOTFS/etc/containerd/config.toml" || {
+    echo "containerd: could not set BinaryName, SystemdCgroup, the opt path, the CNI directories and the base spec in config.toml" >&2
     exit 1
 }

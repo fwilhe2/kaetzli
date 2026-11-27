@@ -89,6 +89,7 @@ cat >> /run/node-e2e/containerd.toml <<'EOF'
 
 [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.test-handler]
   runtime_type = 'io.containerd.runc.v2'
+  base_runtime_spec = '/etc/containerd/cri-base.json'
   [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.test-handler.options]
     BinaryName = '/usr/bin/crun'
     SystemdCgroup = true
