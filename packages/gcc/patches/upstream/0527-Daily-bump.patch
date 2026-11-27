@@ -1,0 +1,77 @@
+From 1205fccd88ae4724d0fb2ad6915796cf42690a69 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Fri, 27 Nov 2026 00:20:55 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/ChangeLog           |  9 +++++++++
+ gcc/DATESTAMP           |  2 +-
+ gcc/ada/ChangeLog       |  8 ++++++++
+ gcc/testsuite/ChangeLog | 17 +++++++++++++++++
+ 4 files changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/ChangeLog b/gcc/ChangeLog
+index 5f95899e9e27..365c4eb96d75 100644
+--- a/gcc/ChangeLog
++++ b/gcc/ChangeLog
+@@ -1,3 +1,12 @@
++2026-11-26  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-26  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128985
++	* config/i386/i386-expand.cc (ix86_prepare_fp_compare_args):
++	Convert BFmode EQ/NE to SFmode under AVX10.2 when NaNs are honored.
++
+ 2026-11-25  Jeff Law  <jeffreyalaw@gmail.com>
+ 
+ 	Backported from master:
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index cc7af6be3b56..4141c449662a 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261126
++20261127
+diff --git a/gcc/ada/ChangeLog b/gcc/ada/ChangeLog
+index c0fc3c801023..12a28ba9ce45 100644
+--- a/gcc/ada/ChangeLog
++++ b/gcc/ada/ChangeLog
+@@ -1,3 +1,11 @@
++2026-11-26  Eric Botcazou  <ebotcazou@adacore.com>
++
++	PR ada/128723
++	PR ada/129058
++	* sem_aggr.adb (Resolve_Array_Aggregate.Resolve_Aggr_Expr):
++	Copy the expression by means of New_Copy_Tree.
++	(Resolve_Delta_Array_Aggregate): Likewise.
++
+ 2026-11-23  Eric Botcazou  <ebotcazou@adacore.com>
+ 
+ 	* exp_ch4.adb (Expand_Allocator_Expression): Allocate the maximum
+diff --git a/gcc/testsuite/ChangeLog b/gcc/testsuite/ChangeLog
+index b6920813a806..62a602a6dede 100644
+--- a/gcc/testsuite/ChangeLog
++++ b/gcc/testsuite/ChangeLog
+@@ -1,3 +1,20 @@
++2026-11-26  Eric Botcazou  <ebotcazou@adacore.com>
++
++	* gnat.dg/specs/aggr13.ads: New test.
++	* gnat.dg/specs/aggr13_pkg.ads: New helper.
++
++2026-11-26  Hongyu Wang  <hongyu.wang@intel.com>
++
++	Backported from master:
++	2026-11-26  Hongyu Wang  <hongyu.wang@intel.com>
++
++	PR target/128985
++	* gcc.target/i386/avx10_2-comibf-1.c: Adjust scan.
++	* gcc.target/i386/avx10_2-comibf-3.c: Likewise.
++	* gcc.target/i386/avx10_2-comibf-2.c: Test NaN.
++	* gcc.target/i386/avx10_2-comibf-5.c: New test.
++	* gcc.target/i386/avx10_2-comibf-6.c: Likewise.
++
+ 2026-11-25  Marek Polacek  <polacek@redhat.com>
+ 
+ 	Backported from master:
