@@ -18,8 +18,9 @@ Boot on:
             ssh key credential arrived, /var is the disk the credentials named
             (fstab.extra), with the machine ID kept beside it (system.machine_id), fetch
             says "Secure Boot: enabled",
-            /var/lib/extensions and /var/lib/confexts are covered by an empty read-only
-            tmpfs, so nothing on that unverified disk merges, and — under a vTPM (swtpm)
+            /var/lib/extensions, /var/lib/confexts and /var/lib/extensions.mutable are
+            covered by an empty read-only tmpfs, so nothing on that unverified disk
+            merges and /etc stays read-only, and — under a vTPM (swtpm)
             — PCR 11 is the value image/pcr.py predicts for that UKI, and, when it was
             sealed without extensions, the kaetzli.pcr.json published beside the image.
   unsigned  output/kaetzli.efi, the same UKI before signing: the firmware has to refuse
@@ -113,8 +114,9 @@ def signed_boot(b, m, root_hash: str, var_disk: str, expected: str) -> None:
             f"ls /run/credentials/@system/; findmnt -no SOURCE /var; cat /etc/machine-id; "
             "fetch --no-color | grep 'Secure Boot:'; "
             "echo SB-PCR11 $(cat /sys/class/tpm/tpm0/pcr-sha256/11); "
-            "for d in extensions confexts; do "
+            "for d in extensions confexts extensions.mutable; do "
             'echo "SB-VARLIB $d $(findmnt -no FSTYPE,OPTIONS /var/lib/$d)"; done; '
+            "touch /etc/sb-etc-test 2>/dev/null && echo SB-ETC-WRITABLE; "
             f"echo {MARKER[:6]}'{MARKER[6:]}'"
         )
         if not g.wait(MARKER, 60):
@@ -141,7 +143,12 @@ def signed_boot(b, m, root_hash: str, var_disk: str, expected: str) -> None:
                 f"PCR 11 is {measured or 'unreadable'} (/sys/class/tpm/tpm0/pcr-sha256/11), but "
                 f"image/pcr.py predicts {expected}: the stub measured something else, or nothing"
             )
-        for d in ("extensions", "confexts"):
+        if "SB-ETC-WRITABLE" in tail:
+            g.fail(
+                "/etc is writable under Secure Boot: its writes would land on the unverified "
+                "/var disk (var-lib-extensions.mutable.mount, image/files/etc/systemd/confext.conf)"
+            )
+        for d in ("extensions", "confexts", "extensions.mutable"):
             line = next((x for x in tail.splitlines() if x.startswith(f"SB-VARLIB {d} ")), "")
             fstype, _, opts = line.removeprefix(f"SB-VARLIB {d} ").partition(" ")
             if fstype != "tmpfs" or "ro" not in opts.split(","):

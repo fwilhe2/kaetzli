@@ -12,6 +12,10 @@
   "SYSTEMD-ROFS:[0]\n"
  ],
  [
+  "extensions.mutable",
+  "SYSTEMD-ETC:[0]\n"
+ ],
+ [
   "journalctl -b -q -p err",
   "ERRS> Jan 01 kaetzli foo[12]: something broke\nERRS> Jan 01 kaetzli bar[13]: so did this\nSYSTEMD-ERRS:[2]\n"
  ],

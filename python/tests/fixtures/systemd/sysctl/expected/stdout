@@ -4,5 +4,6 @@
 >> systemd OK: system is running, no failed units
 >> systemd OK: taint string is empty
 >> systemd OK: nothing tried to write to the read-only root
+>> systemd OK: the boot wrote nothing into /etc
 >> systemd OK: no errors in the journal
 >> systemd OK: /etc/bashrc aliases load in login and non-login shells

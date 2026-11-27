@@ -12,7 +12,9 @@ Python has to reproduce it byte for byte.
 Deliberate differences are edited into expected/: listeners/extra names the Python
 module, where the expected list now lives, rather than the bash script; systemd/ok and
 systemd/exposure-* end with the services' exposure, which the bash test never checked, and
-the two that pass with the boot's time.
+the two that pass with the boot's time; every systemd case that gets past the read-only
+check has the /etc upper-layer check after it (SYSTEMD-ETC), also new, and etc-written is
+its failure.
 """
 
 from __future__ import annotations

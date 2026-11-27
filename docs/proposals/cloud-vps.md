@@ -1,8 +1,11 @@
 # Kaetzli as a cloud VPS's own system
 
-**Status: proposal, nothing implemented.** The provider notes are from the providers'
-documentation and community reports as of November 2026; no provider has booted kaetzli
-yet. Firmware modes in particular change (Hetzner moved new x86 types to UEFI in 2023), so
+**Status: proposal; the disk exists** ([bootable disk](../guides/disk.md):
+`tools/build-disk.sh`, virtio-blk or virtio-scsi, a key by `--ssh-key`, OpenStack's
+user data by `--cloud openstack`), booted under OVMF by `test/disk.py`; no provider
+has been tried. The
+provider notes are from the providers' documentation and community reports as of November
+2026; no provider has booted kaetzli yet. Firmware modes in particular change (Hetzner moved new x86 types to UEFI in 2023), so
 a test boot on the chosen provider settles each row.
 
 Running kaetzli *inside* a VPS works today: install qemu on any Linux VPS and use the

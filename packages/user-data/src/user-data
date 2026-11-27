@@ -1,0 +1,99 @@
+#!/bin/bash
+# Fetch this instance's user data from the cloud's metadata service and run it: what a
+# provisioning system (Gardener's OperatingSystemConfig, an operator's own script) hands a
+# VM it creates. Started by kaetzli-user-data.service, only when the kernel command line
+# names a source:
+#
+#     kaetzli.user-data=openstack    http://169.254.169.254/openstack/latest/
+#
+# The user data must be a script (`#!` on its first line); it runs as root, once per
+# instance: the instance's UUID is recorded in /var/lib/kaetzli-user-data when it
+# succeeds, so with /var on a disk a reboot does not run it again, and with /var in RAM
+# (nothing of the last boot kept) every boot does. A failure leaves nothing recorded and
+# fails the unit, so the next boot tries again. Anything else (cloud-init's
+# #cloud-config) is logged and left alone: there is no cloud-init here.
+#
+# No config drive: the kernel has no ISO 9660 (packages/kernel/build.sh), and OpenStack's
+# metadata service carries the same files.
+set -euo pipefail
+
+state=${STATE_DIRECTORY:-/var/lib/kaetzli-user-data}
+run=${RUNTIME_DIRECTORY:-/run/kaetzli-user-data}
+# Overridable for tests only (python/tests/test_user_data.py); the address is the same on
+# every OpenStack.
+base=${USER_DATA_BASE:-http://169.254.169.254}
+cmdline=${USER_DATA_CMDLINE:-/proc/cmdline}
+
+source=
+for arg in $(<"$cmdline"); do
+    case $arg in
+        kaetzli.user-data=*) source=${arg#*=} ;;
+    esac
+done
+
+case $source in
+    openstack) url=$base/openstack/latest ;;
+    *)
+        echo "<3>kaetzli.user-data=$source: unknown source (known: openstack)"
+        exit 1
+        ;;
+esac
+
+# GET $1 into $2 and print the HTTP status; 000 when the service never answered. The
+# metadata service can lag the DHCP lease by seconds, hence the retries on what curl
+# counts as transient (refused, timed out, 5xx), never on a 404.
+get() {
+    curl --silent --show-error --location --output "$2" --write-out '%{http_code}' \
+        --connect-timeout 5 --max-time 30 \
+        --retry 20 --retry-delay 2 --retry-connrefused \
+        "$url/$1" || true
+}
+
+umask 077
+meta=$run/meta_data.json
+status=$(get meta_data.json "$meta")
+if [[ $status != 200 ]]; then
+    echo "<3>$url/meta_data.json: HTTP $status, no metadata service"
+    exit 1
+fi
+# meta_data.json is one JSON object, and "uuid" one of its top-level string keys; jq is
+# not in the base image (the debug extension has it).
+uuid=$(sed -n 's/.*"uuid"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F-]*\)".*/\1/p' "$meta")
+if [[ -z $uuid ]]; then
+    echo "<3>$url/meta_data.json: no instance uuid"
+    exit 1
+fi
+echo "instance $uuid"
+
+if [[ -f $state/done && $(<"$state/done") == "$uuid" ]]; then
+    echo "user data already ran for this instance"
+    exit 0
+fi
+
+data=$run/user_data
+status=$(get user_data "$data")
+case $status in
+    200) ;;
+    404)
+        echo "no user data"
+        printf '%s\n' "$uuid" > "$state/done"
+        exit 0
+        ;;
+    *)
+        echo "<3>$url/user_data: HTTP $status"
+        exit 1
+        ;;
+esac
+
+if [[ $(head -c 2 "$data") != '#!' ]]; then
+    echo "<4>user data is not a script (no #! on its first line), not run: $(head -n 1 "$data" | cut -c 1-60)"
+    printf '%s\n' "$uuid" > "$state/done"
+    exit 0
+fi
+
+chmod 700 "$data"
+echo "running user data ($(wc -c < "$data") bytes)"
+umask 022
+"$data"
+printf '%s\n' "$uuid" > "$state/done"
+echo "user data done"
