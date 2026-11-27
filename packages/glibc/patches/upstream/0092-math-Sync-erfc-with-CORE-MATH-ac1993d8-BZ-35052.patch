@@ -1,0 +1,475 @@
+From c7f65355ebd788c705ef6dddd6030bab679f7791 Mon Sep 17 00:00:00 2001
+From: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date: Wed, 25 Nov 2026 12:32:38 -0300
+Subject: [PATCH] math: Sync erfc with CORE-MATH ac1993d8 (BZ 35052)
+
+It syncs with CORE-MATH up to commit ac1993d8, which brings the fix
+from commit 9dc99d96 for a spurious underflow exception.  For inputs
+slightly below 0x1.9db1bb14e15cap+4, the computation in
+erfc_asympt_fast raises underflow although the result (around 2^-970)
+is a normal number.
+
+The new tests are the erfc worst-case inputs that CORE-MATH added for
+this issue (commit 3822ff89).
+
+Checked on x86_64-linux-gnu, aarch64-linux-gnu, and
+powerpc64le-linux-gnu.
+
+Reviewed-by: Paul Zimmermann <Paul.Zimmermann@inria.fr>
+(cherry picked from commit 655640eba70c68de0b203a0e0c90852533c155e8)
+---
+ NEWS                            |   1 +
+ SHARED-FILES                    |   2 +-
+ math/auto-libm-test-in          |   6 +
+ math/auto-libm-test-out-erfc    | 345 ++++++++++++++++++++++++++++++++
+ sysdeps/ieee754/dbl-64/s_erfc.c |  19 +-
+ 5 files changed, 370 insertions(+), 3 deletions(-)
+
+diff --git a/NEWS b/NEWS
+index d870637e8359..35f7d8648725 100644
+--- a/NEWS
++++ b/NEWS
+@@ -97,6 +97,7 @@ The following bugs are resolved with this release:
+     (CVE-2026-100290)
+   [34993] glob: double free in prefix_array after a memory allocation
+     failure (CVE-2026-126765)
++  [35052] math: erfc raises spurious underflow
+   [35053] math: math: lgammaf@GLIBC_2.23 writes to signgam since 2.43
+ 
+ Version 2.44
+diff --git a/SHARED-FILES b/SHARED-FILES
+index d5594d2059a9..8b0b031a1cfa 100644
+--- a/SHARED-FILES
++++ b/SHARED-FILES
+@@ -278,7 +278,7 @@ core-math:
+   sysdeps/ieee754/dbl-64/s_asinh.c
+   # src/binary64/erf/erf.c, revision 384ed01d
+   sysdeps/ieee754/dbl-64/s_erf.c
+-  # src/binary64/erfc/erfc.c, revision 55e9869e
++  # src/binary64/erfc/erfc.c, revision ac1993d8
+   sysdeps/ieee754/dbl-64/s_erfc.c
+   # src/binary64/tanh/tanh.c, revision cf237fa0
+   sysdeps/ieee754/dbl-64/s_tanh.c
+diff --git a/math/auto-libm-test-in b/math/auto-libm-test-in
+index 5c4d486af4c6..cd08fa5a2eb6 100644
+--- a/math/auto-libm-test-in
++++ b/math/auto-libm-test-in
+@@ -5806,6 +5806,12 @@ erfc 0x1.a8f7bfbd15495p+4
+ # the next value generates larger error bounds on x86_64 (binary64)
+ erfc 0x1.3ffcbf39febb4p+0
+ 
++erfc 0x1.9d9af563b360dp+4
++erfc 0x1.9d9af563b360ep+4
++erfc 0x1.9da0115479bf1p+4
++erfc 0x1.9da8686f7a64cp+4
++erfc 0x1.9db1bb14cd932p+4
++
+ exp 0
+ exp -0
+ exp 1
+diff --git a/math/auto-libm-test-out-erfc b/math/auto-libm-test-out-erfc
+index c9572194fd69..f5446560a698 100644
+--- a/math/auto-libm-test-out-erfc
++++ b/math/auto-libm-test-out-erfc
+@@ -4582,3 +4582,348 @@ erfc 0x1.3ffcbf39febb4p+0
+ = erfc tonearest ibm128 0x1.3ffcbf39febb4p+0 : 0x1.3bd962ebb773644beafd5d55b38p-4 : inexact-ok
+ = erfc towardzero ibm128 0x1.3ffcbf39febb4p+0 : 0x1.3bd962ebb773644beafd5d55b3p-4 : inexact-ok
+ = erfc upward ibm128 0x1.3ffcbf39febb4p+0 : 0x1.3bd962ebb773644beafd5d55b38p-4 : inexact-ok
++erfc 0x1.9d9af563b360dp+4
++= erfc downward binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9d9af6p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7378p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f6528p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f652cp-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f6528p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f652cp-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f68p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9d9af4p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5175p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de4p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de4p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a9p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a94p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a9p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a94p-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c8678p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867cp-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c8678p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867cp-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af563b360dp+4 : 0x5.55555555558fp-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af563b360dp+4 : 0x5.55555555558f4p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af563b360dp+4 : 0x5.55555555558fp-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af563b360dp+4 : 0x5.55555555558f4p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24ap-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a8p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690ad8p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690adcp-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690ad8p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690adcp-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b16908p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690cp-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b16908p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af563b360dp+4 : 0x5.55555555558f24a0e234b1690cp-972 : inexact-ok underflow errno-erange-ok
++erfc 0x1.9d9af563b360ep+4
++= erfc downward binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9d9af6p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9d9af6p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7374p-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af6p+4 : 0x5.554acdc4d7378p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375adp-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad8p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f6528p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f652cp-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f6528p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f652cp-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f64p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af6p+4 : 0x5.554acdc4d7375ad57add953f68p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9d9af4p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9d9af4p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5174cp-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af4p+4 : 0x5.556d4c1c5175p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de4p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de38p-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af4p+4 : 0x5.556d4c1c5174de4p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a9p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a94p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a9p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867a94p-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c8678p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867cp-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c8678p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af4p+4 : 0x5.556d4c1c5174de3bf8ae6c867cp-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9d9af563b360ep+4 : 0x5.55555555547bp-972 : inexact-ok
++= erfc tonearest binary64 0x1.9d9af563b360ep+4 : 0x5.55555555547b4p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9d9af563b360ep+4 : 0x5.55555555547bp-972 : inexact-ok
++= erfc upward binary64 0x1.9d9af563b360ep+4 : 0x5.55555555547b4p-972 : inexact-ok
++= erfc downward intel96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc upward intel96 0x1.9d9af563b360ep+4 : 0x5.55555555547b3348p-972 : inexact-ok
++= erfc downward m68k96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9d9af563b360ep+4 : 0x5.55555555547b334p-972 : inexact-ok
++= erfc upward m68k96 0x1.9d9af563b360ep+4 : 0x5.55555555547b3348p-972 : inexact-ok
++= erfc downward binary128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392f8p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392f84p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392f8p-972 : inexact-ok
++= erfc upward binary128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392f84p-972 : inexact-ok
++= erfc downward ibm128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392cp-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2393p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2392cp-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9d9af563b360ep+4 : 0x5.55555555547b33405552c2393p-972 : inexact-ok underflow errno-erange-ok
++erfc 0x1.9da0115479bf1p+4
++= erfc downward binary32 0x1.9da012p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9da012p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9da012p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9da012p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da012p+4 : 0x4.fff52a9d596d4p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da012p+4 : 0x4.fff52a9d596d4p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da012p+4 : 0x4.fff52a9d596d4p-972 : inexact-ok
++= erfc upward binary64 0x1.9da012p+4 : 0x4.fff52a9d596d8p-972 : inexact-ok
++= erfc downward intel96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc upward intel96 0x1.9da012p+4 : 0x4.fff52a9d596d416p-972 : inexact-ok
++= erfc downward m68k96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da012p+4 : 0x4.fff52a9d596d4158p-972 : inexact-ok
++= erfc upward m68k96 0x1.9da012p+4 : 0x4.fff52a9d596d416p-972 : inexact-ok
++= erfc downward binary128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b0936p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b0936p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b0936p-972 : inexact-ok
++= erfc upward binary128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b09364p-972 : inexact-ok
++= erfc downward ibm128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b09p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b094p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b09p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da012p+4 : 0x4.fff52a9d596d415bd166f6b094p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary32 0x1.9da01p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9da01p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9da01p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9da01p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da01p+4 : 0x5.0015816f414b8p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da01p+4 : 0x5.0015816f414bcp-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da01p+4 : 0x5.0015816f414b8p-972 : inexact-ok
++= erfc upward binary64 0x1.9da01p+4 : 0x5.0015816f414bcp-972 : inexact-ok
++= erfc downward intel96 0x1.9da01p+4 : 0x5.0015816f414bb7dp-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da01p+4 : 0x5.0015816f414bb7d8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da01p+4 : 0x5.0015816f414bb7dp-972 : inexact-ok
++= erfc upward intel96 0x1.9da01p+4 : 0x5.0015816f414bb7d8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9da01p+4 : 0x5.0015816f414bb7dp-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da01p+4 : 0x5.0015816f414bb7d8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da01p+4 : 0x5.0015816f414bb7dp-972 : inexact-ok
++= erfc upward m68k96 0x1.9da01p+4 : 0x5.0015816f414bb7d8p-972 : inexact-ok
++= erfc downward binary128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a4868cp-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a4869p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a4868cp-972 : inexact-ok
++= erfc upward binary128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a4869p-972 : inexact-ok
++= erfc downward ibm128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a484p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a488p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a484p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da01p+4 : 0x5.0015816f414bb7d55122b6a488p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da0115479bf1p+4 : 0x4.ffffffffff778p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da0115479bf1p+4 : 0x4.ffffffffff778p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da0115479bf1p+4 : 0x4.ffffffffff778p-972 : inexact-ok
++= erfc upward binary64 0x1.9da0115479bf1p+4 : 0x4.ffffffffff77cp-972 : inexact-ok
++= erfc downward intel96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc upward intel96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796dp-972 : inexact-ok
++= erfc downward m68k96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c8p-972 : inexact-ok
++= erfc upward m68k96 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796dp-972 : inexact-ok
++= erfc downward binary128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc183p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc1834p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc183p-972 : inexact-ok
++= erfc upward binary128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc1834p-972 : inexact-ok
++= erfc downward ibm128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc18p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc18p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc18p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da0115479bf1p+4 : 0x4.ffffffffff7796c896451ccc1cp-972 : inexact-ok underflow errno-erange-ok
++erfc 0x1.9da8686f7a64cp+4
++= erfc downward binary32 0x1.9da86ap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9da86ap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9da86ap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9da86ap+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da86ap+4 : 0x4.7fe93b3893c5p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da86ap+4 : 0x4.7fe93b3893c54p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da86ap+4 : 0x4.7fe93b3893c5p-972 : inexact-ok
++= erfc upward binary64 0x1.9da86ap+4 : 0x4.7fe93b3893c54p-972 : inexact-ok
++= erfc downward intel96 0x1.9da86ap+4 : 0x4.7fe93b3893c53cap-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da86ap+4 : 0x4.7fe93b3893c53cap-972 : inexact-ok
++= erfc upward intel96 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9da86ap+4 : 0x4.7fe93b3893c53cap-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da86ap+4 : 0x4.7fe93b3893c53cap-972 : inexact-ok
++= erfc upward m68k96 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca8p-972 : inexact-ok
++= erfc downward binary128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f5b4p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f5b8p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f5b4p-972 : inexact-ok
++= erfc upward binary128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f5b8p-972 : inexact-ok
++= erfc downward ibm128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f4p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f4p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f4p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da86ap+4 : 0x4.7fe93b3893c53ca77dc7c347f8p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary32 0x1.9da868p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9da868p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9da868p+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9da868p+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da868p+4 : 0x4.8006566a9131p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da868p+4 : 0x4.8006566a9131p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da868p+4 : 0x4.8006566a9131p-972 : inexact-ok
++= erfc upward binary64 0x1.9da868p+4 : 0x4.8006566a91314p-972 : inexact-ok
++= erfc downward intel96 0x1.9da868p+4 : 0x4.8006566a91311aa8p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da868p+4 : 0x4.8006566a91311abp-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da868p+4 : 0x4.8006566a91311aa8p-972 : inexact-ok
++= erfc upward intel96 0x1.9da868p+4 : 0x4.8006566a91311abp-972 : inexact-ok
++= erfc downward m68k96 0x1.9da868p+4 : 0x4.8006566a91311aa8p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da868p+4 : 0x4.8006566a91311abp-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da868p+4 : 0x4.8006566a91311aa8p-972 : inexact-ok
++= erfc upward m68k96 0x1.9da868p+4 : 0x4.8006566a91311abp-972 : inexact-ok
++= erfc downward binary128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddd18p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddd18p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddd18p-972 : inexact-ok
++= erfc upward binary128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddd1cp-972 : inexact-ok
++= erfc downward ibm128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddcp-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddcp-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245ddcp-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da868p+4 : 0x4.8006566a91311aae4d79245dep-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9da8686f7a64cp+4 : 0x4.80000000002a4p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9da8686f7a64cp+4 : 0x4.80000000002a4p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9da8686f7a64cp+4 : 0x4.80000000002a4p-972 : inexact-ok
++= erfc upward binary64 0x1.9da8686f7a64cp+4 : 0x4.80000000002a8p-972 : inexact-ok
++= erfc downward intel96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc upward intel96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a4268p-972 : inexact-ok
++= erfc downward m68k96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a426p-972 : inexact-ok
++= erfc upward m68k96 0x1.9da8686f7a64cp+4 : 0x4.80000000002a4268p-972 : inexact-ok
++= erfc downward binary128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84bp-972 : inexact-ok
++= erfc tonearest binary128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84b4p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84bp-972 : inexact-ok
++= erfc upward binary128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84b4p-972 : inexact-ok
++= erfc downward ibm128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b84p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9da8686f7a64cp+4 : 0x4.80000000002a42601defb00b88p-972 : inexact-ok underflow errno-erange-ok
++erfc 0x1.9db1bb14cd932p+4
++= erfc downward binary32 0x1.9db1bcp+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9db1bcp+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9db1bcp+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9db1bcp+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9db1bcp+4 : 0x3.fff41e2f38984p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9db1bcp+4 : 0x3.fff41e2f38986p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9db1bcp+4 : 0x3.fff41e2f38984p-972 : inexact-ok
++= erfc upward binary64 0x1.9db1bcp+4 : 0x3.fff41e2f38986p-972 : inexact-ok
++= erfc downward intel96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc upward intel96 0x1.9db1bcp+4 : 0x3.fff41e2f389858ecp-972 : inexact-ok
++= erfc downward m68k96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9db1bcp+4 : 0x3.fff41e2f389858e8p-972 : inexact-ok
++= erfc upward m68k96 0x1.9db1bcp+4 : 0x3.fff41e2f389858ecp-972 : inexact-ok
++= erfc downward binary128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947ada8p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947ada8p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947ada8p-972 : inexact-ok
++= erfc upward binary128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947adaap-972 : inexact-ok
++= erfc downward ibm128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947acp-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947acp-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947acp-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9db1bcp+4 : 0x3.fff41e2f389858e964839947bp-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary32 0x1.9db1bap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc tonearest binary32 0x1.9db1bap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc towardzero binary32 0x1.9db1bap+4 : 0x0p+0 : inexact-ok underflow errno-erange
++= erfc upward binary32 0x1.9db1bap+4 : 0x8p-152 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9db1bap+4 : 0x4.000dfe432dc68p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9db1bap+4 : 0x4.000dfe432dc6cp-972 : inexact-ok
++= erfc towardzero binary64 0x1.9db1bap+4 : 0x4.000dfe432dc68p-972 : inexact-ok
++= erfc upward binary64 0x1.9db1bap+4 : 0x4.000dfe432dc6cp-972 : inexact-ok
++= erfc downward intel96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc tonearest intel96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc upward intel96 0x1.9db1bap+4 : 0x4.000dfe432dc6aeep-972 : inexact-ok
++= erfc downward m68k96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9db1bap+4 : 0x4.000dfe432dc6aed8p-972 : inexact-ok
++= erfc upward m68k96 0x1.9db1bap+4 : 0x4.000dfe432dc6aeep-972 : inexact-ok
++= erfc downward binary128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c47p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c474p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c47p-972 : inexact-ok
++= erfc upward binary128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c474p-972 : inexact-ok
++= erfc downward ibm128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c4p-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c4p-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c4p-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9db1bap+4 : 0x4.000dfe432dc6aed9fa439707c8p-972 : inexact-ok underflow errno-erange-ok
++= erfc downward binary64 0x1.9db1bb14cd932p+4 : 0x4.000000ffff488p-972 : inexact-ok
++= erfc tonearest binary64 0x1.9db1bb14cd932p+4 : 0x4.000000ffff488p-972 : inexact-ok
++= erfc towardzero binary64 0x1.9db1bb14cd932p+4 : 0x4.000000ffff488p-972 : inexact-ok
++= erfc upward binary64 0x1.9db1bb14cd932p+4 : 0x4.000000ffff48cp-972 : inexact-ok
++= erfc downward intel96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882bp-972 : inexact-ok
++= erfc tonearest intel96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b8p-972 : inexact-ok
++= erfc towardzero intel96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882bp-972 : inexact-ok
++= erfc upward intel96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b8p-972 : inexact-ok
++= erfc downward m68k96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882bp-972 : inexact-ok
++= erfc tonearest m68k96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b8p-972 : inexact-ok
++= erfc towardzero m68k96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882bp-972 : inexact-ok
++= erfc upward m68k96 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b8p-972 : inexact-ok
++= erfc downward binary128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1a1f8p-972 : inexact-ok
++= erfc tonearest binary128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1a1f8p-972 : inexact-ok
++= erfc towardzero binary128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1a1f8p-972 : inexact-ok
++= erfc upward binary128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1a1fcp-972 : inexact-ok
++= erfc downward ibm128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1ap-972 : inexact-ok underflow errno-erange-ok
++= erfc tonearest ibm128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1ap-972 : inexact-ok underflow errno-erange-ok
++= erfc towardzero ibm128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1ap-972 : inexact-ok underflow errno-erange-ok
++= erfc upward ibm128 0x1.9db1bb14cd932p+4 : 0x4.000000ffff4882b5afc53be1a4p-972 : inexact-ok underflow errno-erange-ok
+diff --git a/sysdeps/ieee754/dbl-64/s_erfc.c b/sysdeps/ieee754/dbl-64/s_erfc.c
+index d240263cfeda..0fc60af17523 100644
+--- a/sysdeps/ieee754/dbl-64/s_erfc.c
++++ b/sysdeps/ieee754/dbl-64/s_erfc.c
+@@ -1,10 +1,10 @@
+ /* Correctly-rounded complementary error function for the binary64 format
+ 
+-Copyright (c) 2022-2025 Alexei Sibidanov, Paul Zimmermann, Tom Hubrecht and
++Copyright (c) 2022-2026 Alexei Sibidanov, Paul Zimmermann, Tom Hubrecht and
+ Claude-Pierre Jeannerod.
+ 
+ The original version of this file was copied from the CORE-MATH
+-project (file src/binary64/erfc/erfc.c, revision 55e9869e).
++project (file src/binary64/erfc/erfc.c, revision ac1993d8).
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+@@ -43,6 +43,7 @@ SOFTWARE.
+ */
+ 
+ #include <array_length.h>
++#include <fenv.h>
+ #include <math.h>
+ #include <stdint.h>
+ #include <errno.h>
+@@ -266,6 +267,11 @@ erfc_asympt_fast (double *h, double *l, double x)
+       return 1.0;
+     }
+ 
++#ifdef FE_UNDERFLOW
++  /* is underflow raised at input */
++  int underflow = __fetestexcept (FE_UNDERFLOW);
++#endif
++
+   /* first approximate exp(-x^2): */
+   double eh, el, uh, ul;
+   a_mul (&uh, &ul, x, x);
+@@ -370,6 +376,15 @@ erfc_asympt_fast (double *h, double *l, double x)
+      (1+2^-71.804)*(1+2^-74.139)*(1+2^-97.9)*(1+2^-67.184)*(1+2^-80)-1
+      < 2^-67.115
+   */
++
++#ifdef FE_UNDERFLOW
++  /* we have underflow iff x >= 0x1.a8b12fc6e4892p+4, whatever the rounding
++     mode, so since x < 0x1.9db1bb14e15cap+4 here any underflow raised by
++     the computation above is spurious */
++  if (underflow == 0 && __fetestexcept (FE_UNDERFLOW))
++    __feclearexcept (FE_UNDERFLOW);
++#endif
++
+   // avoid a spurious underflow in 0x1.d9p-68 * h
+   if (*h >= 0x1.151b9a3fdd5c9p-955)
+     return 0x1.d9p-68 * *h; /* 2^-67.115 < 0x1.d9p-68 */
