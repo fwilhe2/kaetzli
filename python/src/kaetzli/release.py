@@ -315,6 +315,8 @@ def collect(artifacts: Path, out: Path, arch: str, extensions: list[str]) -> Col
     take(rootfs / "kaetzli.efi", f"uki-{arch}.efi")
     # The PCR 11 that UKI measures into under a TPM (image/pcr.py).
     take(rootfs / "kaetzli.pcr.json", f"uki-{arch}.pcr.json")
+    # The same root and that UKI as one UEFI-bootable disk (tools/build-disk.sh).
+    take(artifacts / f"disk-{arch}" / f"kaetzli-disk-{arch}.qcow2", f"disk-{arch}.qcow2")
 
     kernel = out / f"kernel-{arch}"
     if _kernel(artifacts / f"package-kernel-{arch}/kernel.tar", kernel):
@@ -541,6 +543,31 @@ def _boot(repo_name: str, arch: str) -> list[str]:
     ]
 
 
+def _disk(repo_name: str, sha: str) -> list[str]:
+    url = f"https://github.com/{repo_name}/releases/latest/download"
+    return [
+        "Or as one disk, for anything that boots disks through UEFI firmware (a hypervisor, "
+        "a cloud that takes uploaded images): `disk-<arch>.qcow2` holds the same root, the "
+        "UKI on an EFI system partition and a `/var` partition formatted at first boot. "
+        "With qemu and OVMF on amd64:",
+        "",
+        "```sh",
+        f"curl -fLO {url}/disk-amd64.qcow2",
+        f"curl -fLO {url}/SHA256SUMS",
+        "sha256sum -c --ignore-missing SHA256SUMS",
+        "cp /usr/share/OVMF/OVMF_VARS_4M.fd ovmf-vars.fd",
+        "qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 2048 -nographic \\",
+        "    -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \\",
+        "    -drive if=pflash,format=raw,file=ovmf-vars.fd \\",
+        "    -drive file=disk-amd64.qcow2,if=virtio -nic user,model=virtio-net-pci \\",
+        "    -fw_cfg name=opt/io.systemd.credentials/login.noauth,string=yes",
+        "```",
+        "",
+        "Other buses, sizes or an ssh key: `tools/build-disk.sh` "
+        f"([docs/guides/disk.md](https://github.com/{repo_name}/blob/{sha}/docs/guides/disk.md)).",
+    ]
+
+
 def _launcher(repo_name: str) -> list[str]:
     url = f"https://github.com/{repo_name}/releases/latest/download"
     return [
@@ -608,6 +635,7 @@ def notes(
     lines += ["", "## Boot it", ""]
     for arch in ARCHES:
         lines += [*_boot(repo, arch), ""]
+    lines += [*_disk(repo, sha), ""]
     lines += [*_launcher(repo), ""]
     lines += [
         "`uki-<arch>.efi` is the kernel and `rootfs-<arch>.cmdline` (the root hash) in one "

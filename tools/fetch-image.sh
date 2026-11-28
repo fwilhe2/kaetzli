@@ -5,6 +5,11 @@
 #     ./tools/fetch-image.sh                       # the latest snapshot release
 #     ./tools/fetch-image.sh --snapshot NAME       # an older one (docs/proposals/release.md)
 #     ./tools/fetch-image.sh --run ID              # a CI run's artifacts (needs gh)
+#     ./tools/fetch-image.sh --disk [...]          # the bootable disk instead
+#
+# --disk fetches the same build as one UEFI-bootable disk (tools/build-disk.sh's
+# defaults; docs/guides/disk.md) into output/disk-image/disk.qcow2, verified the same
+# way: the release's disk-<arch>.qcow2, or a run's disk-<arch> artifact.
 #
 # A snapshot needs nothing but curl: the latest is resolved once, from the redirect of
 # releases/latest, and every file then comes from that snapshot's own URL, so one
@@ -29,7 +34,7 @@
 #   RELEASES     where snapshots are (default https://github.com/fwilhe2/kaetzli/releases;
 #                a fork's, or a mirror laid out the same way)
 #   OUT          output directory (default output/boot-image, or output/boot-image-$ARCH
-#                when ARCH is overridden away from the host's own)
+#                when ARCH is overridden away from the host's own; disk-image for --disk)
 #
 # Nothing reaches $OUT unverified. The rootfs job of every CI run writes a manifest,
 # bundle-<arch>/bundle.txt, naming the run, the commit and the arch, and the SHA-256 of
@@ -69,12 +74,13 @@ source tools/lib.sh
 
 REPO="fwilhe2/kaetzli"
 
-SNAPSHOT= RUN_ARG=
+SNAPSHOT= RUN_ARG= DISK=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --snapshot) SNAPSHOT=${2:?--snapshot needs a name}; shift 2 ;;
         --run)      RUN_ARG=${2:?--run needs a run id}; shift 2 ;;
-        -h|--help)  sed -n '5,7p' "$0" | sed 's/^#     //'; exit 0 ;;
+        --disk)     DISK=1; shift ;;
+        -h|--help)  sed -n '5,8p' "$0" | sed 's/^#     //'; exit 0 ;;
         *) echo "error: unknown argument: $1 (see --help)" >&2; exit 2 ;;
     esac
 done
@@ -91,10 +97,12 @@ ARCH=$(normalize_arch "${ARCH:-}")
 # host's own, so the common case — fetch, then boot, both with no ARCH set — still lands
 # in plain output/boot-image on both sides.
 host_arch=$(normalize_arch)
+kind=boot-image
+[ "$DISK" = 0 ] || kind=disk-image
 if [ "$ARCH" = "$host_arch" ]; then
-    OUT="${OUT:-output/boot-image}"
+    OUT="${OUT:-output/$kind}"
 else
-    OUT="${OUT:-output/boot-image-$ARCH}"
+    OUT="${OUT:-output/$kind-$ARCH}"
 fi
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -106,11 +114,16 @@ sha256() {
 
 # The directory is swapped whole, so it may only hold what a bundle consists of; anything
 # else in it would vanish with the swap.
+if [ "$DISK" = 1 ]; then
+    bundle_files="disk.qcow2"
+else
+    bundle_files="rootfs.erofs rootfs.cmdline bzImage kaetzli.efi kaetzli.pcr.json extensions confexts"
+fi
 if [ -d "$OUT" ]; then
     for f in "$OUT"/* "$OUT"/.[!.]*; do
         [ -e "$f" ] || [ -L "$f" ] || continue
-        case "${f##*/}" in
-            rootfs.erofs|rootfs.cmdline|bzImage|kaetzli.efi|kaetzli.pcr.json|extensions|confexts|ci-run|bundle.txt|snapshot|SHA256SUMS) ;;
+        case " $bundle_files ci-run bundle.txt snapshot SHA256SUMS " in
+            *" ${f##*/} "*) ;;
             *) die "$OUT holds ${f##*/}, which is not part of an image bundle; set OUT to another directory" ;;
         esac
     done
@@ -139,6 +152,11 @@ install_bundle() {
 
     echo
     echo "Downloaded and verified into $OUT/ ($what):"
+    if [ "$DISK" = 1 ]; then
+        ls -la "$OUT/disk.qcow2"
+        echo "Boot it through UEFI firmware: docs/guides/disk.md (./test/disk.py $OUT/disk.qcow2 on amd64)"
+        return
+    fi
     ls -la "$OUT/rootfs.erofs" "$OUT/rootfs.cmdline" "$OUT/bzImage" "$OUT"/kaetzli.efi "$OUT"/extensions/*.raw "$OUT"/confexts/*.raw 2>/dev/null || true
     if [ "$ARCH" = "$host_arch" ]; then
         echo "Boot it with: ./tools/vm.sh start, or ./tools/boot-qemu.py"
@@ -184,6 +202,10 @@ if [ -z "$RUN_ARG" ]; then
                 die "malformed SHA256SUMS line: $digest $asset $rest"
             case "$digest" in *[!0-9a-f]*) die "malformed digest in SHA256SUMS: $digest" ;; esac
             case "$asset" in */*|.*|*[!A-Za-z0-9._-]*) die "refusing asset name in SHA256SUMS: $asset" ;; esac
+            if [ "$DISK" = 1 ]; then
+                [ "$asset" != "disk-$ARCH.qcow2" ] || printf '%s %s\n' "$asset" "$digest" >> "$tmp/wanted"
+                continue
+            fi
             case "$asset" in
                 rootfs-"$ARCH".erofs|rootfs-"$ARCH".cmdline|kernel-"$ARCH"|uki-"$ARCH".efi|uki-"$ARCH".pcr.json|\
                 *-"$ARCH".sysext.raw|*-"$ARCH".sysext.dm-verity|\
@@ -191,8 +213,13 @@ if [ -z "$RUN_ARG" ]; then
                     printf '%s %s\n' "$asset" "$digest" >> "$tmp/wanted" ;;
             esac
         done < "$tmp/rel/SHA256SUMS"
-        for need in "rootfs-$ARCH.erofs" "rootfs-$ARCH.cmdline" "kernel-$ARCH"; do
-            grep -q "^$need " "$tmp/wanted" || die "snapshot $name lists no $need"
+        if [ "$DISK" = 1 ]; then
+            needed="disk-$ARCH.qcow2"
+        else
+            needed="rootfs-$ARCH.erofs rootfs-$ARCH.cmdline kernel-$ARCH"
+        fi
+        for need in $needed; do
+            grep -q "^$need " "$tmp/wanted" || die "snapshot $name lists no $need (older snapshots have no disk)"
         done
 
         # The signature, where gh can check it: a logged-in gh that cannot is a refusal.
@@ -219,6 +246,13 @@ if [ -z "$RUN_ARG" ]; then
         mkdir -p "$parent"
         new=$(mktemp -d "$parent/.$(basename "$OUT").new.XXXXXX")
         trap 'rm -rf "$tmp" "$new"' EXIT
+        if [ "$DISK" = 1 ]; then
+            mv "$tmp/rel/disk-$ARCH.qcow2" "$new/disk.qcow2"
+            cp "$tmp/rel/SHA256SUMS" "$new/SHA256SUMS"
+            echo "$name" > "$new/snapshot"
+            install_bundle "$new" "snapshot $name"
+            exit 0
+        fi
         mv "$tmp/rel/rootfs-$ARCH.erofs" "$new/rootfs.erofs"
         mv "$tmp/rel/rootfs-$ARCH.cmdline" "$new/rootfs.cmdline"
         mv "$tmp/rel/kernel-$ARCH" "$new/bzImage"
@@ -269,6 +303,7 @@ COMMIT=$(gh run view "$RUN" -R "$REPO" --json headSha -q .headSha)
 [ -n "$COMMIT" ] || die "could not read the commit of run $RUN"
 
 rootfs_art="rootfs.erofs-$ARCH" kernel_art="package-kernel-$ARCH" ext_art="extensions-$ARCH"
+disk_art="disk-$ARCH"
 
 echo ">> manifest ($ARCH): $REPO run $RUN, commit $COMMIT (artifact: bundle-$ARCH)"
 gh run download "$RUN" -R "$REPO" -n "bundle-$ARCH" -D "$tmp/manifest" ||
@@ -276,8 +311,9 @@ gh run download "$RUN" -R "$REPO" -n "bundle-$ARCH" -D "$tmp/manifest" ||
 manifest="$tmp/manifest/bundle.txt"
 [ -f "$manifest" ] && [ ! -L "$manifest" ] || die "bundle-$ARCH has no bundle.txt"
 
-# Parsed strictly: every line known, every path inside one of the three artifacts, no
-# absolute path and no `..`, since these name files under $tmp.
+# Parsed strictly: every line known, every path inside one of this arch's artifacts, no
+# absolute path and no `..`, since these name files under $tmp. Only the entries of the
+# artifacts this fetch takes are kept (the disk's, with --disk; the rest without).
 m_run= m_commit= m_arch= have_ext=0
 : > "$tmp/listed"
 while read -r kind a b rest; do
@@ -292,8 +328,9 @@ while read -r kind a b rest; do
             [ ${#a} -eq 64 ] || die "malformed digest in the manifest: $a"
             case "$b" in
                 /*|*/../*|../*|*/..|*//*|*[!A-Za-z0-9._/-]*) die "refusing manifest path: $b" ;;
-                "$rootfs_art"/*|"$kernel_art"/*) ;;
-                "$ext_art"/*) have_ext=1 ;;
+                "$rootfs_art"/*|"$kernel_art"/*) [ "$DISK" = 0 ] || continue ;;
+                "$ext_art"/*) [ "$DISK" = 0 ] || continue; have_ext=1 ;;
+                "$disk_art"/*) [ "$DISK" = 1 ] || continue ;;
                 *) die "manifest names a file outside this arch's artifacts: $b" ;;
             esac
             printf '%s %s\n' "$b" "$a" >> "$tmp/listed" ;;
@@ -318,11 +355,49 @@ else
     echo "   note: no attestation verifies this manifest (runs off main, and older ones, have"
     echo "         none); checked against the run's own artifacts only. REQUIRE_ATTESTATION=1 refuses."
 fi
-for need in "$rootfs_art/rootfs.erofs" "$rootfs_art/rootfs.cmdline" "$kernel_art/kernel.tar"; do
-    grep -q "^$need " "$tmp/listed" || die "the manifest does not list $need"
+if [ "$DISK" = 1 ]; then
+    needed="$disk_art/kaetzli-disk-$ARCH.qcow2"
+else
+    needed="$rootfs_art/rootfs.erofs $rootfs_art/rootfs.cmdline $kernel_art/kernel.tar"
+fi
+for need in $needed; do
+    grep -q "^$need " "$tmp/listed" || die "the manifest does not list $need (a run from before the disk was built?)"
 done
 
+# verify: the downloads under $tmp/art against the kept manifest entries, exactly.
+verify() {
+    echo ">> verifying against the manifest"
+    if [ -n "$(find "$tmp/art" ! -type f ! -type d)" ]; then
+        die "the downloads contain something other than plain files: $(find "$tmp/art" ! -type f ! -type d)"
+    fi
+    (cd "$tmp/art" && find . -type f | sed 's|^\./||' | LC_ALL=C sort) > "$tmp/got"
+    cut -d' ' -f1 "$tmp/listed" | LC_ALL=C sort > "$tmp/want"
+    if ! cmp -s "$tmp/got" "$tmp/want"; then
+        echo "error: the downloaded files and the manifest disagree (< unlisted, > missing):" >&2
+        diff "$tmp/got" "$tmp/want" | grep '^[<>]' >&2 || true
+        exit 1
+    fi
+    while read -r path digest; do
+        [ "$(sha256 "$tmp/art/$path")" = "$digest" ] || die "checksum mismatch: $path"
+    done < "$tmp/listed"
+    echo "   $(wc -l < "$tmp/listed" | tr -d ' ') files match"
+}
+
 mkdir "$tmp/art"
+if [ "$DISK" = 1 ]; then
+    echo ">> disk ($ARCH): artifact $disk_art"
+    gh run download "$RUN" -R "$REPO" -n "$disk_art" -D "$tmp/art/$disk_art"
+    verify
+    parent=$(dirname "$OUT")
+    mkdir -p "$parent"
+    new=$(mktemp -d "$parent/.$(basename "$OUT").new.XXXXXX")
+    trap 'rm -rf "$tmp" "$new"' EXIT
+    cp "$tmp/art/$disk_art/kaetzli-disk-$ARCH.qcow2" "$new/disk.qcow2"
+    cp "$manifest" "$new/bundle.txt"
+    echo "$RUN" > "$new/ci-run"
+    install_bundle "$new" "run $RUN, commit $COMMIT"
+    exit 0
+fi
 echo ">> rootfs ($ARCH): artifact $rootfs_art"
 gh run download "$RUN" -R "$REPO" -n "$rootfs_art" -D "$tmp/art/$rootfs_art"
 # The kernel package artifact rather than the assembled rootfs one: it is a tar, so the
@@ -338,21 +413,7 @@ else
     echo "   (no extensions in this run)"
 fi
 
-echo ">> verifying against the manifest"
-if [ -n "$(find "$tmp/art" ! -type f ! -type d)" ]; then
-    die "the downloads contain something other than plain files: $(find "$tmp/art" ! -type f ! -type d)"
-fi
-(cd "$tmp/art" && find . -type f | sed 's|^\./||' | LC_ALL=C sort) > "$tmp/got"
-cut -d' ' -f1 "$tmp/listed" | LC_ALL=C sort > "$tmp/want"
-if ! cmp -s "$tmp/got" "$tmp/want"; then
-    echo "error: the downloaded files and the manifest disagree (< unlisted, > missing):" >&2
-    diff "$tmp/got" "$tmp/want" | grep '^[<>]' >&2 || true
-    exit 1
-fi
-while read -r path digest; do
-    [ "$(sha256 "$tmp/art/$path")" = "$digest" ] || die "checksum mismatch: $path"
-done < "$tmp/listed"
-echo "   $(wc -l < "$tmp/listed" | tr -d ' ') files match"
+verify
 
 # The tar is verified; its member names are still checked before anything is extracted,
 # and the one member taken has to be a plain file.

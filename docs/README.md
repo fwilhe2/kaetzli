@@ -11,6 +11,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Patches](guides/patches.md): package patches, upstream patch series, and CVE fixes.
 - [Linking](guides/linking.md): runtime library compatibility and ELF checks.
 - [System extensions](guides/sysext.md): build and attach extensions.
+- [Bootable disk](guides/disk.md): the image as one UEFI-bootable disk, for VMMs and clouds.
 - [Debugging](guides/debugging.md): tools in the base and debug extension, expected boot
   messages, and how login and SSH access work.
 

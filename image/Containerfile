@@ -29,7 +29,9 @@ ARG SNAPSHOT
 # systemd-ukify joins the kernel, its command line and our EFI stub into the unified kernel
 # image (python too, and outside the tree like sbom.py); ovmf is the firmware a signed one
 # is booted by under Secure Boot (tools/sign-uki.sh, which signs and enrols with the
-# launcher's Go code: docs/guides/secure-boot.md).
+# launcher's Go code: docs/guides/secure-boot.md). fdisk (sfdisk), dosfstools and mtools
+# write tools/build-disk.sh's GPT and its EFI system partition without a loop device;
+# qemu-utils' qemu-img its qcow2, here so the bytes do not depend on the host's version.
 # The retries are for snapshot.debian.org, which answers 503 under load; apt backs off
 # between them.
 RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
@@ -38,5 +40,5 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list \
     && printf 'Acquire::Retries "10";\n' > /etc/apt/apt.conf.d/80-retries \
     && apt-get update \
     && apt-get install -y --no-install-recommends erofs-utils cryptsetup-bin libcap2-bin binutils python3 \
-       systemd-ukify ovmf \
+       systemd-ukify ovmf fdisk dosfstools mtools qemu-utils \
     && rm -rf /var/lib/apt/lists/*

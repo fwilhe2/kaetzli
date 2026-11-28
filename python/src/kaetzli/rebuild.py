@@ -80,6 +80,8 @@ def _artifacts(worktree: Path, arch: str, dest: Path) -> None:
     out = worktree / "output"
     for f in ("rootfs.erofs", "rootfs.cmdline"):
         _link(out / f, dest / f"rootfs.erofs-{arch}" / f)
+    disk = f"kaetzli-disk-{arch}.qcow2"
+    _link(out / disk, dest / f"disk-{arch}" / disk)
     if (worktree / "staging/kernel/rootfs/boot/bzImage").is_file():
         k = dest / f"package-kernel-{arch}" / "kernel.tar"
         k.parent.mkdir(parents=True)

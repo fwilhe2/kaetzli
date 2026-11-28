@@ -202,6 +202,7 @@ policy checks are done).
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
 ./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot, /var by credentials; unsigned refused (tools/sign-uki.sh first)
+./test/disk.py [disk.qcow2]     # the UEFI disk under OVMF: root on partition 2, /var on 3 (DISK_BUS=scsi; amd64)
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
@@ -231,6 +232,7 @@ policy checks are done).
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
 ./tools/sign-uki.sh [--key K --cert C] [--ext a,b [--var]] [UKI]  # → output/secureboot/: signed UKI + OVMF (the launcher's Go code)
 ./tools/build-launcher.sh [OUT] [VERSION]
+./tools/build-disk.sh [--bus scsi] [--var-size N|0] [--ssh-key F] [--append A]  # GPT: UKI on an ESP, root, /var
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
 ./tools/release.py name|publish [--dry-run]
 ./tools/corresponding-source.py [REV] # repo at REV + its sources image, verified (GPL source offer)
@@ -361,7 +363,9 @@ A package setting `CFLAGS` wholesale drops sysroot, `-O2` and hardening at once;
 ## Image assembly and boot
 
 `image/build-rootfs.sh` turns a copy of `rootfs/` into `output/rootfs.erofs` (or, with `oci`,
-`output/kaetzli-oci.tar`): skeleton, `image/files` as `/etc`, trim, first boot, `ldconfig`,
+`output/kaetzli-oci.tar`; `tools/build-disk.sh` then puts it and the UKI on one GPT disk,
+`output/kaetzli-disk-<arch>.qcow2`, released as `disk-<arch>.qcow2`, rewriting the UKI's
+command line for that disk): skeleton, `image/files` as `/etc`, trim, first boot, `ldconfig`,
 `mkfs.erofs`, verity, SBOM. The assembly image is `image/Containerfile` (snapshot-pinned tools,
 content-addressed, `tools/prep.sh assembler`, pushed by the builder job) plus
 `image/Containerfile.scripts`, which **`COPY`s `image/files`** — editing it means rebuilding
