@@ -4,8 +4,9 @@
 writable `/etc` and `/opt/bin`, and `kaetzli-user-data.service` ([user data](../guides/user-data.md));
 the [bootable disk](../guides/disk.md) (`tools/build-disk.sh --cloud openstack`); containerd
 in the `kubernetes` extension, replacing CRI-O (`test/containerd.py`); Gardener's node
-init and node-agent bootstrap, tested in CI (`test/gardener.py`, below). Not done: getting
-the extension onto a node, and gardener-extension-os-kaetzli (its own repository). Gardener facts are from
+init and node-agent bootstrap, and a node joining a kubeadm API server, tested in CI
+([below](#what-is-verified-and-how)). Not done: getting the extension onto a node, and
+gardener-extension-os-kaetzli (its own repository). Gardener facts are from
 `gardener/gardener` and `gardener-extension-networking-calico` on `master`, November 2026.
 
 A kaetzli VM has joined a shoot before (commit 1432f7a: Gardener v1.154.1,
@@ -118,6 +119,36 @@ is upheld from `multi-user.target`; node-agent writes its own `kubelet.service` 
 `/etc/systemd/system`, which overrides the extension's, so whether that upholding gets in
 node-agent's way is to be checked. Attached as a second verified disk it keeps dm-verity;
 on the `/var` partition it would not.
+
+## What is verified, and how
+
+What each requirement is held to. *Config* is a check of the kernel config or a file; *one
+VM* boots the image; *cluster* boots several, or a node against an API server. A blank
+cell is not tested that way.
+
+| Requirement | Config | One VM | Cluster |
+| --- | --- | --- | --- |
+| kube-proxy, iptables mode (`statistic`, `recent`, `REJECT`) | `kernel-caps.py` | `kernel-probes.py` | `k8s.py`, `DATAPATH=calico-iptables` |
+| Calico's IPIP and iptables matches (`set`, `multiport`, `connmark`, `rpfilter`) | `kernel-caps.py` | `kernel-probes.py` | `k8s.py`, `DATAPATH=calico-iptables` |
+| ipset set types Felix creates | `kernel-caps.py` | (no ipset in the image) | `k8s.py`, `DATAPATH=calico-iptables` |
+| `-m limit`, `-j LOG` (nft's own `limit`, `log`) | `kernel-caps.py` | `kernel-probes.py` | |
+| Cilium: tc BPF, Geneve | `kernel-caps.py` | `kernel-probes.py` (attach and create only) | |
+| Gardener's VPN: `NETMAP`, `owner` | `kernel-caps.py` | `kernel-probes.py` | |
+| Writable `/etc`, nothing written at boot | | `systemd.py`, `persistent-var.py` | |
+| `/etc` across an update: unwritten files follow, written ones stay | | `etc-upgrade.py` | |
+| Units enabled into `/etc` start on the next boot | `test_confext_dropin.py` | `gardener.py` (second boot) | |
+| Writable `/opt/bin` on `/var` | | `persistent-var.py`, `secureboot.py`, `gardener.py` | |
+| User data from the metadata service, once per instance | `test_user_data.py` | `user-data.py`, `disk.py` (OpenStack preset), `gardener.py` | |
+| containerd up before the user data, `ctr` works | | `containerd.py` | |
+| Gardener's `init.sh` and node-agent bootstrap | `check-gardener.py verify` | `gardener.py` | |
+| node-agent's certificate, OSC applied, kubelet registers the Node | | | `gardener-join.py` |
+| node-agent's `kubelet.service` replaces the extension's | | | `gardener-join.py` |
+| The Gardener pin is current | `check-gardener.py` (nightly) | | |
+
+Not verified anywhere: a real shoot (Gardener's own control plane, its full OSC, its
+kubelet from an image), OpenStack itself (the disk boots under OVMF in qemu, not on
+Nova), the Cilium and VPN datapaths beyond creating their rules and links, and the
+extension delivered to a node rather than attached by the test.
 
 ## Tested in CI
 
