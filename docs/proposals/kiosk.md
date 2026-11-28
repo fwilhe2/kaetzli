@@ -177,8 +177,8 @@ consumer does not need a rename.
   right: the flavour moves when `kernel` does, and nothing checks its version separately.
 - **The paths must not collide**, because `merge-staging.sh` fails on any path that two
   packages install:
-  - Each flavour gets its own `LOCALVERSION` (`7.3.1-display`), so `uname -r` says which
-    flavour is running.
+  - Each flavour appends its own suffix to the distribution's `-kaetzli`
+    (`7.3.1-kaetzli-display`), so `uname -r` says which flavour is running.
   - The kernel installs as `boot/bzImage-<flavour>` and `boot/config-<flavour>`, and
     `default` keeps `boot/bzImage` and `boot/config`, so nothing downstream changes.
   - Each flavour has its own `usr/lib/modules/<release>/config` link, pointing at **its
