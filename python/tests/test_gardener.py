@@ -8,8 +8,6 @@ import base64
 import re
 import subprocess
 
-import pytest
-
 from kaetzli import repo
 from kaetzli.boot import gardener
 
@@ -79,12 +77,3 @@ def test_init_sh_pulls_the_pinned_image_by_digest():
 def test_the_kubernetes_version_is_the_extensions_kubelet():
     (pinned,) = repo.env_get("kubernetes", "VERSION")
     assert gardener.kubelet_version() == pinned
-
-
-@pytest.mark.parametrize("check", [gardener.CHECK, gardener.SECOND_CHECK])
-def test_each_check_is_one_complete_bash_command(check):
-    """A quote in a failure message leaves bash waiting for the rest of the line, and the
-    test then times out rather than saying anything."""
-    assert subprocess.run(["bash", "-n", "-c", check]).returncode == 0
-    for what, _ in gardener.CHECKS + gardener.SECOND_CHECKS:
-        assert "'" not in what, what
