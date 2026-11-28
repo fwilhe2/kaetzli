@@ -5,9 +5,14 @@
 #     ./tools/build-image.sh --clean         # delete staging/ and rootfs/ first
 #     ./tools/build-image.sh --image-only    # skip the packages, just re-assemble the images
 #     ./tools/build-image.sh --flavour erofs # only one of erofs / oci
+#     ./tools/build-image.sh --no-disk       # no bootable disk from the erofs image
 #     ./tools/build-image.sh --skip kernel,systemd   # leave packages out of this run
 #     ./tools/build-image.sh --only strace   # build just these packages, then the images
 #     ./tools/build-image.sh --allow-unresolved   # assemble despite missing libraries (see below)
+#
+# With the erofs flavour comes the bootable disk, output/kaetzli-disk-<arch>.qcow2: the
+# same root and the UKI on one GPT disk, with tools/build-disk.sh's defaults (run that for
+# other options; docs/guides/disk.md). Releases publish both ways to boot.
 #
 # Before assembling, test/check-rootfs-deps.py must pass on rootfs/, as it must in CI's
 # rootfs job: a binary needing a library the image does not ship starts nowhere, and an
@@ -46,11 +51,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source tools/lib.sh
 
-clean=0 image_only=0 allow_unresolved=0 flavours="erofs oci" skip="" only="" extra=""
+clean=0 image_only=0 allow_unresolved=0 flavours="erofs oci" skip="" only="" extra="" disk=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --clean)      clean=1 ;;
         --image-only) image_only=1 ;;
+        --no-disk)    disk=0 ;;
         --allow-unresolved) allow_unresolved=1 ;;
         --flavour)    flavours="${2:?--flavour needs erofs or oci}"; shift ;;
         --skip)       skip="${2:?--skip needs a comma-separated list}"; shift ;;
@@ -153,7 +159,14 @@ for ext in extensions/*/; do
         rootfs-builder /usr/local/bin/build-extension.sh staged "$name"
 done
 
+# The same root as a UEFI-bootable disk. Not with --extra: the disk is the image as built.
+if [ "$disk" = 1 ] && [[ " $flavours " == *" erofs "* ]] && [ -z "$extra" ]; then
+    echo "==> disk"
+    ./tools/build-disk.sh --no-raw
+fi
+
 echo
 echo "done:"
-ls -lh output/rootfs.erofs output/kaetzli-oci.tar output/extensions/*.raw output/confexts/*.raw 2>/dev/null || true
-echo "boot it:  ./tools/boot-qemu.py   (or ./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage)"
+ls -lh output/rootfs.erofs output/kaetzli-disk-*.qcow2 output/kaetzli-oci.tar output/extensions/*.raw output/confexts/*.raw 2>/dev/null || true
+echo "boot it:  ./tools/boot-qemu.py   (or ./test/systemd.py output/rootfs.erofs rootfs/boot/bzImage;"
+echo "          the disk: ./test/disk.py, docs/guides/disk.md)"

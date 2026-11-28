@@ -142,6 +142,7 @@ def artifacts(root: Path, arch: str, exts=("podman", "debug"), confexts=("podman
     w(f"rootfs.erofs-{arch}/rootfs.cmdline", "root=/dev/dm-0")
     w(f"rootfs.erofs-{arch}/kaetzli.efi", "MZ")
     w(f"rootfs.erofs-{arch}/kaetzli.pcr.json", '{"sha256": []}')
+    w(f"disk-{arch}/kaetzli-disk-{arch}.qcow2", "QFI")
     kernel_tar(root / f"package-kernel-{arch}/kernel.tar")
     for e in exts:
         w(f"extensions-{arch}/extensions/{e}.raw")
@@ -165,6 +166,7 @@ def test_collect_names_every_asset_by_arch(tmp_path):
         "cve-amd64.ods",
         "debug-amd64.sysext.dm-verity",
         "debug-amd64.sysext.raw",
+        "disk-amd64.qcow2",
         "kernel-amd64",
         "podman-amd64.confext.dm-verity",
         "podman-amd64.confext.raw",
@@ -194,6 +196,13 @@ def test_a_missing_required_asset_is_a_problem_and_names_it(tmp_path):
     got = release.collect(tmp_path / "a", tmp_path / "out", "arm64", ["debug", "podman"])
     assert any("rootfs.cmdline" in p for p in got.problems)
     assert any("debug" in p and "sysext" in p for p in got.problems)
+
+
+def test_a_missing_disk_is_a_problem(tmp_path):
+    artifacts(tmp_path / "a", "amd64")
+    (tmp_path / "a/disk-amd64/kaetzli-disk-amd64.qcow2").unlink()
+    got = release.collect(tmp_path / "a", tmp_path / "out", "amd64", ["debug", "podman"])
+    assert any("kaetzli-disk-amd64.qcow2" in p and "disk-amd64.qcow2" in p for p in got.problems)
 
 
 def test_a_missing_uki_is_a_problem(tmp_path):
@@ -367,6 +376,13 @@ def test_the_notes_say_the_uki_is_unsigned_and_how_to_sign_it():
     assert "tools/sign-uki.sh" in text and "docs/guides/secure-boot.md" in text
 
 
+def test_the_notes_show_both_ways_to_boot():
+    text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
+    assert "releases/latest/download/kernel-amd64" in text
+    assert "releases/latest/download/disk-amd64.qcow2" in text
+    assert "OVMF_CODE_4M.fd" in text and "docs/guides/disk.md" in text
+
+
 def test_notes_say_free_software_where_the_licenses_are_and_no_warranty():
     text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
     assert "## License" in text
@@ -493,6 +509,7 @@ def test_dry_run_writes_nothing_and_leaves_the_release_on_disk(both_arches):
     listed = [line.split()[1] for line in (out / "SHA256SUMS").read_text().splitlines()]
     assert "rootfs-amd64.erofs" in listed and "rootfs-arm64.erofs" in listed
     assert "uki-amd64.efi" in listed and "uki-arm64.efi" in listed
+    assert "disk-amd64.qcow2" in listed and "disk-arm64.qcow2" in listed
     # the source is the sources image, tagged with the release's name, not an asset
     assert not any("source" in n for n in listed)
     assert not any(c[0] == "tag" for c in gh.calls)

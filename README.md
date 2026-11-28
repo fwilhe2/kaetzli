@@ -21,7 +21,8 @@ physical hardware.
 
 | Artifact | Contents |
 | --- | --- |
-| `output/rootfs.erofs` and `output/rootfs.cmdline` | Read-only EROFS root with a dm-verity hash tree; keep the files together. |
+| `output/rootfs.erofs` and `output/rootfs.cmdline` | Read-only EROFS root with a dm-verity hash tree; keep the files together. Booted with a separate kernel. |
+| `output/kaetzli-disk-<arch>.qcow2` | The same root and kernel as one UEFI-bootable disk, with a `/var` partition. |
 | `output/kaetzli-oci.tar` | OCI image of the userspace, without a kernel or systemd. |
 | `output/extensions/*.raw` | Optional system extensions, including Podman, Kubernetes, and debugging tools. |
 | `output/confexts/*.raw` | Configuration extensions used with the corresponding system extension. |
@@ -33,7 +34,8 @@ for each VM.
 
 Green builds of `main` are published as [releases](https://github.com/fwilhe2/kaetzli/releases):
 rolling snapshots of these files for both architectures, with SBOMs and `SHA256SUMS`,
-kept for at least 37 days. Each release's notes show how to boot it with QEMU.
+kept for at least 37 days. Each release's notes show how to boot it with QEMU, either as
+root and kernel or as the disk (`disk-<arch>.qcow2`).
 
 System extensions are EROFS images merged by systemd-sysext at boot; configuration
 extensions use systemd-confext. Extensions attached by the VM tools are read-only and
@@ -151,6 +153,21 @@ For build details, see the [documentation index](docs/README.md).
   includes `ip`, `ping`, and `curl` for inspection and connectivity checks.
 
 See [Debugging](docs/guides/debugging.md) for console and log details.
+
+## Bootable disk
+
+The root and kernel also come as one GPT disk for VMMs and clouds that boot disks through
+UEFI firmware: the unified kernel image on an EFI system partition, the verified root, and
+a blank `/var` that is formatted at first boot. `tools/build-image.sh` makes it with the
+defaults; releases publish it as `disk-<arch>.qcow2`.
+
+```sh
+./tools/fetch-image.sh --disk               # the latest snapshot's, verified
+./tools/build-disk.sh                       # output/kaetzli-disk-<arch>.raw and .qcow2
+./tools/build-disk.sh --bus scsi --ssh-key ~/.ssh/id_ed25519.pub
+```
+
+See [Bootable disk](docs/guides/disk.md) for options and how to boot or upload it.
 
 ## Machines
 

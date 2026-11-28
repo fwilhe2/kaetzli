@@ -27,6 +27,7 @@ def tree(root: Path) -> Path:
     (out / "confexts").mkdir()
     (out / "rootfs.erofs").write_bytes(b"erofs")
     (out / "rootfs.cmdline").write_bytes(b"cmdline")
+    (out / "kaetzli-disk-amd64.qcow2").write_bytes(b"disk")
     (out / "extensions" / "podman.raw").write_bytes(b"podman")
     (out / "extensions" / "podman.dm-verity").write_bytes(b"podman-verity")
     (out / "sbom-erofs.json").write_text("{}")
@@ -43,6 +44,7 @@ def published(**override: bytes) -> str:
         "rootfs-amd64.erofs": b"erofs",
         "rootfs-amd64.cmdline": b"cmdline",
         "kernel-amd64": b"kernel",
+        "disk-amd64.qcow2": b"disk",
         "podman-amd64.sysext.raw": b"podman",
         "podman-amd64.sysext.dm-verity": b"podman-verity",
         "sbom-amd64.json": b"{}",
@@ -60,6 +62,7 @@ def test_every_rebuilt_asset_is_compared_by_its_release_name(tmp_path):
     by_name = {r.name: r.status for r in rows}
     assert by_name["rootfs-amd64.erofs"] == "same"
     assert by_name["kernel-amd64"] == "same"
+    assert by_name["disk-amd64.qcow2"] == "same"
     assert by_name["podman-amd64.sysext.raw"] == "same"
     assert by_name["sbom-ext-podman-amd64.json"] == "same"
 
