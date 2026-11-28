@@ -581,7 +581,8 @@ if [ "$flavour" = erofs ]; then
     # once /etc is writable (ConditionPathIsReadWrite=/etc), unordered against the confext
     # merge, and would write the per-boot ID PID 1 bound over /etc/machine-id into the
     # upper layer; a persistent ID is systemd.machine_id= (tools/vm.sh, tools/build-disk.sh).
-    # test/systemd.py and test/persistent-var.py check the upper layer holds nothing.
+    # test/systemd.py, persistent-var.py and etc-upgrade.py (across an update) check the
+    # upper layer holds nothing.
     for unit in ldconfig.service systemd-sysusers.service systemd-machine-id-commit.service; do
         [ -f "usr/lib/systemd/system/$unit" ] || { echo "error: no $unit to mask" >&2; exit 1; }
         ln -sfn /dev/null "etc/systemd/system/$unit"

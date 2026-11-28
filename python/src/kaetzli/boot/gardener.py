@@ -66,6 +66,8 @@ from pathlib import Path
 
 from kaetzli import repo
 from kaetzli.boot import boot, run
+from kaetzli.boot.checks import Checks, verdict
+from kaetzli.boot.checks import line as checks_line
 from kaetzli.boot.persistent_var import shutdown
 from kaetzli.boot.user_data import metadata_dir, nic
 from kaetzli.qemu import Refused
@@ -259,17 +261,17 @@ SECOND_CHECKS = [
 ]  # fmt: skip
 
 
-def checks(items: list[tuple[str, str]], wait_for: str, mark: str, tries: int) -> str:
+def checks(items: Checks, wait_for: str, mark: str, tries: int) -> str:
     """Wait until `wait_for` (a bash test) holds, `tries` times 2s at most, stop the node
     agent (it cannot reach an API server and would keep writing to the console), then run
-    each check, naming the first that fails: `<mark>-OK` or `<mark>-FAIL: <what>`."""
-    return (
-        f"for i in $(seq {tries}); do {{ {wait_for}; }} && break; sleep 2; done; "
-        "systemctl stop gardener-node-agent.service; "
-        + " && ".join(
-            f"{{ {test} || {{ echo \"{mark}-\"'FAIL: {what}'; false; }}; }}" for what, test in items
-        )
-        + f" && echo {mark}'-OK'"
+    each check, naming the first that fails (kaetzli.boot.checks)."""
+    return checks_line(
+        items,
+        mark,
+        before=(
+            f"for i in $(seq {tries}); do {{ {wait_for}; }} && break; sleep 2; done; "
+            "systemctl stop gardener-node-agent.service; "
+        ),
     )
 
 
@@ -292,14 +294,6 @@ DIAGNOSE = (
     "journalctl --no-pager -b -u kaetzli-user-data -u gardener-node-init -n 60; "
     "journalctl --no-pager -b -q | grep 'Read-only file system' | head"
 )
-
-
-def verdict(guest, check: str, mark: str, seconds: float, timeout: str) -> None:
-    guest.send(check)
-    if not guest.wait(rf"{mark}-(OK|FAIL: [^\r\n]*)", seconds):
-        guest.fail(timeout)
-    if guest.group() != "OK":
-        guest.fail(guest.group().removeprefix("FAIL: "))
 
 
 def main(argv: list[str]) -> int:

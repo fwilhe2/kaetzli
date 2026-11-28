@@ -844,6 +844,9 @@ jobs:
       - name: Check system extensions
         run: ./test/sysext.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
+      - name: Check an update over a writable /etc on a /var disk
+        run: ./test/etc-upgrade.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
       - name: Check user data from a metadata service
         run: ./test/user-data.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
