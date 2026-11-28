@@ -128,6 +128,12 @@ make container.config
 #   NETFILTER_XT_MATCH_LIMIT, IP_NF_MATCH_RPFILTER, IP6_NF_MATCH_RPFILTER  what Calico's
 #                  Felix writes in its iptables dataplane (felix/iptables/match_builder.go):
 #                  -m set, multiport, connmark, limit, and rpfilter in the raw table
+#   IP_SET_HASH_IP, IP_SET_HASH_IPPORT, IP_SET_HASH_NET, IP_SET_HASH_NETNET,
+#   IP_SET_BITMAP_PORT  the set types Felix creates (felix/ipsets/ipset_defs.go); IP_SET
+#                  alone is the interface with no type behind it, and every create fails
+#   NFT_LIMIT, NFT_LOG  iptables-nft writes -m limit and -j LOG as nftables' own limit and
+#                  log expressions, not through NFT_COMPAT, so the xt modules alone are
+#                  not enough (test/kernel-probes.py found -m limit refused)
 #   NET_CLS_BPF, NET_ACT_BPF, GENEVE  Cilium: its datapath is tc BPF programs on every
 #                  interface, and Geneve one of its tunnel modes
 cat > kernel/configs/k8s.config <<'EOF'
@@ -154,6 +160,13 @@ CONFIG_NETFILTER_XT_CONNMARK=y
 CONFIG_NETFILTER_XT_MATCH_LIMIT=y
 CONFIG_IP_NF_MATCH_RPFILTER=y
 CONFIG_IP6_NF_MATCH_RPFILTER=y
+CONFIG_IP_SET_HASH_IP=y
+CONFIG_IP_SET_HASH_IPPORT=y
+CONFIG_IP_SET_HASH_NET=y
+CONFIG_IP_SET_HASH_NETNET=y
+CONFIG_IP_SET_BITMAP_PORT=y
+CONFIG_NFT_LIMIT=y
+CONFIG_NFT_LOG=y
 CONFIG_NET_CLS_BPF=y
 CONFIG_NET_ACT_BPF=y
 CONFIG_GENEVE=y

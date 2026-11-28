@@ -86,6 +86,13 @@ NETFILTER_XT_CONNMARK  -m connmark and -j CONNMARK; Calico's marks that follow a
 NETFILTER_XT_MATCH_LIMIT  -m limit; Calico's rate-limited drop logging
 IP_NF_MATCH_RPFILTER  -m rpfilter; Calico's anti-spoofing check on workload interfaces
 IP6_NF_MATCH_RPFILTER  the same for IPv6
+IP_SET_HASH_IP      hash:ip sets; Felix creates its workload and host address sets with it
+IP_SET_HASH_IPPORT  hash:ip,port, Felix's named-port sets
+IP_SET_HASH_NET     hash:net, Felix's IP pool and CIDR sets
+IP_SET_HASH_NETNET  hash:net,net, Felix's sets of CIDR pairs
+IP_SET_BITMAP_PORT  bitmap:port, Felix's port sets
+NFT_LIMIT           -m limit, which iptables-nft writes as nftables' limit, not through NFT_COMPAT
+NFT_LOG             -j LOG, likewise nftables' log: Calico's and kube-proxy's logged drops
 NET_CLS_BPF         tc BPF classifiers; Cilium's datapath cannot attach
 NET_ACT_BPF         tc BPF actions, likewise
 GENEVE              Cilium's Geneve tunnel mode

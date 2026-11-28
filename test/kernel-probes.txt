@@ -1,0 +1,74 @@
+# The datapath symbols of test/kernel-caps.txt, used rather than read: test/kernel-probes.py
+# boots the image and runs each line's command in a network namespace of its own, and a
+# command that fails names its symbol and kernel-caps.txt's reason for it.
+#
+# kernel-caps.py says the option is =y; this says the kernel takes the rule or link that
+# needs it. The two differ when iptables-nft reaches a match through NFT_COMPAT that
+# nothing built in ("Extension statistic revision 0 not supported, missing kernel
+# module?"), and that only shows when a CNI or kube-proxy writes the rule, on a running
+# node. Each line exercises one symbol, as directly as userspace allows; a line may need
+# others the list already has (an iptables rule needs NFT_COMPAT, a netdev chain a device).
+#
+# One symbol per line, without CONFIG_, then a bash command run as root in the namespace.
+# Every symbol here must be in kernel-caps.txt (python/tests/test_kernel_probes.py). The
+# namespace is fresh for each line, so a line sets up what it uses. Not probed: ipset's
+# set types (IP_SET_HASH_*, IP_SET_BITMAP_PORT), since the image ships no ipset (Calico
+# brings its own), and what other boot tests already run (namespaces, cgroups, seccomp,
+# overlayfs, virtio).
+
+# Container engines (podman's netavark, dockerd), nftables.
+NF_TABLES           nft add table inet kp
+NFT_CT              nft 'add table inet kp; add chain inet kp f { type filter hook forward priority 0; }; add rule inet kp f ct state established,related accept'
+NFT_NAT             nft 'add table ip kp; add chain ip kp p { type nat hook prerouting priority -100; }; add rule ip kp p tcp dport 8080 dnat to 10.0.0.1:80'
+NFT_MASQ            nft 'add table ip kp; add chain ip kp p { type nat hook postrouting priority 100; }; add rule ip kp p masquerade'
+NFT_FIB_IPV4        nft 'add table ip kp; add chain ip kp p { type nat hook prerouting priority -100; }; add rule ip kp p fib daddr type local accept'
+NFT_FIB_IPV6        nft 'add table ip6 kp; add chain ip6 kp p { type nat hook prerouting priority -100; }; add rule ip6 kp p fib daddr type local accept'
+NFT_FIB_INET        nft 'add table inet kp; add chain inet kp p { type filter hook prerouting priority 0; }; add rule inet kp p fib daddr type local accept'
+NF_CONNTRACK_MARK   nft 'add table inet kp; add chain inet kp p { type filter hook prerouting priority 0; }; add rule inet kp p ct mark set 0x2000'
+
+# Container engines, iptables-nft.
+NETFILTER_XT_MATCH_ADDRTYPE     iptables -t nat -A PREROUTING -m addrtype --dst-type LOCAL -j RETURN
+NETFILTER_XT_MATCH_CONNTRACK    iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+NETFILTER_XT_MARK               iptables -t mangle -A PREROUTING -m mark --mark 0x1 -j MARK --set-xmark 0x2/0x2
+NETFILTER_XT_TARGET_MASQUERADE  iptables -t nat -A POSTROUTING -j MASQUERADE
+NETFILTER_XT_NAT                iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to-destination 10.0.0.1:80
+
+# Links a container or an overlay is made of.
+VETH                ip link add kp0 type veth peer name kp1
+BRIDGE              ip link add kp0 type bridge
+TUN                 ip tuntap add kp0 mode tun
+DUMMY               ip link add kp0 type dummy
+VXLAN               ip link add kp0 type vxlan id 42 dstport 4789 local 127.0.0.1
+NET_IPIP            ip link add kp0 type ipip local 127.0.0.1 remote 127.0.0.2
+GENEVE              ip link add kp0 type geneve id 42 remote 127.0.0.2
+
+# kube-proxy, nftables mode.
+NFT_NUMGEN          nft 'add table ip kp; add chain ip kp p { type nat hook prerouting priority -100; }; add rule ip kp p numgen random mod 2 vmap { 0 : accept, 1 : accept }'
+NFT_REJECT          nft 'add table inet kp; add chain inet kp i { type filter hook input priority 0; }; add rule inet kp i tcp dport 9 reject with tcp reset'
+NFT_REDIR           nft 'add table ip kp; add chain ip kp p { type nat hook prerouting priority -100; }; add rule ip kp p tcp dport 80 redirect to :8080'
+NF_TABLES_NETDEV    ip link add kp0 type dummy && nft 'add table netdev kp; add chain netdev kp i { type filter hook ingress device kp0 priority 0; }'
+
+# kubeadm's preflight, kube-proxy in iptables mode (Gardener's default) and Gardener's VPN.
+NETFILTER_XT_TARGET_REDIRECT    iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080
+NETFILTER_XT_MATCH_COMMENT      iptables -A INPUT -m comment --comment kaetzli -j RETURN
+NETFILTER_XT_MATCH_STATISTIC    iptables -t nat -A PREROUTING -m statistic --mode random --probability 0.5 -j RETURN
+NETFILTER_XT_MATCH_RECENT       iptables -A INPUT -m recent --name kp --rcheck --seconds 10800 --reap -j RETURN
+IP_NF_TARGET_REJECT             iptables -A INPUT -j REJECT --reject-with icmp-port-unreachable
+IP6_NF_TARGET_REJECT            ip6tables -A INPUT -j REJECT --reject-with icmp6-port-unreachable
+NETFILTER_XT_TARGET_NETMAP      iptables -t nat -A PREROUTING -d 10.1.0.0/16 -j NETMAP --to 10.2.0.0/16
+NETFILTER_XT_MATCH_OWNER        iptables -A OUTPUT -m owner --gid-owner 0 -j RETURN
+
+# Calico's iptables dataplane (Felix). No ipset in the image to make a set with, so -m set
+# is held to the error a missing *set* gives; a missing match is a different one.
+NETFILTER_XT_SET                ! out=$(iptables -A INPUT -m set --match-set kp src -j RETURN 2>&1) && [[ $out == *"doesn't exist"* ]]
+NETFILTER_XT_MATCH_MULTIPORT    iptables -A INPUT -p tcp -m multiport --dports 80,443 -j RETURN
+NETFILTER_XT_CONNMARK           iptables -t mangle -A PREROUTING -m connmark --mark 0x1/0x1 -j CONNMARK --set-xmark 0x2/0x2
+NFT_LIMIT                       iptables -A INPUT -m limit --limit 5/min -j RETURN
+NFT_LOG                         iptables -A INPUT -j LOG --log-prefix kaetzli
+IP_NF_MATCH_RPFILTER            iptables -t raw -A PREROUTING -m rpfilter --invert -j DROP
+IP6_NF_MATCH_RPFILTER           ip6tables -t raw -A PREROUTING -m rpfilter --invert -j DROP
+
+# Cilium: tc BPF on an interface. Classic BPF bytecode ("return -1", accept all), so no
+# compiler and no eBPF object: cls_bpf and act_bpf take it as they take eBPF.
+NET_CLS_BPF         tc qdisc add dev lo clsact && tc filter add dev lo ingress bpf bytecode '1,6 0 0 4294967295,'
+NET_ACT_BPF         tc qdisc add dev lo clsact && tc filter add dev lo egress bpf bytecode '1,6 0 0 4294967295,' action bpf bytecode '1,6 0 0 4294967295,'

@@ -850,6 +850,9 @@ jobs:
       - name: Check containerd (the kubernetes extension)
         run: ./test/containerd.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
+      - name: Check the kernel takes the rules and links CNIs and kube-proxy write
+        run: ./test/kernel-probes.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
       - name: Check Firecracker- and Virtualization.framework-shaped boots
         run: ./test/vmm.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
