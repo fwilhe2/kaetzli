@@ -1,0 +1,188 @@
+From 746e8dfcf44747156629d1fd67fdcee23b9533ef Mon Sep 17 00:00:00 2001
+From: Norbert Pocs <norbertp@openssl.org>
+Date: Wed, 11 Nov 2026 05:25:18 +0000
+Subject: [PATCH] CHANGES.md, NEWS.md: add the Low severity CVEs fixed on week
+ 46
+
+Add entries for CVE-2026-88822, CVE-2026-88823, CVE-2026-95691,
+CVE-2026-95692 and CVE-2026-107496, announced in the 10th November 2026
+security advisory.
+
+Assisted-by: Claude Code:claude-opus-5-5
+Reviewed-by: Bob Beck <beck@openssl.org>
+Reviewed-by: Nikola Pajkovsky <nikolap@openssl.org>
+Reviewed-by: Tomas Mraz <tomas@openssl.foundation>
+Merge-date: Fri Nov 27 12:45:55 2026
+Merged-from: https://github.com/openssl/openssl/pull/33659
+---
+ CHANGES.md | 106 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ NEWS.md    |  25 ++++++++++++-
+ 2 files changed, 129 insertions(+), 2 deletions(-)
+
+diff --git a/CHANGES.md b/CHANGES.md
+index f656fa8c0dc4..2b7636ca9979 100644
+--- a/CHANGES.md
++++ b/CHANGES.md
+@@ -30,7 +30,106 @@ OpenSSL 3.5
+ 
+ ### Changes between 3.5.9 and 3.5.10 [xx XXX xxxx]
+ 
+- * none yet
++ * Fixed use of uninitialized stack data in QUIC automated peer detection.
++
++   Severity: Low
++
++   Issue summary: `BIO_dgram_detect_peer_addr()` returns uninitialised stack
++   data as part of an address for non-IPv4 sockets, that is then used in QUIC
++   automatic peer detection code as the destination for outgoing packets.
++
++   Impact summary: Applications using QUIC's automated peer detection mechanism
++   may receive an invalid address, leading to connection loss and disclosure of
++   uninitialized stack data to an attacker observing the outgoing network
++   traffic.
++
++   Reported by: Jaehun Lee.
++
++   ([CVE-2026-88822])
++   <!-- https://github.com/openssl/openssl/pull/33566 -->
++
++   *Neil Horman*
++
++ * Fixed AES-GCM-SIV AAD forgery after a zero-length incremental AAD update.
++
++   Severity: Low
++
++   Issue summary: The AES-GCM-SIV implementation treats a zero-length
++   Additional Authenticated Data (AAD) update as a reset of all the AAD
++   supplied so far, instead of leaving the AAD unchanged. An application that
++   supplies its AAD in several fragments, one of which is empty, therefore
++   produces or verifies messages whose authentication tag does not cover
++   the AAD supplied before the empty fragment.
++
++   Impact summary: Data an application intended to authenticate alongside
++   a message is silently left unauthenticated. An attacker can forge the AAD
++   of such a message.
++
++   Reported by: Jérémy Jean (ANSSI), Bhargava Shastry and Jonathan Bateman
++   (Rochester Institute of Technology).
++
++   ([CVE-2026-88823])
++   <!-- https://github.com/openssl/openssl/pull/33456 -->
++
++   *Daniel Kubec*
++
++ * Fixed use-after-free on retransmitted QUIC CRYPTO frames.
++
++   Severity: Low
++
++   Issue summary: A retransmitted QUIC CRYPTO frame can release packet storage
++   while the TLS record layer retains a direct pointer into that storage
++   causing use after free.
++
++   Impact summary: A malicious QUIC server can cause a heap-use-after-free read
++   in the OpenSSL QUIC client. The server can also identify one
++   allocator-adjacent byte through the client's protected Handshake response.
++
++   Reported by: Filipe Casal (Trail of Bits).
++
++   ([CVE-2026-95691])
++   <!-- https://github.com/openssl/openssl/pull/33543 -->
++
++   *Filipe Casal*
++
++ * Fixed out-of-bounds read and incorrect IV length handling in AES-GCM-SIV.
++
++   Severity: Low
++
++   Issue summary: Setting an AES-GCM-SIV IV shorter than the expected nonce
++   length via `EVP_CipherInit_ex()` may trigger a heap out-of-bounds read.
++   Supplying a longer IV is silently truncated instead of rejected.
++
++   Impact summary: An application passing a caller-supplied IV of the wrong
++   length may crash or read beyond its buffer. Because trailing IV bytes are
++   ignored, an attacker who knows one message and tag may forge messages under
++   a different IV.
++
++   Reported by: Billy Brumley (Rochester Institute of Technology).
++
++   ([CVE-2026-95692])
++   <!-- https://github.com/openssl/openssl/pull/33512 -->
++
++   *Billy Brumley*
++
++ * Fixed infinite loop in `CMS_encrypt()` with an EC group order of 1.
++
++   Severity: Low
++
++   Issue summary: Encrypting a CMS message to an EC certificate whose group
++   order is 1 may cause `CMS_encrypt()` or `CMS_encrypt_ex()` to loop
++   indefinitely.
++
++   Impact summary: An attacker able to supply the recipient certificate to an
++   application performing CMS encryption can cause that application to loop
++   indefinitely, consuming CPU and resulting in Denial of Service.
++
++   Reported by: Yinxi Liu.
++
++   ([CVE-2026-107496])
++   <!-- https://github.com/openssl/openssl/pull/33554 -->
++
++   *Jakub Zelenka*
+ 
+ ### Changes between 3.5.8 and 3.5.9 [29 Sep 2026]
+ 
+@@ -22845,6 +22944,11 @@ ndif
+ [CVE-2026-77696]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-77696
+ [CVE-2026-84782]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-84782
+ [CVE-2026-84784]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-84784
++[CVE-2026-88822]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-88822
++[CVE-2026-88823]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-88823
++[CVE-2026-95691]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-95691
++[CVE-2026-95692]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-95692
++[CVE-2026-107496]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-107496
+ [ESV]: https://csrc.nist.gov/Projects/cryptographic-module-validation-program/entropy-validations
+ [RFC 2578 (STD 58), section 3.5]: https://datatracker.ietf.org/doc/html/rfc2578#section-3.5
+ [RFC 3211]: https://datatracker.ietf.org/doc/html/rfc3211
+diff --git a/NEWS.md b/NEWS.md
+index bbcaeafc1998..cbc41012395c 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -25,7 +25,25 @@ OpenSSL 3.5
+ 
+ ### Major changes between OpenSSL 3.5.9 and OpenSSL 3.5.10 [under development]
+ 
+-  * none
++OpenSSL 3.5.10 is a security patch release.  The most severe CVE fixed
++in this release is Low.
++
++This release incorporates the following bug fixes and mitigations:
++
++  * Fixed use of uninitialized stack data in QUIC automated peer detection.
++    ([CVE-2026-88822])
++
++  * Fixed AES-GCM-SIV AAD forgery after a zero-length incremental AAD update.
++    ([CVE-2026-88823])
++
++  * Fixed use-after-free on retransmitted QUIC CRYPTO frames.
++    ([CVE-2026-95691])
++
++  * Fixed out-of-bounds read and incorrect IV length handling in AES-GCM-SIV.
++    ([CVE-2026-95692])
++
++  * Fixed infinite loop in `CMS_encrypt()` with an EC group order of 1.
++    ([CVE-2026-107496])
+ 
+ ### Major changes between OpenSSL 3.5.8 and OpenSSL 3.5.9 [29 Sep 2026]
+ 
+@@ -2422,6 +2440,11 @@ OpenSSL 0.9.x
+ [CVE-2026-77696]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-77696
+ [CVE-2026-84782]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-84782
+ [CVE-2026-84784]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-84784
++[CVE-2026-88822]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-88822
++[CVE-2026-88823]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-88823
++[CVE-2026-95691]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-95691
++[CVE-2026-95692]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-95692
++[CVE-2026-107496]: https://openssl-library.org/news/vulnerabilities/#CVE-2026-107496
+ [ESV]: https://csrc.nist.gov/Projects/cryptographic-module-validation-program/entropy-validations
+ [OpenSSL Guide]: https://www.openssl.org/docs/manmaster/man7/ossl-guide-introduction.html
+ [README-QUIC.md]: ./README-QUIC.md
