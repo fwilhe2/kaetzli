@@ -6,8 +6,9 @@ gardener-node-agent.service and disables gardener-node-init.
 
     ./test/gardener.py [rootfs.erofs] [bzImage]
 
-Overrides, from the environment: TIMEOUT, MEM (default 2048)/CPUS, LOG (default
-output/gardener-test.log), as in test/podman.py. Needs the kubernetes extension
+Overrides, from the environment: TIMEOUT (each boot), MEM/CPUS, LOG (default
+output/gardener-test.log, written as gardener-test-first.log and -second.log), as in
+test/podman.py. Needs the kubernetes extension
 (containerd and ctr) and the network: the image comes from europe-docker.pkg.dev.
 
 The user data is what an OS extension makes of the OperatingSystemConfig, in the shape
@@ -33,6 +34,17 @@ and restarts every 5s; that is expected here, so the test stops it before report
 it would do next, against a real control plane, is the proposal's open question
 (docs/proposals/gardener-node.md).
 
+/var is a disk (output/gardener-test.img), and the machine is powered off and booted a
+second time from it, as a cloud reboots a node. What is checked then:
+
+  - the user data did not run again: kaetzli-user-data.service found this instance
+    recorded and never asked for user_data, and gardener-node-init did not start
+  - gardener-node-agent.service started from what the first boot left: its unit in /etc's
+    upper layer (/var/lib/extensions.mutable/etc) and its binary in /var/opt/bin. It did
+    not, before systemd-confext's drop-in (50-mutable-etc.conf) re-queued the boot's
+    targets: the boot's transaction is made before the merge
+  - again, nothing hit a read-only filesystem
+
 INIT_SH is Gardener's nodeinit/templates/scripts/init.tpl.sh at VERSION, rendered with
 Go's text/template exactly as nodeinit.generateInitScript does without a registry CA (the
 image, binaryName gardener-node-agent, binaryDirectory /opt/bin, configDir
@@ -54,6 +66,7 @@ from pathlib import Path
 
 from kaetzli import repo
 from kaetzli.boot import boot, run
+from kaetzli.boot.persistent_var import shutdown
 from kaetzli.boot.user_data import metadata_dir, nic
 from kaetzli.qemu import Refused
 
@@ -227,18 +240,52 @@ CHECKS = [
      "! journalctl -b -q | grep -q 'Read-only file system'"),
 ]  # fmt: skip
 
-# Waits for bootstrap's last log line, stops the node agent (it cannot reach an API
-# server and would keep writing to the console), then checks, naming the first failure.
-CHECK = (
-    "for i in $(seq 150); do "
-    "journalctl -b -q -u gardener-node-init | grep -q 'Bootstrap procedure finished' && break; "
-    "sleep 2; done; "
-    "systemctl stop gardener-node-agent.service; "
-    + " && ".join(
-        f"{{ {test} || {{ echo \"GARDENER-\"'FAIL: {what}'; false; }}; }}" for what, test in CHECKS
+# The second boot, from the first one's /var: nothing provisioned again, node-agent back.
+SECOND_CHECKS = [
+    ("kaetzli-user-data.service is not active",
+     "[[ $(systemctl is-active kaetzli-user-data.service) == active ]]"),
+    ("the user data ran again (kaetzli-user-data did not find this instance recorded)",
+     "journalctl -b -q -u kaetzli-user-data | grep -q 'user data already ran for this instance'"),
+    (f"{UNIT} started again", f"[[ -z $(journalctl -b -q -u {UNIT}) ]]"),
+    (f"{UNIT} is enabled again", f"[[ $(systemctl is-enabled {UNIT}) == disabled ]]"),
+    ("gardener-node-agent.service is not in the upper layer of /etc",
+     "[ -f /var/lib/extensions.mutable/etc/systemd/system/gardener-node-agent.service ]"),
+    ("gardener-node-agent.service did not start on the second boot",
+     "journalctl -b -q -u gardener-node-agent | grep -q 'Started.*Gardener Node Agent'"),
+    ("/opt/bin/gardener-node-agent is gone or does not run",
+     "/opt/bin/gardener-node-agent --help >/dev/null"),
+    ("something hit a read-only filesystem",
+     "! journalctl -b -q | grep -q 'Read-only file system'"),
+]  # fmt: skip
+
+
+def checks(items: list[tuple[str, str]], wait_for: str, mark: str, tries: int) -> str:
+    """Wait until `wait_for` (a bash test) holds, `tries` times 2s at most, stop the node
+    agent (it cannot reach an API server and would keep writing to the console), then run
+    each check, naming the first that fails: `<mark>-OK` or `<mark>-FAIL: <what>`."""
+    return (
+        f"for i in $(seq {tries}); do {{ {wait_for}; }} && break; sleep 2; done; "
+        "systemctl stop gardener-node-agent.service; "
+        + " && ".join(
+            f"{{ {test} || {{ echo \"{mark}-\"'FAIL: {what}'; false; }}; }}" for what, test in items
+        )
+        + f" && echo {mark}'-OK'"
     )
-    + " && echo GARDENER'-OK'"
+
+
+CHECK = checks(
+    CHECKS,
+    "journalctl -b -q -u gardener-node-init | grep -q 'Bootstrap procedure finished'",
+    "GARDENER",
+    150,
 )
+SECOND_CHECK = checks(
+    SECOND_CHECKS,
+    "journalctl -b -q -u gardener-node-agent | grep -q 'Started.*Gardener Node Agent'",
+    "REBOOT",
+    60,  # it starts with the boot or not at all
+)
+
 DIAGNOSE = (
     "systemctl --no-pager status kaetzli-user-data.service containerd.service "
     f"{UNIT} gardener-node-agent.service; ls -la /opt/bin/ {BASE}; "
@@ -247,34 +294,66 @@ DIAGNOSE = (
 )
 
 
+def verdict(guest, check: str, mark: str, seconds: float, timeout: str) -> None:
+    guest.send(check)
+    if not guest.wait(rf"{mark}-(OK|FAIL: [^\r\n]*)", seconds):
+        guest.fail(timeout)
+    if guest.group() != "OK":
+        guest.fail(guest.group().removeprefix("FAIL: "))
+
+
 def main(argv: list[str]) -> int:
-    b = boot(argv, init="/usr/lib/systemd/systemd", log="output/gardener-test.log")
+    b = boot(argv, init="/usr/lib/systemd/systemd", log="")
+    log_base = os.environ.get("LOG", "output/gardener-test.log").removesuffix(".log")
+    disk = Path(os.path.dirname(log_base) or ".") / "gardener-test.img"
     root = Path(tempfile.mkdtemp())
+
+    def remove_disk() -> None:
+        disk.unlink(missing_ok=True)
+        Path(f"{disk}.machine-id").unlink(missing_ok=True)
+
+    def start(name: str):
+        m = b.machine
+        m.setup()
+        m.preflight()
+        b.log = f"{log_base}-{name}.log"
+        return b.guest("gardener", diagnose=DIAGNOSE)
 
     def test() -> None:
         m = b.machine
         m.sysexts = ["kubernetes"]
-        if not os.environ.get("MEM"):
-            m.mem = "2048"  # the image is pulled into /var, which is RAM
-        m.setup()
+        m.var_disk = str(disk)
         if m.profile != "pc":
             raise Refused(f"test/gardener.py boots the pc profile, not QEMU_PROFILE={m.profile}")
-        m.preflight()
+        remove_disk()
         metadata_dir(root)
         (root / "openstack" / "latest" / "user_data").write_text(user_data())
+        requests = root / "requests.log"
         m.nic_args = nic(root)
         m.append_extra += " kaetzli.user-data=openstack"
-        with b.guest("gardener", diagnose=DIAGNOSE) as guest:
+
+        with start("first") as guest:
             guest.login()
-            guest.send(CHECK)
-            if not guest.wait(r"GARDENER-(OK|FAIL: [^\r\n]*)", 420):
-                guest.fail("Gardener's node init did not finish")
-            if guest.group() != "OK":
-                guest.fail(guest.group().removeprefix("FAIL: "))
+            verdict(guest, CHECK, "GARDENER", 420, "Gardener's node init did not finish")
             print(
                 f">> Gardener {VERSION} node init OK: init.sh pulled node-agent with ctr, "
                 "installed it into /opt/bin, and its bootstrap wrote, enabled and started "
                 "gardener-node-agent.service in /etc and disabled gardener-node-init",
+                flush=True,
+            )
+            shutdown(guest)
+
+        requests.unlink(missing_ok=True)
+        with start("second") as guest:
+            guest.login()
+            verdict(guest, SECOND_CHECK, "REBOOT", 360, "node-agent did not come back")
+            asked = requests.read_text().split() if requests.exists() else []
+            if "/openstack/latest/user_data" in asked:
+                guest.fail(f"the second boot asked for the user data again (asked: {asked})")
+            print(
+                ">> reboot OK: the same /var, user data not fetched or run again, "
+                "gardener-node-init not started, gardener-node-agent.service back from "
+                "/etc's upper layer and /var/opt/bin",
                 flush=True,
             )
 
@@ -282,6 +361,7 @@ def main(argv: list[str]) -> int:
         return run(test)
     finally:
         shutil.rmtree(root, ignore_errors=True)
+        remove_disk()
 
 
 if __name__ == "__main__":

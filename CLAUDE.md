@@ -426,7 +426,9 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   writes in `/var/lib/extensions.mutable/etc`; under Secure Boot that is a read-only tmpfs.
   Anything earlier still sees the read-only image `/etc`. `ldconfig.service` and
   `systemd-sysusers.service` are masked: a merged sysext makes their `ConditionNeedsUpdate=`
-  true, and their output would shadow later images' from the upper layer.
+  true, and their output would shadow later images' from the upper layer. The boot's
+  transaction predates the merge, so the drop-in starts the queued targets again: without it a
+  unit enabled into the upper layer never starts on the next boot (`test/gardener.py`).
 - **Everything writable is RAM** (`/var` via `var.mount`, `/tmp`); mount points ship empty, so
   anything there is made at boot (tmpfiles, `StateDirectory=`). sshd: privsep
   `/usr/share/empty.sshd`, host keys `/var/lib/sshd` each boot. **`/var` can be a disk**: a

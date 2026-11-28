@@ -131,6 +131,13 @@ from Gardener's registry with `ctr`, and node-agent's `bootstrap` writes, enable
 that, and that nothing hit a read-only filesystem. It ends where node-agent asks the API
 server for its kubeconfig (a CSR against a host that does not exist).
 
+`/var` is a disk, and the VM is then rebooted from it: the user data is neither fetched
+nor run again, gardener-node-init does not start, and node-agent starts from its unit in
+`/etc`'s upper layer and its binary in `/var/opt/bin`. That took a fix: the boot's
+transaction is made before systemd-confext merges `/etc`, so a unit enabled there was
+loaded but never started; the confext drop-in now starts the boot's targets again after
+the merge.
+
 A Gardener bump re-renders `INIT_SH` and moves `IMAGE` to the new tag's digest
 (`python/src/kaetzli/boot/gardener.py` says how); nothing checks for one yet.
 
