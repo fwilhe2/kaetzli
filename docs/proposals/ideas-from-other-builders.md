@@ -353,7 +353,7 @@ identifiers decide what can be found.
 
 **Gap:** `image/build-rootfs.sh` (around line 726) gives every package the purl
 `pkg:generic/<name>@<version>` and no CPE. Scanners such as grype, trivy and osv-scanner
-can match very little of that. The Go and Rust programs (podman, CRI-O, kubernetes,
+can match very little of that. The Go and Rust programs (podman, containerd, kubernetes,
 cri-tools, cni-plugins, netavark, aardvark-dns) embed hundreds of modules and crates that
 the SBOM does not list at all, and these are where most advisories for this image would
 come from.

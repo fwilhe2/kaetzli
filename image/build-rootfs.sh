@@ -179,6 +179,8 @@ if [ "$flavour" = oci ]; then
     rm -rf usr/lib/sysctl.d etc/sysctl.d
     rm -rf usr/lib/credstore etc/credstore etc/credstore.encrypted usr/lib/pam.d
     rm -rf etc/systemd etc/udev etc/tmpfiles.d etc/user-tmpfiles.d
+    # A container has no metadata service of its own; the script is the unit's.
+    rm -rf usr/lib/kaetzli
     rm -f  usr/lib/security/pam_systemd.so usr/lib/security/pam_systemd_loadkey.so
     rm -f  usr/lib/libnss_systemd.so.2 usr/lib/libnss_resolve.so.2 \
            usr/lib/libnss_myhostname.so.2
@@ -542,7 +544,9 @@ ldconfig -r "$IMAGE" || true
 # ---------------------------------------------------------------------------------
 # First boot, done here: /etc is read-only on EROFS, and the units that would write it
 # are ConditionNeedsUpdate=/etc and skip. A missed step shows as "Read-only file system"
-# in the journal, which test/systemd.py fails on.
+# in the journal, which test/systemd.py fails on. /etc is writable once systemd-confext
+# has merged it (image/files/etc/systemd/confext.conf), so the two that would rewrite
+# what is made here are masked below.
 #
 # With our systemd, through our loader: --library-path outranks its absolute RUNPATH,
 # which would resolve inside this container. A binary it cannot open is reported as
@@ -567,6 +571,21 @@ if [ "$flavour" = erofs ]; then
     # thing enabling networkd and resolved. Missed, the boot is `running` with no network.
     ours systemctl preset-all --root="$IMAGE"
     test -L etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+
+    # Done here, and never again at boot: ldconfig and sysusers. With /etc writable their
+    # ConditionNeedsUpdate=/etc holds whenever a sysext is merged (the merged /usr is
+    # newer than any /etc/.updated), and they would write ld.so.cache and the account
+    # files into the overlay's upper layer, where on a /var disk they shadow what every
+    # later image ships. The cache is this image's; an extension's programs find their
+    # libraries without it (docs/guides/sysext.md). machine-id-commit likewise: it runs
+    # once /etc is writable (ConditionPathIsReadWrite=/etc), unordered against the confext
+    # merge, and would write the per-boot ID PID 1 bound over /etc/machine-id into the
+    # upper layer; a persistent ID is systemd.machine_id= (tools/vm.sh, tools/build-disk.sh).
+    # test/systemd.py and test/persistent-var.py check the upper layer holds nothing.
+    for unit in ldconfig.service systemd-sysusers.service systemd-machine-id-commit.service; do
+        [ -f "usr/lib/systemd/system/$unit" ] || { echo "error: no $unit to mask" >&2; exit 1; }
+        ln -sfn /dev/null "etc/systemd/system/$unit"
+    done
 
     # / at the 0555 tmpfiles.d/root.conf would otherwise fail to fchmod at every boot.
     chmod 555 "$IMAGE"
@@ -637,6 +656,26 @@ UNIT
         mkdir -p "usr/lib/systemd/system/systemd-$tool.service.wants"
         ln -sfn "../var-lib-$dir.mount" "usr/lib/systemd/system/systemd-$tool.service.wants/var-lib-$dir.mount"
     done
+    # And no writable /etc from /var (image/files/etc/systemd/confext.conf): the same empty
+    # read-only mount over where its writes would go, so Mutable=auto finds nothing.
+    cat > usr/lib/systemd/system/var-lib-extensions.mutable.mount <<'UNIT'
+[Unit]
+Description=No /etc from unverified /var under Secure Boot
+Documentation=https://github.com/fwilhe2/kaetzli/blob/main/docs/guides/secure-boot.md
+ConditionSecurity=uefi-secureboot
+Before=systemd-confext.service systemd-sysext.service
+
+[Mount]
+What=tmpfs
+Where=/var/lib/extensions.mutable
+Type=tmpfs
+Options=ro,nosuid,nodev,noexec,mode=0755
+UNIT
+    for tool in sysext confext; do
+        mkdir -p "usr/lib/systemd/system/systemd-$tool.service.wants"
+        ln -sfn ../var-lib-extensions.mutable.mount \
+            "usr/lib/systemd/system/systemd-$tool.service.wants/var-lib-extensions.mutable.mount"
+    done
 
     # Anything under the mount point would be invisible; tmpfiles makes what is needed.
     find var -mindepth 1 -delete
@@ -648,6 +687,14 @@ UNIT
     rm -rf home root
     ln -s var/home home
     ln -s var/roothome root
+    # /opt/bin likewise, for what a node agent installs at boot: Gardener's
+    # gardener-node-agent and the kubelet it fetches go to /opt/bin, the directory
+    # Flatcar and Garden Linux keep writable for it. A link inside /opt rather than /opt
+    # itself, so an extension that merges /opt (cni-plugins' /opt/cni) still can:
+    # systemd-sysext's overlay is read-only, and keeps the link.
+    # tmpfiles.d/kaetzli-opt.conf makes the target.
+    mkdir -p opt
+    ln -s ../var/opt/bin opt/bin
     # systemd's own lines for the two paths (home.conf's `Q /home`, provision.conf's
     # `d- /root`) want directories and say at every boot that a link is not one. Same-named
     # files in /etc replace them, made from systemd's without those lines, so whatever else
@@ -670,11 +717,13 @@ chmod 644 etc/passwd etc/group etc/hosts etc/profile etc/nsswitch.conf etc/ld.so
 
 if [ "$flavour" = erofs ]; then
     chmod 755 etc/systemd/system etc/systemd/network etc/pam.d \
-              etc/systemd/system/dbus.service.d etc/systemd/journald.conf.d \
+              etc/systemd/system/dbus.service.d etc/systemd/system/systemd-confext.service.d \
+              etc/systemd/journald.conf.d \
               etc/systemd/resolved.conf.d etc/systemd/system-preset
-    chmod 644 etc/fstab etc/subuid etc/subgid etc/pam.d/* etc/tmpfiles.d/{kaetzli-home,home,provision}.conf \
+    chmod 644 etc/fstab etc/subuid etc/subgid etc/pam.d/* etc/tmpfiles.d/{kaetzli-home,kaetzli-opt,home,provision}.conf \
               etc/systemd/network/*.network \
               etc/systemd/system/dbus.service.d/*.conf etc/systemd/journald.conf.d/*.conf \
+              etc/systemd/system/systemd-confext.service.d/*.conf etc/systemd/confext.conf \
               etc/systemd/resolved.conf.d/*.conf etc/systemd/system-preset/*.preset
     chmod 600 etc/shadow
 fi

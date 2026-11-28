@@ -14,6 +14,11 @@ the systemd.mount-extra= Machine passes). What has to survive, and why each:
 
   a file in /var/lib    the plain case
   files in both homes   /home and /root are symlinks into /var (image/build-rootfs.sh)
+  a file in /opt/bin    a symlink into /var too, where a node agent installs binaries
+  a file in /etc        an overlay, its writes in /var/lib/extensions.mutable/etc
+                        (systemd-confext's mutable mode, image/files/etc/systemd/confext.conf),
+                        which holds nothing until then but systemd-update-done's copy of
+                        /etc/.updated: no ld.so.cache or accounts the boot regenerated
   ssh as `user`         with a key the second boot was handed and the first was not: a
                         copy of the boot key kept in the home would refuse it
   a podman image        /var/lib/containers, the reason a persistent /var is wanted
@@ -47,10 +52,13 @@ ON_DISK = "[[ $(findmnt -rno SOURCE,FSTYPE /var) == '/dev/vdb ext4' ]]"
 def first_command(machine_id: str) -> str:
     return (
         f"{ON_DISK} && [[ $(</etc/machine-id) == {machine_id} ]] && "
+        "[[ -z $(ls -A /var/lib/extensions.mutable/etc | grep -vx .updated) ]] && "
         "cat /proc/sys/kernel/random/boot_id > /var/lib/persistent-var-test && "
         "[[ $(readlink /home):$(readlink /root) == var/home:var/roothome ]] && "
         "runuser -u user -- cp /var/lib/persistent-var-test /home/user/persistent-var-test && "
         "cp /var/lib/persistent-var-test /root/persistent-var-test && "
+        "cp /var/lib/persistent-var-test /opt/bin/persistent-var-test && "
+        "cp /var/lib/persistent-var-test /etc/persistent-var-test && "
         "tar -C /usr/share/kaetzli -c sbom.json "
         "| podman import - localhost/persisted >/dev/null && "
         "echo VAR'-FIRST-OK'"
@@ -69,7 +77,10 @@ def second_command(machine_id: str) -> str:
         "first=$(</var/lib/persistent-var-test) "
         "&& [[ $first != $(</proc/sys/kernel/random/boot_id) ]] && "
         "[[ $(</root/persistent-var-test) == $first "
-        "&& $(</home/user/persistent-var-test) == $first ]] && "
+        "&& $(</home/user/persistent-var-test) == $first "
+        "&& $(</opt/bin/persistent-var-test) == $first "
+        "&& $(</etc/persistent-var-test) == $first ]] && "
+        "[[ $(findmnt -no FSTYPE /etc) == overlay ]] && "
         "[[ $(stat -c %U /home/user/persistent-var-test) == user ]] && "
         "podman image exists localhost/persisted && "
         "journalctl -q -b -1 -n 1 >/dev/null && "

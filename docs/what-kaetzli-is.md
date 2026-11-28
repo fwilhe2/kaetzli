@@ -54,12 +54,15 @@ tree appended to the same file. The root hash appears only in `rootfs.cmdline`, 
 `dm-mod.create=` table, so the kernel sets up verity without an initrd. A modified block
 returns an I/O error; `test/verity.py` boots a tampered image to prove it.
 
-**State is explicit.** `/etc` is part of the read-only root. `/var`, `/tmp` and `/run`
-are tmpfs by default, and `/home` and `/root` point into `/var`. A disk attached as `/var`
-is formatted on first boot and grown when enlarged. Because `/etc` cannot be written at
-boot, the first-boot work runs during assembly: `systemd-sysusers`, `systemd-tmpfiles`,
-`systemctl preset-all` and `ldconfig`. A package that writes to `/etc` at runtime shows up
-as a journal error, and the boot test fails on it.
+**State is explicit.** `/var`, `/tmp` and `/run` are tmpfs by default, and `/home`,
+`/root` and `/opt/bin` point into `/var`. A disk attached as `/var` is formatted on first
+boot and grown when enlarged. `/etc` is the root's, with a writable overlay from
+`systemd-confext` once it is merged: changes go to `/var/lib/extensions.mutable/etc`, and a
+file nobody changed follows the image (not under Secure Boot, where `/etc` stays read-only).
+The first-boot work runs during assembly, before any of that: `systemd-sysusers`,
+`systemd-tmpfiles`, `systemctl preset-all` and `ldconfig`, whose boot units are masked. A
+package that writes to `/etc` before the merge shows up as a journal error, and the boot
+test fails on it.
 
 **Small because nothing unneeded is in it.** In the current release, the amd64 EROFS root
 is 29.7 MB and the kernel is 11.4 MB. The trim removes only what nothing in the image can
@@ -97,7 +100,7 @@ udev, PAM and sshd removed. Removed libraries are guarded, so a new consumer fai
 the build. `oci-trim.py` reports the difference on every run.
 
 **Extensions instead of a package manager.** Podman (with netavark, aardvark-dns, pasta
-and shadow), Kubernetes (kubelet, kubeadm, CRI-O, CNI) and a debug set (strace, tcpdump,
+and shadow), Kubernetes (kubelet, kubeadm, containerd, CNI) and a debug set (strace, tcpdump,
 gdbserver, perf, bpftool) are systemd-sysext images, each with its own dm-verity table and
 SBOM. The base keeps the kernel features, crun with seccomp, conmon and nftables, so
 `crun run` works without any extension.

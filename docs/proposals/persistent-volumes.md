@@ -19,7 +19,7 @@ nothing on it provides storage either, and the usual quick fix does not work as 
   volumes land on the node's `/var` disk and survive a reboot of the node.
 - **Capacity is not enforced:** local-path ignores the requested size; a 500Gi claim was
   bound on a 10 GB `/var`. A full `/var` then also takes down the node itself (kubelet,
-  CRI-O's images, the node's PKI all live there).
+  containerd's images, the node's PKI all live there).
 - **fsGroup does not apply** to its hostPath-backed volumes; it works only because the
   provisioner creates the directories world-writable (0777).
 
@@ -64,7 +64,6 @@ nothing on it provides storage either, and the usual quick fix does not work as 
 - **Node reboots end the demo node.** qemu runs with `-no-reboot`, and `k8s-demo.py` has
   no command to start a stopped node again (`Cluster.boot_node` does it, with the node's
   `/var` intact). A `k8s-demo.py start N` would make reboot tests possible.
-- **Local images.** With `/etc` read-only, CRI-O cannot be pointed at a local or insecure
-  registry, so an image built on the host cannot be tried on the demo without a registry
-  with a trusted certificate. A demo option for a registry in `registries.conf.d` (via a
-  confext or credential) would help.
+- **Local images.** An image built on the host cannot be tried on the demo without a
+  registry with a trusted certificate. `/etc` is writable now, so a demo option could put a
+  local registry in `/etc/containerd/certs.d` on each node.

@@ -1,5 +1,5 @@
 # Go, from upstream's release tarballs rather than sid's golang-go, so podman, kubernetes,
-# CRI-O and the CNI plugins build as soon as they require a new Go, not once Debian has
+# containerd and the CNI plugins build as soon as they require a new Go, not once Debian has
 # uploaded it (docs/proposals/own-toolchain.md, phase 1).
 #
 # Pinned like a package: VERSION and the SHA-256 of each architecture's tarball, written

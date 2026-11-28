@@ -12,6 +12,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Linking](guides/linking.md): runtime library compatibility and ELF checks.
 - [System extensions](guides/sysext.md): build and attach extensions.
 - [Bootable disk](guides/disk.md): the image as one UEFI-bootable disk, for VMMs and clouds.
+- [User data](guides/user-data.md): running a cloud instance's user data at boot.
 - [Debugging](guides/debugging.md): tools in the base and debug extension, expected boot
   messages, and how login and SSH access work.
 
@@ -24,6 +25,8 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Image variants](proposals/image-variants.md): select package sets at assembly time.
 - [Cloud VPS](proposals/cloud-vps.md): kaetzli as the system a VPS provider boots; which
   providers fit, and the disk image that is missing.
+- [Gardener node](proposals/gardener-node.md): kaetzli workers in a Gardener shoot on
+  OpenStack; what a node needs, what the base now has, containerd and the extension next.
 - [macOS container host](proposals/container-host.md): use the image as a Podman VM.
 - [Releases](proposals/release.md): rolling, expiring snapshots as GitHub releases; no supported versions.
 - [Always latest](proposals/always-latest.md): moving machines and Kubernetes nodes to

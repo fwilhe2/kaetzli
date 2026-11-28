@@ -4,10 +4,9 @@
 # the buildtype and wins, which is their choice for a process that runs once per
 # container.
 #
-# Into /usr/bin, as Fedora ships it, because it is not podman's: conmon is the monitor
-# every engine here runs containers under — podman, and CRI-O in the kubernetes
-# extension — and both find it on $PATH with no configuration. With crun it is the part
-# of the container runtime the base keeps when the engines are extensions. libsystemd is
+# Into /usr/bin, as Fedora ships it: conmon is the monitor podman runs containers under
+# and finds on $PATH with no configuration (containerd has its own shim). With crun it is
+# the part of the container runtime the base keeps when the engines are extensions. libsystemd is
 # for the journald log driver, which is podman's default here. libseccomp is found and
 # *not* linked, correctly: seccomp notify (`--seccomp-policy`) is the raw seccomp(2)
 # syscall, and <seccomp.h> is only included for its types.

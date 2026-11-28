@@ -164,6 +164,7 @@ defaults; releases publish it as `disk-<arch>.qcow2`.
 ```sh
 ./tools/fetch-image.sh --disk               # the latest snapshot's, verified
 ./tools/build-disk.sh                       # output/kaetzli-disk-<arch>.raw and .qcow2
+./tools/build-disk.sh --cloud openstack     # runs the instance's user data at boot
 ./tools/build-disk.sh --bus scsi --ssh-key ~/.ssh/id_ed25519.pub
 ```
 
@@ -196,7 +197,7 @@ Extensions add software to a machine without rebuilding the base. The repository
 `--ext podman,debug` when starting a VM.
 
 Podman includes Quadlet and rootless container support. The Kubernetes extension includes
-kubelet, kubeadm, kubectl, CRI-O, crictl, and CNI plugins. A Kubernetes node needs persistent
+kubelet, kubeadm, kubectl, containerd, crictl, and CNI plugins. A Kubernetes node needs persistent
 storage for `/var`. To start the included three-node demo:
 
 ```sh

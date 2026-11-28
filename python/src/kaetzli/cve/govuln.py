@@ -10,7 +10,7 @@ that SBOM, `vulnerable_code_not_present`; one whose function is in a binary stay
 and is listed with the binaries that have it.
 
 The judgement is per SBOM, because a module version can be linked into a program in one
-extension and inert in another (docker/distribution's is in crio, not in podman). It is
+extension and inert in another (a module live in containerd may be inert in podman). It is
 deterministic for a given database: one snapshot (vuln.go.dev/vulndb.zip) per scan, its
 date in the report, and govulncheck's version pinned by go/tools/go.mod and go.sum.
 

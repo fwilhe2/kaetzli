@@ -113,7 +113,7 @@ Version skew is the largest of them.
    Replacing nodes does not upgrade the control plane either. With kubeadm, the API
    server, controller manager, scheduler and etcd are static pods pulled from
    registry.k8s.io at the version in the cluster's `ClusterConfiguration`; the image's
-   `kubernetes` extension only supplies kubelet, kubeadm, kubectl and CRI-O. Only
+   `kubernetes` extension only supplies kubelet, kubeadm, kubectl and containerd. Only
    `kubeadm upgrade apply` moves the control plane, so a minor upgrade goes:
    1. The newer kubeadm runs `kubeadm upgrade apply v1.38.x` once, which rolls the
       static pods on every control-plane node and updates the cluster's configuration,

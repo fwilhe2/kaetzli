@@ -12,6 +12,10 @@
   "SYSTEMD-ROFS:[0]\n"
  ],
  [
+  "extensions.mutable",
+  "SYSTEMD-ETC:[0]\n"
+ ],
+ [
   "journalctl -b -q -p err",
   "SYSTEMD-ERRS:[0]\n"
  ],

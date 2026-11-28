@@ -101,8 +101,8 @@ strace -c -f <command>
 ```
 
 Use a temporary systemd drop-in under `/run/systemd/system/<unit>.service.d/` to trace a
-service from startup. The image has a read-only `/etc` and `/usr`; `/var` is temporary
-unless a disk is attached.
+service from startup. `/usr` is read-only, `/etc` writable once `systemd-confext` has
+merged it, and both `/etc`'s changes and `/var` are temporary unless a disk is attached.
 
 ### perf
 
@@ -168,7 +168,7 @@ Use socat to inspect or forward socket traffic; use jq to query JSON output:
 
 ```sh
 socat - UNIX-CONNECT:/run/podman/podman.sock
-socat -v UNIX-LISTEN:/run/proxy.sock,fork UNIX-CONNECT:/run/crio/crio.sock
+socat -v UNIX-LISTEN:/run/proxy.sock,fork UNIX-CONNECT:/run/containerd/containerd.sock
 ip -j addr | jq '.[] | {ifname, addr_info}'
 nft -j list ruleset | jq '.nftables[] | select(.rule)'
 ```

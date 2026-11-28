@@ -116,7 +116,7 @@ policy checks are done).
   `go/tools` is not our code: a `tool` line and `go.sum` pinning govulncheck, which
   `kaetzli.cve.govuln` builds with the Go on PATH and runs in binary mode on the staged Go
   programs. An advisory whose functions no binary of an SBOM contains is VEX `not_affected`
-  there (per SBOM: a module inert in podman may be live in crio); the rest stay open.
+  there (per SBOM: a module inert in podman may be live in containerd); the rest stay open.
 - **`env.sh` stays bash**; Python reads pins through bash (`env_get`, `bash -c 'source …;
   printf …'`), never by parsing.
 - **Python 3.12 baseline**: the distribution's `python3` (Debian, Ubuntu, Fedora only). Must run
@@ -199,12 +199,15 @@ policy checks are done).
 ./test/rootless.py $BOOT        # podman as `user`: ID maps, pasta
 ./test/persistent-var.py $BOOT  # /var disk survives two boots
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
+./test/user-data.py $BOOT       # OpenStack metadata service: user data runs once, as root
+./test/containerd.py $BOOT      # kubernetes extension: containerd upheld before user data, CRI loaded, a container on crun
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
 ./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot, /var by credentials; unsigned refused (tools/sign-uki.sh first)
-./test/disk.py [disk.qcow2]     # the UEFI disk under OVMF: root on partition 2, /var on 3 (DISK_BUS=scsi; amd64)
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
+./test/disk.py [qcow2]          # build-disk.sh's disk under OVMF, checked against its own command line (DISK_BUS=scsi)
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
+./test/gardener.py $BOOT        # Gardener's node init + node-agent bootstrap, pinned release (network)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
@@ -230,9 +233,9 @@ policy checks are done).
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
 ./tools/k8s-demo.py up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
+./tools/build-disk.sh [--cloud openstack] [--bus scsi] [--var-size N|0] [--ssh-key K] [--append A]  # UEFI disk: ESP+UKI, root, blank /var (raw, qcow2)
 ./tools/sign-uki.sh [--key K --cert C] [--ext a,b [--var]] [UKI]  # → output/secureboot/: signed UKI + OVMF (the launcher's Go code)
 ./tools/build-launcher.sh [OUT] [VERSION]
-./tools/build-disk.sh [--bus scsi] [--var-size N|0] [--ssh-key F] [--append A]  # GPT: UKI on an ESP, root, /var
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
 ./tools/release.py name|publish [--dry-run]
 ./tools/corresponding-source.py [REV] # repo at REV + its sources image, verified (GPL source offer)
@@ -417,17 +420,24 @@ building before and after with the same `KAETZLI_BUILD=` and comparing `sha256su
   launcher enrolls its digest) and OVMF enforces Secure Boot (`docs/guides/secure-boot.md`). Extensions likewise (`<name>.dm-verity`,
   joined by `qemu_sysexts`); `image/files/etc/udev/rules.d/10-dm-init.rules` names dm-init's
   devices, or systemd waits forever.
+- **`/etc` is writable after `systemd-confext`** (`sysinit.target`): its mutable mode
+  (`image/files/etc/systemd/confext.conf`, a drop-in that runs it with no confext) puts
+  writes in `/var/lib/extensions.mutable/etc`; under Secure Boot that is a read-only tmpfs.
+  Anything earlier still sees the read-only image `/etc`. `ldconfig.service` and
+  `systemd-sysusers.service` are masked: a merged sysext makes their `ConditionNeedsUpdate=`
+  true, and their output would shadow later images' from the upper layer.
 - **Everything writable is RAM** (`/var` via `var.mount`, `/tmp`); mount points ship empty, so
   anything there is made at boot (tmpfiles, `StateDirectory=`). sshd: privsep
   `/usr/share/empty.sshd`, host keys `/var/lib/sshd` each boot. **`/var` can be a disk**: a
   `systemd.mount-extra=` generates an outranking `var.mount` (`VAR_DISK=` in `qemu-lib.sh`,
   plus a persistent machine ID). **`/home` and `/root` are symlinks to `var/home`,
-  `var/roothome`** (`tmpfiles.d/kaetzli-home.conf`); directories in OCI.
-- **First boot runs in `build-rootfs.sh`, since `/etc` is read-only**: our `systemd-sysusers`,
+  `var/roothome`** (`tmpfiles.d/kaetzli-home.conf`), `/opt/bin` to `var/opt/bin` (where node
+  agents install; not all of `/opt`, which sysext merges read-only); directories in OCI.
+- **First boot runs in `build-rootfs.sh`, since `/etc` is read-only until the confext merge**: our `systemd-sysusers`,
   `systemd-tmpfiles --prefix=/etc` and **`systemctl preset-all`** (without it networkd and
   resolved are never enabled), through our loader with `--library-path`. `99-default.preset`
   is `disable *`; a package wanting its unit on ships the `.wants` link (openssh, dbus). **A
-  package writing `/etc` at boot breaks the image** (*Read-only file system* in the journal,
+  package writing `/etc` before the confext merge breaks the image** (*Read-only file system* in the journal,
   failed by `systemd.py`). Also shipped: empty `/etc/machine-id` (PID 1 binds a per-boot id),
   `/` at 0555 (so tmpfiles does not `fchmod`). The journal catalogue is built at boot.
 - **`tools/vm.sh`**: `output/vms/<name>/` holds the `/var` disk, machine ID and a kept ssh key
@@ -485,7 +495,7 @@ match or `mark()`) — suspect the handshake before `shadow` when a login fails.
 
 **podman is the engine.** **Engines are system extensions, the runtime is the base**
 (`docs/guides/sysext.md`): podman, netavark, aardvark-dns, passt, shadow are
-`EXTENSION=podman`; CRI-O and kubelet `kubernetes`. The base keeps the kernel features, crun,
+`EXTENSION=podman`; containerd and kubelet `kubernetes`. The base keeps the kernel features, crun,
 conmon (glib, pcre2), nftables, libseccomp and `/etc/containers`, so `crun run` works alone.
 Attach with `SYSEXTS=podman ./tools/boot-qemu.py`. Units from an extension appear when the
 merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `WantedBy=`.
@@ -558,9 +568,9 @@ and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board li
 ## CI
 
 `.github/workflows/ci.yml`: `changes` → `builder`/`sources` → `glibc` (and `kernel`) → `build`
-matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, `release`; `k8s` and
-`node-conformance` gate nothing. Every push runs it; `changes` skips the build only when all
-changed files are `docs/**` or root `*.md`; `docs` always runs. **`result` is the one required
+matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, `release`; `k8s`, `gardener`
+and `node-conformance` gate nothing. Every push runs it; `changes` skips the build only when
+all changed files are `docs/**` or root `*.md`; `docs` always runs. **`result` is the one required
 check** (fails on any failed/cancelled job or a wanted build that did not boot); a new gating
 job goes in its `needs:`.
 

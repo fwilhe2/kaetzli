@@ -1,5 +1,5 @@
 # crictl, the CRI's own command line: what `podman ps` is to podman, for the containers
-# kubelet runs through CRI-O. Static Go, vendored in the repository. In the kubernetes
+# kubelet runs through containerd. Static Go, vendored in the repository. In the kubernetes
 # system extension, not the image (EXTENSION, see build.sh). Versioned with Kubernetes.
 VERSION="1.37.0"
 PACKAGE="cri-tools-${VERSION}"

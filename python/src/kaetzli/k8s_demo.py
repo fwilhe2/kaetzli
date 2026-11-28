@@ -9,12 +9,12 @@ and run something on it that has to cross nodes to work.
     ./tools/k8s-demo.py down                # power everything off and delete its state
 
 Kubernetes comes as the image's kubernetes system extension (docs/guides/sysext.md):
-kubelet, kubeadm, kubectl, CRI-O and the CNI plugins built from source by packages/ with
+kubelet, kubeadm, kubectl, containerd and the CNI plugins built from source by packages/ with
 EXTENSION=kubernetes, assembled into a sysext and a confext by tools/build-image.sh. The
 image itself is unchanged. Both extension images are attached to every node the way the
 root is (read-only disks, one file shared by all of them, verified by dm-verity from a
 table on the kernel command line: Machine.sysexts), and systemd-sysext and
-systemd-confext merge them at boot, CRI-O and kubelet start through the Upholds= the
+systemd-confext merge them at boot, containerd and kubelet start through the Upholds= the
 extension ships, and the paths kubeadm writes are links into /var. So nothing is copied
 into a guest and nothing on it is set up by hand: what this does after boot is kubeadm
 and the pod network.
@@ -371,7 +371,7 @@ localAPIEndpoint:
   bindPort: 6443
 nodeRegistration:
   name: {node_name(1)}
-  criSocket: unix:///run/crio/crio.sock
+  criSocket: unix:///run/containerd/containerd.sock
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
@@ -416,7 +416,7 @@ discovery:
     caCertHashes: [{self.ca_hash}]
 nodeRegistration:
   name: {node_name(n)}
-  criSocket: unix:///run/crio/crio.sock
+  criSocket: unix:///run/containerd/containerd.sock
 """
         prefix = f"[{node_name(n)}] "
         must(node_ssh(n, "cat > /run/kubeadm.yaml", input=join.encode(), prefix=prefix))
@@ -508,14 +508,14 @@ nodeRegistration:
             retry(self.timeout, f"node_ssh {n} true", lambda n=n: quiet_ssh(n, "true"))
 
         # What the extension started by itself, through Upholds=. kubelet is up but
-        # waiting for kubeadm, so CRI-O answering is the readiness that matters.
-        say("CRI-O from the extension, on every node")
+        # waiting for kubeadm, so containerd answering is the readiness that matters.
+        say("containerd from the extension, on every node")
         for n in range(1, self.nodes + 1):
             retry(120, f"node_ssh {n} crictl info", lambda n=n: quiet_ssh(n, "crictl", "info"))
         self.k8s_version = [*out(1, "kubelet", "--version").split(), "", ""][1]
-        crio = ([*out(1, "crio", "--version").split("\n")[0].split(), "", "", ""])[2]
+        containerd = ([*out(1, "containerd", "--version").split("\n")[0].split(), "", "", ""])[2]
         crun = out(1, "crun", "--version").split("\n")[0]
-        print(f"   kubelet {self.k8s_version}, CRI-O {crio}, {crun}", flush=True)
+        print(f"   kubelet {self.k8s_version}, containerd {containerd}, {crun}", flush=True)
 
         say(f"kubeadm init on {node_name(1)}")
         self.init_control_plane()

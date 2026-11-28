@@ -15,7 +15,7 @@ at least one unit failed, so it covers units nothing else here thinks to look at
 blocks until startup has settled, which keeps this from racing a unit that is merely
 slow; the deadline is what catches one that hangs. More checks ride along on the same
 shell, because a login over a serial console is the expensive part and one more command
-on it is free: systemd's Tainted property, writes to the read-only root, the journal's
+on it is free: systemd's Tainted property, writes to the read-only root and into /etc, the journal's
 errors, the image's sysctls, a credential through fw_cfg, fetch, the only binary in
 usr/bin that anything in test/ runs for its own sake, and how sandboxed each service is.
 Last, how long the boot took, recorded and not judged (kaetzli.boot.timing).
@@ -61,6 +61,19 @@ ROFS_CHECK = (
     "n=0; while IFS= read -r l; do [[ $l == *'Read-only file system'* ]] && "
     '{ n=$((n+1)); echo "ROFS> $l"; }; done < <(journalctl -b --no-pager -o short); '
     "echo SYSTEMD'-ROFS':[$n]"
+)
+
+# /etc is writable once systemd-confext has merged it (image/files/etc/systemd/
+# confext.conf), so a unit writing /etc at boot no longer fails as above: its file lands in
+# the overlay's upper layer, where on a /var disk it shadows every later image's copy. So
+# that layer has to hold nothing after a boot but systemd-update-done's .updated, and has
+# to exist (or /etc was not made writable). Builtins only, in a subshell for the shopts.
+ETC_UPPER = "/var/lib/extensions.mutable/etc"
+ETC_UPPER_CHECK = (
+    f"( shopt -s nullglob dotglob; d={ETC_UPPER}; n=0; [[ -d $d ]] || n=missing; "
+    'for f in "$d"/*; do [[ ${f##*/} == .updated ]] && continue; '
+    'n=$((n+1)); echo "ETC> /etc/${f##*/}"; done; '
+    "echo SYSTEMD'-ETC':\"[$n]\" )"
 )
 
 # A daemon can log an error and carry on, and the boot is still `running`. So the boot's
@@ -298,6 +311,23 @@ def check(guest: Guest, fwcfg: bool) -> None:
         )
     else:
         guest.fail("could not read the read-only filesystem error count (got: <nothing>)")
+
+    guest.mark()
+    guest.send(ETC_UPPER_CHECK)
+    if not guest.wait(r"SYSTEMD-ETC:\[([a-z0-9]*)\]", 60):
+        guest.fail(f"could not list {ETC_UPPER}")
+    upper = guest.group()
+    if upper == "0":
+        _out(">> systemd OK: the boot wrote nothing into /etc")
+    elif upper == "missing":
+        guest.fail(f"no {ETC_UPPER}: /etc was not made writable (systemd-confext.service)")
+    else:
+        _indented(_prefixed(guest.before, "ETC> "))
+        guest.fail(
+            f"the boot wrote {upper} path(s) into /etc (above), into {ETC_UPPER}, where on "
+            "a /var disk they would shadow every later image's — make it at assembly "
+            "(image/build-rootfs.sh) or mask the unit"
+        )
 
     guest.mark()
     guest.send(ERRS_CHECK)

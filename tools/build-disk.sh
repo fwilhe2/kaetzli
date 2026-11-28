@@ -4,11 +4,14 @@
 #
 #     ./tools/build-disk.sh [options]
 #
+#     --cloud openstack     a cloud's preset: its user-data source (packages/user-data) and
+#                           the name kaetzli-openstack-<arch>
 #     --bus virtio|scsi     the disk the VM sees: /dev/vda (virtio-blk, the default) or
 #                           /dev/sda (virtio-scsi, as some providers attach it)
 #     --var-size SIZE       the /var partition (default 20G); 0 for none, /var in RAM
 #     --ssh-key FILE        a public key root may log in with, on the command line as the
-#                           ssh.authorized_keys.root credential, as the VM tools pass one
+#                           ssh.authorized_keys.root credential, as the VM tools pass one;
+#                           for a provider that has no metadata service to ask
 #     --append ARGS         more kernel arguments
 #     --name NAME           output base name (default kaetzli-disk-<arch>)
 #     --no-raw              keep only the qcow2 (tools/build-image.sh's, CI's)
@@ -35,7 +38,7 @@
 # systemd.machine_id=firmware, the SMBIOS UUID, which a cloud sets per instance, so the
 # journal and a node's identity survive a reboot (a VM without one gets a new ID per boot,
 # as before); systemd.gpt_auto=0, since nothing in the image mounts the ESP; and whatever
-# --ssh-key and --append add. The rewrite is the
+# --cloud, --ssh-key and --append add. The rewrite is the
 # launcher's code (kaetzli uki-cmdline), run in the golang container go/go.mod names; the
 # disk is made in the pinned assembler image.
 #
@@ -50,15 +53,16 @@ cd "$(dirname "$0")/.."
 source tools/lib.sh
 
 usage() {
-    echo "usage: $0 [--bus virtio|scsi] [--var-size SIZE|0] [--ssh-key FILE] [--append ARGS]" >&2
-    echo "          [--name NAME] [--image DIR] [--out DIR] [--no-raw]" >&2
+    echo "usage: $0 [--cloud openstack] [--bus virtio|scsi] [--var-size SIZE|0] [--ssh-key FILE]" >&2
+    echo "          [--append ARGS] [--name NAME] [--image DIR] [--out DIR] [--no-raw]" >&2
     exit 2
 }
-bus=virtio var_size=20G ssh_key="" append="" name="" image=output out=output raw=1
+cloud="" bus=virtio var_size=20G ssh_key="" append="" name="" image=output out=output raw=1
 while [ $# -gt 0 ]; do
     if [ "$1" = --no-raw ]; then raw=0; shift; continue; fi
     [ $# -ge 2 ] || usage
     case "$1" in
+        --cloud) cloud=$2 ;;
         --bus) bus=$2 ;;
         --var-size) var_size=$2 ;;
         --ssh-key) ssh_key=$2 ;;
@@ -81,7 +85,13 @@ case $bus in
     scsi) dev=/dev/sda ;;
     *) echo "error: --bus is virtio or scsi, not '$bus'" >&2; exit 2 ;;
 esac
-name=${name:-kaetzli-disk-$arch}
+cloud_args=""
+case $cloud in
+    "") ;;
+    openstack) cloud_args="kaetzli.user-data=openstack" ;;
+    *) echo "error: no preset for --cloud '$cloud' (known: openstack)" >&2; exit 2 ;;
+esac
+name=${name:-kaetzli-${cloud:-disk}-$arch}
 case $name in
     *[!A-Za-z0-9._-]*|"") echo "error: --name '$name': letters, digits, . _ - only" >&2; exit 2 ;;
 esac
@@ -123,6 +133,7 @@ esac
 cmdline=$(sed -E "s#/dev/vda([ \"]|\$)#${dev}2\\1#g; s# console=# console=tty0 console=#" <<< "$image_cmdline")
 [ "$var_bytes" = 0 ] || cmdline+=" systemd.mount-extra=${dev}3:/var:ext4:x-systemd.makefs,x-systemd.growfs"
 cmdline+=" systemd.machine_id=firmware"
+[ -z "$cloud_args" ] || cmdline+=" $cloud_args"
 # No GPT auto-discovery: root and /var are named above, and the generator's one remaining
 # find, the ESP, is an automount on /efi that the read-only root has no mount point for
 # (efi.automount failed). Nothing in the image reads the ESP; the firmware does.

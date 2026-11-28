@@ -19,6 +19,7 @@ from that build or from a directory holding a release's `rootfs.erofs` and `kaet
 
 ```sh
 ./tools/build-disk.sh                  # output/kaetzli-disk-<arch>.raw and .qcow2
+./tools/build-disk.sh --cloud openstack     # runs the instance's user data at boot
 ./tools/build-disk.sh --bus scsi --ssh-key ~/.ssh/id_ed25519.pub
 ```
 
@@ -40,7 +41,8 @@ The UKI's command line is set for this disk:
   per instance.
 - `systemd.gpt_auto=0`: the ESP is the firmware's, and nothing in the image mounts it.
 
-`/home` and `/root` live in `/var`, so they persist too.
+`/home`, `/root`, `/opt/bin` and the writable layer of `/etc` live in `/var`, so they
+persist too.
 
 Both files are sparse and reproducible: the same image and options give the same bytes.
 
@@ -50,7 +52,8 @@ Both files are sparse and reproducible: the same image and options give the same
 | --- | --- |
 | `--bus virtio\|scsi` | Device names for virtio-blk (`/dev/vda`, default) or virtio-scsi (`/dev/sda`). Must match how the VM attaches the disk. |
 | `--var-size SIZE` | Size of the `/var` partition. `0` leaves it out: `/var` is RAM, as with `rootfs.erofs`. |
-| `--ssh-key FILE` | Let root log in with this public key. The key is on the kernel command line, which is readable in the guest. |
+| `--cloud openstack` | Run the instance's [user data](user-data.md) from the metadata service. |
+| `--ssh-key FILE` | Let root log in with this public key. For providers without a metadata service; the key is on the kernel command line, which is readable in the guest. |
 | `--append ARGS` | More kernel arguments. |
 | `--name NAME`, `--image DIR`, `--out DIR` | Output name, input directory (default `output/`), output directory. |
 | `--no-raw` | Keep only the qcow2. |
@@ -83,20 +86,21 @@ own copy. Use the plain build, not `secboot`: the UKI is unsigned.
 OpenStack (Glance):
 
 ```sh
-./tools/build-disk.sh --ssh-key ~/.ssh/id_ed25519.pub
-openstack image create kaetzli --disk-format qcow2 --file output/kaetzli-disk-amd64.qcow2 \
+./tools/build-disk.sh --cloud openstack
+openstack image create kaetzli --disk-format qcow2 --file output/kaetzli-openstack-amd64.qcow2 \
     --property hw_firmware_type=uefi --property hw_disk_bus=virtio --property hw_machine_type=q35
 ```
 
 Accounts have no passwords, so a released disk takes the console only, through the
 `login.noauth` credential (qemu's `-fw_cfg name=opt/io.systemd.credentials/login.noauth,string=yes`).
-For ssh, build one with `--ssh-key`.
+For ssh, build one with `--ssh-key`, or use a key the user data installs (`--cloud`).
 
 The UKI on the disk is unsigned. To boot under Secure Boot, sign it with your own key
-(`tools/sign-uki.sh`, [Secure Boot](secure-boot.md)).
+(`tools/sign-uki.sh`, [Secure Boot](secure-boot.md)). Under Secure Boot, `/etc` stays
+read-only.
 
 ## Testing
 
-`./test/disk.py [disk]` boots a disk under OVMF, with an SMBIOS UUID. It checks whatever
-the disk's own command line asks for, and that no unit failed. Set `DISK_BUS=scsi` for a
-disk built with `--bus scsi`.
+`./test/disk.py [disk]` boots a disk under OVMF, with a metadata service and an SMBIOS
+UUID. It checks whatever the disk's own command line asks for, and that no unit failed.
+Set `DISK_BUS=scsi` for a disk built with `--bus scsi`.
