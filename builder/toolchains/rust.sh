@@ -6,7 +6,7 @@
 # Pinned like go.sh: VERSION and one SHA-256 per component and architecture, written by
 # tools/bump-toolchain.sh after each tarball verified against rust-key.asc (the Rust
 # release signing key, which signs the .asc beside every file in /dist).
-VERSION="1.100.0"
+VERSION="1.100.1"
 LICENSE="MIT OR Apache-2.0"
 URL_BASE="https://static.rust-lang.org/dist"
 COMPONENTS="rustc cargo rust-std"
@@ -22,9 +22,9 @@ toolchain_file() {
     echo "$1-${VERSION}-${triple}.tar.gz"
 }
 
-SHA256_rustc_amd64="67b0e85ff4b3eee83c48b8ae1da10dd0bcd60b43d02cd0e7df78c59d19f6b960"
-SHA256_rustc_arm64="7ccc960846f81e016086f1931dedadd837a3317da80e0114df68651145c0f43b"
-SHA256_cargo_amd64="4e7fc3cbe98e23c88a3c6ce37f834e3ffbc91536789782c4c4a9670df6b16a49"
-SHA256_cargo_arm64="b3acccbba065da7e97c20592442f104bd9554d54bf87a323bba8a1d6e61282eb"
-SHA256_rust_std_amd64="61eb09d68b338e230d698716927bd4623049c9910ef4a4972e66d763d66ed9e1"
-SHA256_rust_std_arm64="89b01323a6611c9382a401282fb66eb80f1f3241df3e139d3df41afbd2da314b"
+SHA256_rustc_amd64="11c38d8d8e935a7ad871227d51053eb7f8d0a9e3c998b6f500d7ad35eb4120d9"
+SHA256_rustc_arm64="c7d99abaedc213b0d0f2671d1fab706547e54f88f1682d62d777f2cca80fd751"
+SHA256_cargo_amd64="965d154ea193f8f446482b627bf636690923ea05acebc95a54ffc9545065ed96"
+SHA256_cargo_arm64="f5093f119f1390caea4acbc7d97476e53b88f959964ebfe57718773c7ed693b7"
+SHA256_rust_std_amd64="ceaa1fd4662ec04a1d3008f3d4bfe9f781773ae6e25eedb3419b348a72a9db40"
+SHA256_rust_std_arm64="49d26d5591cb129588397dfb4fd3156206a9f5ab8323bb189533536f0fc88ba0"
