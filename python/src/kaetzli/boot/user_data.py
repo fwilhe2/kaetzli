@@ -74,6 +74,34 @@ def serve(root: Path, stdin=None, stdout=None) -> None:
     stdout.flush()
 
 
+def relay(host: str, port: int, stdin=None, stdout=None) -> None:
+    """Copy one guest connection (stdin/stdout, as qemu's guestfwd -cmd: hands it over)
+    to and from host:port, until either side closes. guestfwd to a tcp: chardev instead
+    would be one stream for the whole boot, not a connection per connection."""
+    import selectors
+    import socket
+
+    i = (stdin or sys.stdin.buffer).fileno()
+    o = (stdout or sys.stdout.buffer).fileno()
+    with socket.create_connection((host, port)) as conn:
+        sel = selectors.DefaultSelector()
+        sel.register(i, selectors.EVENT_READ, "in")
+        sel.register(conn, selectors.EVENT_READ, "conn")
+        while True:
+            for key, _ in sel.select():
+                if key.data == "in":
+                    data = os.read(i, 65536)
+                    if not data:
+                        return
+                    conn.sendall(data)
+                else:
+                    data = conn.recv(65536)
+                    if not data:
+                        return
+                    while data:
+                        data = data[os.write(o, data) :]
+
+
 def metadata_dir(root: Path) -> None:
     latest = root / "openstack" / "latest"
     latest.mkdir(parents=True)
@@ -83,12 +111,20 @@ def metadata_dir(root: Path) -> None:
     (latest / "user_data").write_text(USER_DATA)
 
 
-def nic(root: Path) -> list[str]:
+def nic(root: Path, forwards: tuple[tuple[str, int, int], ...] = ()) -> list[str]:
+    """The metadata service's NIC. `forwards` are (guest address, guest port, host port):
+    a connection to the first two is relayed to 127.0.0.1:<host port>, as
+    test/gardener-join.py reaches its API server."""
     # The command runs under /bin/sh; option values double their commas, and there are none.
-    cmd = shlex.join([sys.executable, "-I", os.path.abspath(__file__), "--serve", str(root)])
+    me = [sys.executable, "-I", os.path.abspath(__file__)]
+    cmd = shlex.join([*me, "--serve", str(root)])
+    more = "".join(
+        f",guestfwd=tcp:{ip}:{port}-cmd:{shlex.join([*me, '--relay', '127.0.0.1', str(host)])}"
+        for ip, port, host in forwards
+    )
     return [
         "-nic",
-        f"user,model=virtio-net-pci,net=169.254.169.0/24,guestfwd=tcp:169.254.169.254:80-cmd:{cmd}",
+        f"user,model=virtio-net-pci,net=169.254.169.0/24,guestfwd=tcp:169.254.169.254:80-cmd:{cmd}{more}",
     ]
 
 
@@ -132,5 +168,8 @@ def main(argv: list[str]) -> int:
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--serve":
         serve(Path(sys.argv[2]))
+        sys.exit(0)
+    if len(sys.argv) == 4 and sys.argv[1] == "--relay":
+        relay(sys.argv[2], int(sys.argv[3]))
         sys.exit(0)
     sys.exit(main(sys.argv[1:]))

@@ -251,6 +251,7 @@ class Cluster:
     ca_hash: str = ""
     k8s_version: str = ""
     datapath: str = "flannel-nftables"
+    cert_sans: tuple[str, ...] = ()  # the API server's, beyond the host's forward
 
     @classmethod
     def from_env(cls, base: Machine, env=os.environ) -> Cluster:
@@ -404,7 +405,7 @@ networking:
   podSubnet: {POD_CIDR}
   serviceSubnet: {SVC_CIDR}
 apiServer:
-  certSANs: [127.0.0.1, localhost]
+  certSANs: [{", ".join(["127.0.0.1", "localhost", *self.cert_sans])}]
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
@@ -535,7 +536,10 @@ nodeRegistration:
             )
             raise Failed(1)
 
-    def up(self) -> None:
+    def boot(self) -> None:
+        """The router and every node booted, reachable over ssh, containerd answering:
+        what kubeadm starts from. Also for test/gardener-join.py, which wants a control
+        plane and nothing else."""
         down()
         STATE.mkdir(parents=True)
         b = self.base
@@ -558,6 +562,9 @@ nodeRegistration:
         containerd = ([*out(1, "containerd", "--version").split("\n")[0].split(), "", "", ""])[2]
         crun = out(1, "crun", "--version").split("\n")[0]
         print(f"   kubelet {self.k8s_version}, containerd {containerd}, {crun}", flush=True)
+
+    def up(self) -> None:
+        self.boot()
 
         say(f"kubeadm init on {node_name(1)}")
         self.init_control_plane()

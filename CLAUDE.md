@@ -211,6 +211,7 @@ policy checks are done).
 ./test/disk.py [qcow2]          # build-disk.sh's disk under OVMF, checked against its own command line (DISK_BUS=scsi)
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without); DATAPATH=calico-iptables: Gardener's default
 ./test/gardener.py $BOOT        # Gardener's node init + node-agent bootstrap, pinned release (network)
+./test/gardener-join.py $BOOT   # that node against a kubeadm API server: CSR, OSC applied, Node registered (KVM)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
