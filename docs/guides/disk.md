@@ -1,14 +1,29 @@
 # Bootable disk
 
-`tools/build-disk.sh` turns an assembled image into a disk that UEFI firmware boots
-directly: a local VMM, a hypervisor, or a cloud that boots uploaded disks. There is no
-installer and no bootloader. A newer image means building a new disk and replacing the
-VM.
+The image comes two ways. `rootfs.erofs` with a separate kernel and command line suits a
+VMM that is handed the kernel (qemu's `-kernel`, Firecracker, vfkit): `tools/vm.sh`, the
+launcher and the tests boot it so. A disk image suits anything that boots disks through
+UEFI firmware: a hypervisor, a cloud that takes uploaded disks, qemu with OVMF. Both hold
+the same root, byte for byte. There is no installer and no bootloader. A newer image means
+a new disk and replacing the VM.
+
+Each snapshot release has the disk as `disk-<arch>.qcow2`, with the default options below:
 
 ```sh
-./tools/build-image.sh                 # or put a release's rootfs.erofs and kaetzli.efi in a directory
-./tools/build-disk.sh                  # output/kaetzli-disk-<arch>.raw and .qcow2
+./tools/fetch-image.sh --disk          # output/disk-image/disk.qcow2, verified
 ```
+
+Or build it. `tools/build-image.sh` makes the default disk after the erofs image
+(`output/kaetzli-disk-<arch>.qcow2`); `tools/build-disk.sh` makes one with other options,
+from that build or from a directory holding a release's `rootfs.erofs` and `kaetzli.efi`:
+
+```sh
+./tools/build-disk.sh                  # output/kaetzli-disk-<arch>.raw and .qcow2
+./tools/build-disk.sh --cloud openstack     # runs the instance's user data at boot
+./tools/build-disk.sh --bus scsi --ssh-key ~/.ssh/id_ed25519.pub
+```
+
+Convert to another format with `qemu-img convert` (`-O vmdk`, `-O vpc` for VHD).
 
 ## Layout
 
@@ -40,6 +55,7 @@ Both files are sparse and reproducible: the same image and options give the same
 | `--ssh-key FILE` | Let root log in with this public key. For providers without a metadata service; the key is on the kernel command line, which is readable in the guest. |
 | `--append ARGS` | More kernel arguments. |
 | `--name NAME`, `--image DIR`, `--out DIR` | Output name, input directory (default `output/`), output directory. |
+| `--no-raw` | Keep only the qcow2. |
 
 The VM's disk must be at least the image's virtual size. The `/var` partition does not
 grow into a larger disk, because the image has no `systemd-repart`.
@@ -66,8 +82,9 @@ openstack image create kaetzli --disk-format qcow2 --file output/kaetzli-opensta
     --property hw_firmware_type=uefi --property hw_disk_bus=virtio --property hw_machine_type=q35
 ```
 
-Accounts have no passwords. Log in with `--ssh-key`, or with a key the user data
-installs.
+Accounts have no passwords, so a released disk takes the console only, through the
+`login.noauth` credential (qemu's `-fw_cfg name=opt/io.systemd.credentials/login.noauth,string=yes`).
+For ssh, build one with `--ssh-key`, or use a key the user data installs (`--cloud`).
 
 The UKI on the disk is unsigned. To boot under Secure Boot, sign it with your own key
 (`tools/sign-uki.sh`, [Secure Boot](secure-boot.md)). Under Secure Boot, `/etc` stays

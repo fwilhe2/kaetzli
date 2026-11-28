@@ -537,6 +537,14 @@ jobs:
             output/kaetzli.efi
             output/kaetzli.pcr.json
 
+      # The same root and the UKI as one UEFI-bootable GPT disk (tools/build-disk.sh's
+      # defaults, made by build-image.sh); the release's disk-<arch>.qcow2.
+      - name: Upload the bootable disk
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: disk-${{ matrix.arch }}
+          path: output/kaetzli-disk-${{ matrix.arch }}.qcow2
+
       - name: Upload OCI image
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -552,9 +560,11 @@ jobs:
             output/confexts
 
       # What tools/fetch-image.sh checks a download against before installing it: this
-      # run, its commit and arch, and the SHA-256 of every file in the three artifacts a
-      # boot needs (the unsigned UKI included: fetch refuses an unlisted file), by artifact name and path inside it (the format is in that script).
-      # The kernel is the package artifact this job downloaded, the one fetch takes too.
+      # run, its commit and arch, and the SHA-256 of every file in the artifacts a boot
+      # needs (the unsigned UKI included: fetch refuses an unlisted file) and of the disk
+      # (fetch --disk), by artifact name and path inside it (the format is in that
+      # script). The kernel is the package artifact this job downloaded, the one fetch
+      # takes too.
       - name: Write the boot bundle's manifest
         env:
           ARCH: ${{ matrix.arch }}
@@ -570,6 +580,7 @@ jobs:
             entry output/kaetzli.efi "rootfs.erofs-$ARCH/kaetzli.efi"
             entry output/kaetzli.pcr.json "rootfs.erofs-$ARCH/kaetzli.pcr.json"
             entry "artifacts/package-kernel-$ARCH/kernel.tar" "package-kernel-$ARCH/kernel.tar"
+            entry "output/kaetzli-disk-$ARCH.qcow2" "disk-$ARCH/kaetzli-disk-$ARCH.qcow2"
             find output/extensions output/confexts -type f | LC_ALL=C sort | while read -r f; do
               entry "$f" "extensions-$ARCH/${f#output/}"
             done
@@ -619,6 +630,11 @@ jobs:
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          name: disk-${{ matrix.arch }}
+          path: output
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
           name: extensions-${{ matrix.arch }}
           path: output
 
@@ -633,7 +649,7 @@ jobs:
 
       - name: Check the images are reproducible
         run: |
-          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli.efi output/kaetzli.pcr.json output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
+          outputs="output/rootfs.erofs output/rootfs.cmdline output/kaetzli.efi output/kaetzli.pcr.json output/kaetzli-disk-${{ matrix.arch }}.qcow2 output/kaetzli-oci.tar output/sbom-erofs.json output/sbom-oci.json"
           outputs+=" $(ls output/extensions/*.raw output/confexts/*.raw)"
           sha256sum $outputs > first.sha256
           # The same name the rootfs job assembled with: it is in os-release.
@@ -684,18 +700,22 @@ jobs:
           name: prebuilt-${{ matrix.arch }}
           path: artifacts/prebuilt
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: disk-${{ matrix.arch }}
+          path: artifacts
+
       # qemu-system-arm is the package with qemu-system-aarch64. virtiofsd, socat and
       # vhost_vsock are test/vmm.py's, which skips what the host cannot provide. ovmf is
       # the Secure Boot firmware the launcher finds through qemu's firmware descriptors,
-      # swtpm the vTPM test/secureboot.py reads PCR 11 from, qemu-utils the qemu-img
-      # tools/build-disk.sh makes its qcow2 with.
+      # swtpm the vTPM test/secureboot.py reads PCR 11 from.
       - name: Install qemu
         run: |
           sudo apt-get -o Acquire::Retries=5 update
           if [ "${{ matrix.arch }}" = arm64 ]; then
             sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-arm ipxe-qemu qemu-efi-aarch64
           else
-            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf swtpm qemu-utils
+            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86 ovmf swtpm
           fi
           sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends virtiofsd socat
           sudo modprobe vhost_vsock && sudo chmod 666 /dev/vhost-vsock || true
@@ -735,17 +755,20 @@ jobs:
           ./tools/sign-uki.sh artifacts/kaetzli.efi
           ./test/secureboot.py artifacts/rootfs.erofs
 
-      # The image as a bootable disk (tools/build-disk.sh), booted by OVMF from its ESP as a
-      # VMM or cloud boots one: both buses, with and without /var, and OpenStack's preset.
-      # amd64 for now.
+      # The image as a bootable disk, booted by OVMF from its ESP as a VMM or cloud boots
+      # one: the rootfs job's (the release's disk-<arch>.qcow2), then one on virtio-scsi
+      # with /var in RAM and OpenStack's preset, from tools/build-disk.sh. amd64 for now: the test takes OVMF from
+      # the assembler image, which has no arm64 firmware.
       - name: Check the bootable disk
         if: matrix.arch == 'amd64'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./tools/build-disk.sh --image artifacts --name disk
-          DISK_BUS=virtio ./test/disk.py output/disk.qcow2
-          ./tools/build-disk.sh --image artifacts --name disk-scsi --bus scsi --var-size 0
+          podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$REGISTRY_TOKEN"
+          ./test/disk.py artifacts/kaetzli-disk-amd64.qcow2
+          ./tools/build-disk.sh --image artifacts --name disk-scsi --bus scsi --var-size 0 --no-raw
           DISK_BUS=scsi ./test/disk.py output/disk-scsi.qcow2
-          ./tools/build-disk.sh --image artifacts --name disk-openstack --cloud openstack
+          ./tools/build-disk.sh --image artifacts --name disk-openstack --cloud openstack --no-raw
           ./test/disk.py output/disk-openstack.qcow2
 
       # The same from the launcher, as a user runs it: its own key made, the UKI signed and
@@ -837,42 +860,12 @@ jobs:
           name: boot-console-log-${{ matrix.arch }}
           path: output/*.log
 
-  # grind from main, which turns the CVE reports into a workbook (test/cve-workbook.sh).
-  # Builds alongside the image. Gates nothing.
-  grind:
-    needs: changes
-    if: needs.changes.outputs.build == 'true'
-    runs-on: *runner
-    continue-on-error: true
-    permissions:
-      contents: read
-    strategy: *per-arch
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: fwilhe2/grind
-
-      - name: Build grind
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          cargo build --locked --release --no-default-features -p grind-cli
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: grind-${{ matrix.arch }}
-          path: target/release/grind
-          if-no-files-found: error
-
   # Known vulnerabilities in what this build ships (test/cve-scan.py), and how the count
   # has moved over the last builds on main (test/cve-history.py). Observing only: nothing
   # waits on it, and it cannot fail the run.
   cve-scan:
     runs-on: *runner
-    needs:
-      - rootfs
-      - grind
-    # Without grind the scan still runs, and the workbook step ends in a note.
+    needs: rootfs
     if: ${{ !cancelled() && needs.rootfs.result == 'success' }}
     continue-on-error: true
     permissions:
@@ -921,19 +914,16 @@ jobs:
           GO_TREES: trees
         run: ./test/cve-scan.py output
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      # grind, which turns the CVE reports into a workbook (test/cve-workbook.sh): its
+      # released binary, checked against the release's SHA-256, on the PATH. Without it the
+      # workbook step ends in a note.
+      - uses: fwilhe2/grind@1e7b4cf0ec3de27ab946275cc10500cf60ed056c # main, its setup action
         continue-on-error: true
         with:
-          name: grind-${{ matrix.arch }}
-          path: grind
+          version: v0.2.0
 
       - name: The reports as a workbook
-        run: |
-          if [ -f grind/grind ]; then
-            chmod +x grind/grind # an artifact does not keep the mode
-            export GRIND=$PWD/grind/grind
-          fi
-          ./test/cve-workbook.sh output
+        run: ./test/cve-workbook.sh output
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -1300,6 +1290,11 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: package-kernel-*
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: disk-*
           path: artifacts
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

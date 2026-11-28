@@ -14,13 +14,16 @@
 #                           for a provider that has no metadata service to ask
 #     --append ARGS         more kernel arguments
 #     --name NAME           output base name (default kaetzli-disk-<arch>)
+#     --no-raw              keep only the qcow2 (tools/build-image.sh's, CI's)
 #     --image DIR           where rootfs.erofs and kaetzli.efi are (default output/)
 #     --out DIR             default output/
 #
 # Reads rootfs.erofs and kaetzli.efi (tools/build-image.sh, or a release), unsigned. Writes
-# DIR/NAME.raw, and NAME.qcow2 beside it when the host has qemu-img. Both are sparse.
-# Nothing is installed or configured afterwards: the disk is the image, and a newer image
-# is a new disk. docs/guides/disk.md has the uploads.
+# DIR/NAME.raw (sparse) and DIR/NAME.qcow2, both made in the pinned assembler image, so
+# the bytes do not depend on the host's qemu-img. tools/build-image.sh makes the default
+# disk after the erofs image; releases publish its qcow2 as disk-<arch>.qcow2. Nothing is
+# installed or configured afterwards: the disk is the image, and a newer image is a new
+# disk. docs/guides/disk.md has the uploads.
 #
 # GPT, three partitions:
 #
@@ -50,11 +53,12 @@ source tools/lib.sh
 
 usage() {
     echo "usage: $0 [--cloud openstack] [--bus virtio|scsi] [--var-size SIZE|0] [--ssh-key FILE]" >&2
-    echo "          [--append ARGS] [--name NAME] [--image DIR] [--out DIR]" >&2
+    echo "          [--append ARGS] [--name NAME] [--image DIR] [--out DIR] [--no-raw]" >&2
     exit 2
 }
-cloud="" bus=virtio var_size=20G ssh_key="" append="" name="" image=output out=output
+cloud="" bus=virtio var_size=20G ssh_key="" append="" name="" image=output out=output raw=1
 while [ $# -gt 0 ]; do
+    if [ "$1" = --no-raw ]; then raw=0; shift; continue; fi
     [ $# -ge 2 ] || usage
     case "$1" in
         --cloud) cloud=$2 ;;
@@ -180,13 +184,11 @@ podman run --rm --network=none --security-opt label=disable \
         dd if=esp.img of=$disk bs=1M seek=1 conv=notrunc,sparse status=none
         dd if=/in/rootfs.erofs of=$disk bs=1M seek=$((1 + esp_mib)) conv=notrunc,sparse status=none
         sfdisk --dump $disk | sed -n 's/^$disk/  /p'
+        qemu-img convert -f raw -O qcow2 $disk $name.qcow2
     "
-mv "$tmp/$disk" "$out/$disk"
-echo ">> $out/$disk ($(du -h --apparent-size "$out/$disk" | cut -f1) virtual, $(du -h "$out/$disk" | cut -f1) on disk)"
-
-if command -v qemu-img > /dev/null; then
-    qemu-img convert -f raw -O qcow2 "$out/$disk" "$out/$name.qcow2"
-    echo ">> $out/$name.qcow2 ($(du -h "$out/$name.qcow2" | cut -f1))"
-else
-    echo "note: no qemu-img here, so no qcow2; the raw disk is the same image"
+mv "$tmp/$name.qcow2" "$out/$name.qcow2"
+echo ">> $out/$name.qcow2 ($(du -h "$out/$name.qcow2" | cut -f1))"
+if [ "$raw" = 1 ]; then
+    mv "$tmp/$disk" "$out/$disk"
+    echo ">> $out/$disk ($(du -h --apparent-size "$out/$disk" | cut -f1) virtual, $(du -h "$out/$disk" | cut -f1) on disk)"
 fi

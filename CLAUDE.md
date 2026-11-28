@@ -232,7 +232,7 @@ policy checks are done).
 ./tools/demo.sh [reset]               # fresh `demo` machine: verity, identity, sysext, a container
 ./tools/k8s-demo.py up|ps|kubectl|ssh|down  # 3-node cluster, this checkout's build if any
 ./tools/build-extension.sh sysext|confext <name> <dir>  # → output/extensions|confexts/<name>.raw
-./tools/build-disk.sh [--cloud openstack] [--bus scsi] [--var-size 0] [--ssh-key K]  # UEFI disk: ESP+UKI, root, blank /var (raw, qcow2)
+./tools/build-disk.sh [--cloud openstack] [--bus scsi] [--var-size N|0] [--ssh-key K] [--append A]  # UEFI disk: ESP+UKI, root, blank /var (raw, qcow2)
 ./tools/sign-uki.sh [--key K --cert C] [--ext a,b [--var]] [UKI]  # → output/secureboot/: signed UKI + OVMF (the launcher's Go code)
 ./tools/build-launcher.sh [OUT] [VERSION]
 ./tools/build-node-e2e.sh             # e2e_node.test + ginkgo for the pinned Kubernetes
@@ -365,7 +365,9 @@ A package setting `CFLAGS` wholesale drops sysroot, `-O2` and hardening at once;
 ## Image assembly and boot
 
 `image/build-rootfs.sh` turns a copy of `rootfs/` into `output/rootfs.erofs` (or, with `oci`,
-`output/kaetzli-oci.tar`): skeleton, `image/files` as `/etc`, trim, first boot, `ldconfig`,
+`output/kaetzli-oci.tar`; `tools/build-disk.sh` then puts it and the UKI on one GPT disk,
+`output/kaetzli-disk-<arch>.qcow2`, released as `disk-<arch>.qcow2`, rewriting the UKI's
+command line for that disk): skeleton, `image/files` as `/etc`, trim, first boot, `ldconfig`,
 `mkfs.erofs`, verity, SBOM. The assembly image is `image/Containerfile` (snapshot-pinned tools,
 content-addressed, `tools/prep.sh assembler`, pushed by the builder job) plus
 `image/Containerfile.scripts`, which **`COPY`s `image/files`** — editing it means rebuilding
@@ -522,7 +524,8 @@ merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `Wante
 ### The kernel
 
 `packages/kernel/build.sh` = `defconfig` + `kvm_guest.config` + heredoc fragments (only
-`build.sh` is mounted): `container`, `k8s`, `guest`, `rootfs`, `kspp`, `trace`, `vm` (takes
+`build.sh` is mounted): `release` (`CONFIG_LOCALVERSION="-kaetzli"`, checked on
+`kernelrelease`), `container`, `k8s`, `guest`, `rootfs`, `kspp`, `trace`, `vm` (takes
 defconfig's hardware out), and `parity`, last. A fragment name must not be one upstream uses
 (`hardening.config` is, per arch too). **`CONFIG_MODULES` is off**: tristates resolve to `y`/`n`,
 and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board list.

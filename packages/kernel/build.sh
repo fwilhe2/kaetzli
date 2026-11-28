@@ -1,9 +1,9 @@
-# defconfig + kvm_guest.config, then fragments that say what the kernel is for (container,
-# k8s, guest, rootfs, kspp, trace), one that takes defconfig's hardware back out (vm), and
-# one that makes both arches agree (parity). Built natively, so `make defconfig` picks the
-# arch from `uname -m`. The fragments are heredocs because only this file is bind-mounted
-# into the builder. kvm_guest.config's x86-only symbols (PARAVIRT and friends) are skipped
-# with a warning on arm64, which is harmless.
+# defconfig + kvm_guest.config, the release suffix (release), fragments that say what the
+# kernel is for (container, k8s, guest, rootfs, kspp, trace), one that takes defconfig's
+# hardware back out (vm), and one that makes both arches agree (parity). Built natively,
+# so `make defconfig` picks the arch from `uname -m`. The fragments are heredocs because
+# only this file is bind-mounted into the builder. kvm_guest.config's x86-only symbols
+# (PARAVIRT and friends) are skipped with a warning on arm64, which is harmless.
 #
 # Reproducible: without these kbuild stamps date, user, host and a per-tree build counter
 # into `uname -v`. SOURCE_DATE_EPOCH comes from build.sh.
@@ -12,6 +12,16 @@ export KBUILD_BUILD_USER=kaetzli KBUILD_BUILD_HOST=kaetzli KBUILD_BUILD_VERSION=
 
 make defconfig
 make kvm_guest.config
+
+# The release says whose kernel it is, as distributions' do (Debian's 6.12.0-1-amd64,
+# Fedora's 7.3.6-300.fc45): `uname -r` is 7.3.6-kaetzli, and so is the
+# /usr/lib/modules/<release> directory below. No LOCALVERSION_AUTO: setlocalversion would
+# append whatever git it finds around the tree, which is not upstream's or ours to pin.
+cat > kernel/configs/release.config <<'EOF'
+CONFIG_LOCALVERSION="-kaetzli"
+# CONFIG_LOCALVERSION_AUTO is not set
+EOF
+make release.config
 
 # What a container runtime needs. defconfig stops at CGROUPS, the basic namespaces and
 # SECCOMP_FILTER. `make <name>.config` merges a fragment and re-runs olddefconfig, which
@@ -855,7 +865,7 @@ make parity.config
 #     does not have yet goes in with the bump);
 #   - everything the additive fragments turn on is =y;
 #   - nothing cleared came back =y.
-fragments=(kernel/configs/{container,rootfs,k8s,parity,guest,trace,kspp}.config)
+fragments=(kernel/configs/{release,container,rootfs,k8s,parity,guest,trace,kspp}.config)
 unapplied=""
 
 kconfig_symbols=$(find . -name 'Kconfig*' -not -path './Documentation/*' -print0 \
@@ -877,7 +887,8 @@ while read -r sym; do
     if grep -qx "$sym=y" .config; then
         unapplied="$unapplied  $sym  (cleared, came back =y)"$'\n'
     fi
-done < <(sed -n 's/^# \(CONFIG_[A-Z0-9_]*\) is not set$/\1/p' kernel/configs/container.config \
+done < <(sed -n 's/^# \(CONFIG_[A-Z0-9_]*\) is not set$/\1/p' kernel/configs/release.config \
+             kernel/configs/container.config \
              kernel/configs/parity.config kernel/configs/kspp.config kernel/configs/vm.config)
 
 if [ -n "$unapplied" ]; then
@@ -907,5 +918,10 @@ install -D -m 644 .config $ROOTFS/boot/config
 # reads the config from there, and kube-proxy and CNI pods bind-mount /lib/modules, which
 # a read-only root cannot create at runtime.
 release=$(make -s kernelrelease)
+# The check above only reads =y and cleared lines; a string has to be looked at here.
+if ! [[ $release =~ ^[0-9.]+-kaetzli$ ]]; then
+    echo "error: kernel release is '$release', expected <version>-kaetzli (release.config)" >&2
+    exit 1
+fi
 install -d $ROOTFS/usr/lib/modules/$release
 ln -sfn ../../../../boot/config $ROOTFS/usr/lib/modules/$release/config

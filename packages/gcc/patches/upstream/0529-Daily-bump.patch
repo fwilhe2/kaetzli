@@ -1,0 +1,29 @@
+From 29565f801bc590466c6b1014b58dc4593c551898 Mon Sep 17 00:00:00 2001
+From: GCC Administrator <gccadmin@gcc.gnu.org>
+Date: Sat, 28 Nov 2026 00:20:39 +0000
+Subject: [PATCH] Daily bump.
+
+---
+ gcc/DATESTAMP    | 2 +-
+ gcc/po/ChangeLog | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/DATESTAMP b/gcc/DATESTAMP
+index 4141c449662a..996c54743d74 100644
+--- a/gcc/DATESTAMP
++++ b/gcc/DATESTAMP
+@@ -1 +1 @@
+-20261127
++20261128
+diff --git a/gcc/po/ChangeLog b/gcc/po/ChangeLog
+index 668dfe31c85f..e4333a11011d 100644
+--- a/gcc/po/ChangeLog
++++ b/gcc/po/ChangeLog
+@@ -1,3 +1,7 @@
++2026-11-27  Joseph Myers  <josmyers@redhat.com>
++
++	* af.po: New file.
++
+ 2026-11-09  Joseph Myers  <josmyers@redhat.com>
+ 
+ 	* lv.po: New file.

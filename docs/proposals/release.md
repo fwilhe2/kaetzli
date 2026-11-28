@@ -72,6 +72,7 @@ the same from one snapshot to the next.
 | `rootfs-<arch>.erofs` | The root filesystem with its dm-verity hash tree. |
 | `rootfs-<arch>.cmdline` | The kernel command line, including the root hash. The image is only usable with it. |
 | `kernel-<arch>` | `bzImage` on amd64, `Image` on arm64. |
+| `disk-<arch>.qcow2` | The same root and its UKI as one UEFI-bootable GPT disk, with a `/var` partition (`tools/build-disk.sh`'s defaults; `docs/guides/disk.md`). |
 | `<ext>-<arch>.sysext.raw`, `.sysext.dm-verity` | Each system extension (`podman`, `kubernetes`, `debug`) and its verity table. |
 | `<ext>-<arch>.confext.raw`, `.confext.dm-verity` | The configuration extension and its verity table, for an extension that has one (one that stages `etc/`; today `kubernetes`). |
 | `sbom-<arch>.json` | SPDX 2.3 for the disk image. |

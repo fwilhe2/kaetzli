@@ -11,7 +11,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
 - [Patches](guides/patches.md): package patches, upstream patch series, and CVE fixes.
 - [Linking](guides/linking.md): runtime library compatibility and ELF checks.
 - [System extensions](guides/sysext.md): build and attach extensions.
-- [Bootable disk](guides/disk.md): the image as a UEFI disk for VMMs and clouds.
+- [Bootable disk](guides/disk.md): the image as one UEFI-bootable disk, for VMMs and clouds.
 - [User data](guides/user-data.md): running a cloud instance's user data at boot.
 - [Debugging](guides/debugging.md): tools in the base and debug extension, expected boot
   messages, and how login and SSH access work.
@@ -44,5 +44,7 @@ Guides describe current behavior. Proposals describe work that is not implemente
   to Python, and in what order.
 - [Persistent volumes](proposals/persistent-volumes.md): storage for PersistentVolumeClaims
   on Kubernetes nodes, which a cluster has none of today.
+- [Auditability](proposals/compliance.md): what a corporate audit would find, and what
+  would make one easier (change control, evidence, security policy).
 
 Host architecture and tool requirements are summarized in the [project README](../README.md#host-requirements).
