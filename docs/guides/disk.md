@@ -38,6 +38,7 @@ The UKI's command line is set for this disk:
 - a VGA console (`tty0`) as well as the serial port;
 - `systemd.machine_id=firmware`, so the machine ID is the SMBIOS UUID that a cloud sets
   per instance.
+- `systemd.gpt_auto=0`: the ESP is the firmware's, and nothing in the image mounts it.
 
 `/home` and `/root` live in `/var`, so they persist too.
 
@@ -59,17 +60,25 @@ grow into a larger disk, because the image has no `systemd-repart`.
 
 ## Booting it
 
-QEMU with OVMF:
+QEMU with OVMF (the `ovmf` package on Debian and Ubuntu, `edk2-ovmf` on Fedora and Arch,
+each with its own file names):
 
 ```sh
-qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 1024 \
-    -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+# OVMF without Secure Boot: ovmf (Debian, Ubuntu) or edk2-ovmf (Fedora, Arch)
+for code in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/edk2/ovmf/OVMF_CODE.fd \
+            /usr/share/edk2/x64/OVMF_CODE.4m.fd; do
+    [ -f "$code" ] && break
+done
+cp "${code/CODE/VARS}" ovmf-vars.fd
+qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 1024 -nographic \
+    -drive if=pflash,format=raw,readonly=on,file="$code" \
     -drive if=pflash,format=raw,file=ovmf-vars.fd \
-    -drive file=output/kaetzli-disk-amd64.qcow2,if=virtio -nographic
+    -drive file=output/kaetzli-disk-amd64.qcow2,if=virtio -nic user,model=virtio-net-pci \
+    -fw_cfg name=opt/io.systemd.credentials/login.noauth,string=yes
 ```
 
-`ovmf-vars.fd` is a copy of `/usr/share/OVMF/OVMF_VARS_4M.fd`. The firmware writes to it,
-so give each VM its own copy.
+`ovmf-vars.fd` is the firmware's variable store, which it writes to, so give each VM its
+own copy. Use the plain build, not `secboot`: the UKI is unsigned.
 
 OpenStack (Glance):
 
@@ -88,5 +97,6 @@ The UKI on the disk is unsigned. To boot under Secure Boot, sign it with your ow
 
 ## Testing
 
-`./test/disk.py [disk]` boots a disk under OVMF, with an SMBIOS UUID. It checks whatever the disk's own command line asks for. Set `DISK_BUS=scsi` for a
+`./test/disk.py [disk]` boots a disk under OVMF, with an SMBIOS UUID. It checks whatever
+the disk's own command line asks for, and that no unit failed. Set `DISK_BUS=scsi` for a
 disk built with `--bus scsi`.

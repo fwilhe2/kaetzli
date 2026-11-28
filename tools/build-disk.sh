@@ -34,7 +34,8 @@
 # console, for a provider's VGA web console; /var on partition 3 (systemd.mount-extra=);
 # systemd.machine_id=firmware, the SMBIOS UUID, which a cloud sets per instance, so the
 # journal and a node's identity survive a reboot (a VM without one gets a new ID per boot,
-# as before); and whatever --ssh-key and --append add. The rewrite is the
+# as before); systemd.gpt_auto=0, since nothing in the image mounts the ESP; and whatever
+# --ssh-key and --append add. The rewrite is the
 # launcher's code (kaetzli uki-cmdline), run in the golang container go/go.mod names; the
 # disk is made in the pinned assembler image.
 #
@@ -122,6 +123,10 @@ esac
 cmdline=$(sed -E "s#/dev/vda([ \"]|\$)#${dev}2\\1#g; s# console=# console=tty0 console=#" <<< "$image_cmdline")
 [ "$var_bytes" = 0 ] || cmdline+=" systemd.mount-extra=${dev}3:/var:ext4:x-systemd.makefs,x-systemd.growfs"
 cmdline+=" systemd.machine_id=firmware"
+# No GPT auto-discovery: root and /var are named above, and the generator's one remaining
+# find, the ESP, is an automount on /efi that the read-only root has no mount point for
+# (efi.automount failed). Nothing in the image reads the ESP; the firmware does.
+cmdline+=" systemd.gpt_auto=0"
 [ -z "$ssh_key" ] || cmdline+=" systemd.set_credential_binary=ssh.authorized_keys.root:$(base64 -w0 < "$ssh_key")"
 [ -z "$append" ] || cmdline+=" $append"
 echo ">> command line: $cmdline"
