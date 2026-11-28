@@ -30,15 +30,27 @@ one NIC, on that segment, and boots the image as it is: its own DHCP asks, the r
 static lease answers with 10.0.0.1N, and kubelet picks that address because it is the
 only one there is. Nothing about the network is node configuration.
 
-The pod network is flannel, from its pinned release manifest, unmodified but for one
-line: VXLAN between the nodes over the router's segment, with its nftables backend, which
-is what the kernel's k8s.config fragment (packages/kernel/build.sh) is written for, as is
-kube-proxy's nftables mode. A stock CNI DaemonSet is the point: it writes its config to
-/etc/cni/net.d and its plugin to /opt/cni/bin, both links into /var the extension ships,
-and delegates to the extension's bridge and host-local plugins.
+The pod network and kube-proxy's mode are the DATAPATH, one of two:
+
+  flannel-nftables  (the default) flannel, from its pinned release manifest, unmodified
+                    but for one line: VXLAN between the nodes over the router's segment,
+                    with its nftables backend; kube-proxy in nftables mode
+  calico-iptables   what a Gardener shoot gets by default: Calico, from its pinned
+                    manifest, with IPIP between the nodes and Felix's iptables dataplane
+                    (iptables-nft, so NFT_COMPAT), and kube-proxy in iptables mode. Felix
+                    makes ipsets of its own (the ipset in its image), so this is what
+                    exercises the kernel's set types, -m set, rpfilter and IPIP, which
+                    test/kernel-probes.py cannot
+
+Both are what the kernel's k8s.config fragment (packages/kernel/build.sh) is written for.
+A stock CNI DaemonSet is the point: it writes its config to /etc/cni/net.d and its plugin
+to /opt/cni/bin, both links into /var the extension ships. After the pod network is up,
+each node is checked for what its datapath writes (check_datapath), so a CNI that came
+up on some fallback does not pass as the one asked for.
 
 Overrides, from the environment:
   NODES          number of guests, the first is the control plane   (default 3)
+  DATAPATH       flannel-nftables or calico-iptables (above)        (default flannel-nftables)
   CP_MEM         RAM of the control plane in MB                      (default 3072)
   WORKER_MEM     RAM of each worker in MB                            (default 2048)
   CPUS           vCPUs per guest                                     (default 2)
@@ -87,7 +99,7 @@ from kaetzli.qemu import Machine, Refused, refuse
 from kaetzli.qemu.machine import kvm_usable
 
 STATE = Path("output/k8s")
-POD_CIDR = "10.244.0.0/16"  # flannel's "Network" in its manifest, which has to agree
+POD_CIDR = "10.244.0.0/16"  # flannel's "Network", and the pool Calico is given
 SVC_CIDR = "10.96.0.0/12"
 ROUTER = "k8s-router"
 ROUTER_IP = "10.0.0.1"
@@ -99,6 +111,15 @@ ME = "./tools/k8s-demo.py"
 # manifest whose default moved is an error rather than a silent no-op.
 FLANNEL_VERSION = "v0.28.10"
 FLANNEL_SHA256 = "393bdbce53eb50c8eb97dd513b218518b7d6e7985dc7b889be956e112a711084"
+
+# Calico's manifest (manifests/calico.yaml at the release's tag), kept in downloads/k8s/
+# likewise. Two edits, each checked: the default pool is POD_CIDR (the manifest leaves it
+# commented out), and Felix is told its dataplane rather than left to detect one, the
+# iptables dataplane through iptables-nft, as Gardener's networking-calico runs it.
+CALICO_VERSION = "v3.32.4"
+CALICO_SHA256 = "9c85665dd77049c4dcb43f02a71d3b96e6fbf4b2e1a24fe7d9ff81ac491b076b"
+
+DATAPATHS = ("flannel-nftables", "calico-iptables")
 
 CURL_DOWNLOAD = ["curl", "--location", "--fail", "--silent", "--show-error",
                  "--retry", "6", "--retry-all-errors"]  # fmt: skip
@@ -229,6 +250,7 @@ class Cluster:
     token: str = ""
     ca_hash: str = ""
     k8s_version: str = ""
+    datapath: str = "flannel-nftables"
 
     @classmethod
     def from_env(cls, base: Machine, env=os.environ) -> Cluster:
@@ -240,6 +262,7 @@ class Cluster:
             api_port=env.get("API_PORT") or "6443",
             router_mem=env.get("ROUTER_MEM") or "384",
             timeout=float(env.get("TIMEOUT") or "300"),
+            datapath=datapath(env),
         )
 
     # --- the guests ------------------------------------------------------------------
@@ -385,7 +408,7 @@ apiServer:
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
-mode: nftables
+mode: {"iptables" if self.datapath == "calico-iptables" else "nftables"}
 """
         must(node_ssh(1, "cat > /run/kubeadm.yaml", input=kubeadm.encode()))
         must(node_ssh(1, "kubeadm init --config /run/kubeadm.yaml"))
@@ -432,12 +455,20 @@ nodeRegistration:
             raise Failed(1)
 
     def pod_network(self) -> None:
-        """flannel takes the /24 the controller manager gives each node, writes the CNI
-        config and installs its plugin through the extension's links into /var, and
-        routes between nodes over VXLAN; a node turns Ready once its config exists."""
-        must(k("apply", "-f", "-", input=flannel_manifest()))
-        must(k("-n", "kube-flannel", "rollout", "status", "daemonset/kube-flannel-ds",
-               "--timeout=300s"))  # fmt: skip
+        """flannel takes the /24 the controller manager gives each node, Calico a /26 of
+        its pool per node; either writes the CNI config and installs its plugin through
+        the extension's links into /var, and routes between nodes over its overlay. A
+        node turns Ready once its config exists."""
+        if self.datapath == "calico-iptables":
+            must(k("apply", "-f", "-", input=calico_manifest()))
+            must(k("-n", "kube-system", "rollout", "status", "daemonset/calico-node",
+                   "--timeout=600s"))  # fmt: skip
+            must(k("-n", "kube-system", "rollout", "status",
+                   "deployment/calico-kube-controllers", "--timeout=300s"))  # fmt: skip
+        else:
+            must(k("apply", "-f", "-", input=flannel_manifest()))
+            must(k("-n", "kube-flannel", "rollout", "status", "daemonset/kube-flannel-ds",
+                   "--timeout=300s"))  # fmt: skip
         for n in range(1, self.nodes + 1):
             cidr = must(
                 k("get", "node", node_name(n), "-o", "jsonpath={.spec.podCIDR}", capture=True)
@@ -445,12 +476,23 @@ nodeRegistration:
             cni = out(n, "ls", "/etc/cni/net.d").replace("\n", " ")
             print(f"   {node_name(n)}  pods in {cidr}, {cni}", flush=True)
 
+    def check_datapath(self) -> None:
+        """Each node has what its datapath writes, named when it does not: a CNI that came
+        up some other way, or a kube-proxy in the other mode, would otherwise pass."""
+        wanted = DATAPATH_CHECKS[self.datapath]
+        for n in range(1, self.nodes + 1):
+            for what, test in wanted:
+                if node_ssh(n, test, capture=True).returncode != 0:
+                    print(f"error: {node_name(n)}: {what}", file=sys.stderr)
+                    raise Failed(1)
+            print(f"   {node_name(n)}  " + ", ".join(w for w, _ in wanted), flush=True)
+
     def demo(self) -> None:
         """Something that only works if the cluster does: four replicas of agnhost's HTTP
         server (the Kubernetes e2e tests' own utility image), spread over the workers,
         behind a Service. Then one pod asks the Service, by its DNS name, who it is
-        talking to, which goes pod, CoreDNS, kube-proxy's nftables, a pod on whichever
-        node, and back."""
+        talking to, which goes pod, CoreDNS, kube-proxy's rules, a pod on whichever node
+        over the overlay, and back."""
         say("Deploying the demo: 4 × agnhost netexec behind Service 'hello'")  # noqa: RUF001
         must(k("apply", "-f", "-", input=DEMO.encode()))
         must(k("rollout", "status", "deployment/hello", "--timeout=300s"))
@@ -523,13 +565,22 @@ nodeRegistration:
         say("kubeadm join on the workers")
         self.on_workers(self.join_worker)
 
-        say(f"Pod network: flannel {FLANNEL_VERSION}")
+        if self.datapath == "calico-iptables":
+            say(
+                f"Pod network: Calico {CALICO_VERSION}, IPIP, iptables dataplane; "
+                "kube-proxy iptables"
+            )
+        else:
+            say(f"Pod network: flannel {FLANNEL_VERSION}, VXLAN, nftables; kube-proxy nftables")
         self.pod_network()
         must(k("wait", "--for=condition=Ready", "nodes", "--all", "--timeout=300s"))
         # kube-proxy too: a worker that joined seconds ago may not have its Service rules
         # yet, and the demo would then only ever reach the pods on its own node.
         must(k("-n", "kube-system", "rollout", "status", "deployment/coredns", "--timeout=300s"))
         must(k("-n", "kube-system", "rollout", "status", "daemonset/kube-proxy", "--timeout=300s"))
+
+        say(f"The datapath on every node: {self.datapath}")
+        self.check_datapath()
 
         say("The cluster")
         must(k("get", "nodes", "-o", "wide"))
@@ -628,6 +679,81 @@ def flannel_manifest() -> bytes:
         print(f"error: {path} has no EnableNFTables line to set", file=sys.stderr)
         raise Failed(1)
     return data.replace(b'"EnableNFTables": false', b'"EnableNFTables": true')
+
+
+def calico_manifest() -> bytes:
+    path = Path(f"downloads/k8s/calico-{CALICO_VERSION}.yaml")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.is_file():
+        part = Path(f"{path}.part")
+        subprocess.run(
+            [*CURL_DOWNLOAD, "-o", str(part),
+             f"https://raw.githubusercontent.com/projectcalico/calico/{CALICO_VERSION}/manifests/calico.yaml"],
+            check=True,
+        )  # fmt: skip
+        part.rename(path)
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != CALICO_SHA256:
+        print(
+            f"error: {path} is not the manifest {CALICO_VERSION} was pinned to — delete it "
+            "and try again",
+            file=sys.stderr,
+        )
+        path.unlink()
+        raise Failed(1)
+    return calico_edit(data)
+
+
+CALICO_POOL = b"""            # - name: CALICO_IPV4POOL_CIDR
+            #   value: "192.168.0.0/16"
+"""
+CALICO_HEALTH = b"""            - name: FELIX_HEALTHENABLED
+              value: "true"
+"""
+
+
+def calico_edit(data: bytes) -> bytes:
+    """The pool and the dataplane, into calico-node's environment (CALICO_VERSION's
+    comment). An anchor that is not there exactly once is an error, not a no-op."""
+    for anchor in (CALICO_POOL, CALICO_HEALTH):
+        if data.count(anchor) != 1:
+            print(f"error: the Calico manifest has no single {anchor.splitlines()[0].strip()!r}",
+                  file=sys.stderr)  # fmt: skip
+            raise Failed(1)
+    pool = f"""            - name: CALICO_IPV4POOL_CIDR
+              value: "{POD_CIDR}"
+""".encode()
+    dataplane = b"""            - name: FELIX_NFTABLESMODE
+              value: "Disabled"
+            - name: FELIX_IPTABLESBACKEND
+              value: "NFT"
+"""
+    return data.replace(CALICO_POOL, pool).replace(CALICO_HEALTH, CALICO_HEALTH + dataplane)
+
+
+# What each datapath leaves on a node, as (what is missing, a test run there as root).
+DATAPATH_CHECKS = {
+    "flannel-nftables": [
+        ("flannel's VXLAN device", "ip -d link show flannel.1 | grep -q vxlan"),
+        ("kube-proxy's nftables table", "nft list table ip kube-proxy >/dev/null"),
+    ],
+    "calico-iptables": [
+        ("Calico's IPIP tunnel", "ip -d link show tunl0 | grep -q ipip"),
+        ("Felix's iptables-nft chains", "iptables-save | grep -q '^:cali-'"),
+        ("Felix's rpfilter rule in the raw table",
+         "iptables-save -t raw | grep -q -- '-m rpfilter'"),
+        ("kube-proxy's iptables-mode service chains",
+         "iptables-save -t nat | grep -q '^:KUBE-SVC-'"),
+        ("a route to another node's pods over tunl0", "ip route | grep -q 'dev tunl0'"),
+    ],
+}  # fmt: skip
+
+
+def datapath(env=os.environ) -> str:
+    value = env.get("DATAPATH") or DATAPATHS[0]
+    if value not in DATAPATHS:
+        raise Refused(f"DATAPATH={value}: one of {', '.join(DATAPATHS)}")
+    return value
 
 
 def pids() -> list[tuple[str, int]]:

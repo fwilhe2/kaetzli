@@ -6,7 +6,8 @@ network or the Service across nodes fails CI.
 
 The overrides are tools/k8s-demo.py's. It needs KVM: three emulated guests forming a
 cluster would take hours. Without a writable /dev/kvm it skips, with a note. Each guest's
-console is kept as output/k8s-test-<guest>.log, since `down` deletes output/k8s.
+console is kept as output/k8s-test-<guest>.log, since `down` deletes output/k8s, or
+k8s-test-<datapath>-<guest>.log for a DATAPATH other than the default (CI runs both).
 """
 
 from __future__ import annotations
@@ -20,8 +21,10 @@ from kaetzli.qemu.machine import kvm_usable
 
 
 def keep_logs() -> None:
+    which = k8s_demo.datapath()
+    prefix = "k8s-test-" if which == k8s_demo.DATAPATHS[0] else f"k8s-test-{which}-"
     for log in sorted(k8s_demo.STATE.glob("*.console.log")):
-        shutil.copyfile(log, f"output/k8s-test-{log.name.removesuffix('.console.log')}.log")
+        shutil.copyfile(log, f"output/{prefix}{log.name.removesuffix('.console.log')}.log")
     k8s_demo.down()
 
 
@@ -38,7 +41,7 @@ def main(argv: list[str]) -> int:
             rc = k8s_demo.main([command])
             if rc:
                 return rc
-        print(">> k8s OK")
+        print(f">> k8s OK ({k8s_demo.datapath()})")
         return 0
     finally:
         keep_logs()

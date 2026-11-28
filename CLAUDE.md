@@ -209,7 +209,7 @@ policy checks are done).
 ./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot, /var by credentials; unsigned refused (tools/sign-uki.sh first)
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/disk.py [qcow2]          # build-disk.sh's disk under OVMF, checked against its own command line (DISK_BUS=scsi)
-./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
+./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without); DATAPATH=calico-iptables: Gardener's default
 ./test/gardener.py $BOOT        # Gardener's node init + node-agent bootstrap, pinned release (network)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
