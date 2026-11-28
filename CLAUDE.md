@@ -199,6 +199,7 @@ policy checks are done).
 ./test/rootless.py $BOOT        # podman as `user`: ID maps, pasta
 ./test/persistent-var.py $BOOT  # /var disk survives two boots
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
+./test/etc-upgrade.py $BOOT     # /var disk, newer extensions: unwritten /etc follows, written shadows, upper layer clean
 ./test/user-data.py $BOOT       # OpenStack metadata service: user data runs once, as root
 ./test/containerd.py $BOOT      # kubernetes extension: containerd upheld before user data, CRI loaded, a container on crun
 ./test/kernel-probes.py $BOOT   # each datapath symbol used: iptables-nft, nft, ip, tc (test/kernel-probes.txt)
