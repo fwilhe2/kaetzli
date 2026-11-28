@@ -7,6 +7,10 @@
 absent        boot/bzImage
 present:erofs boot/config
 
+# The release carries the distribution's suffix (release.config in packages/kernel), as
+# uname -r does; a kernel bump that loses CONFIG_LOCALVERSION changes the directory name.
+present:erofs usr/lib/modules/*-kaetzli/config
+
 # No module tools: CONFIG_MODULES is off, so systemd is built -Dkmod=disabled and kmod is
 # not a package. A systemd bump that turns the option back on, or a package that brings
 # libkmod, would put them back with nothing to load.

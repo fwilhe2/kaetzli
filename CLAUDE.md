@@ -511,7 +511,8 @@ merge reloads PID 1: one that starts at boot needs `UpheldBy=` as well as `Wante
 ### The kernel
 
 `packages/kernel/build.sh` = `defconfig` + `kvm_guest.config` + heredoc fragments (only
-`build.sh` is mounted): `container`, `k8s`, `guest`, `rootfs`, `kspp`, `trace`, `vm` (takes
+`build.sh` is mounted): `release` (`CONFIG_LOCALVERSION="-kaetzli"`, checked on
+`kernelrelease`), `container`, `k8s`, `guest`, `rootfs`, `kspp`, `trace`, `vm` (takes
 defconfig's hardware out), and `parity`, last. A fragment name must not be one upstream uses
 (`hardening.config` is, per arch too). **`CONFIG_MODULES` is off**: tristates resolve to `y`/`n`,
 and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board list.
