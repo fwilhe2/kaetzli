@@ -138,8 +138,11 @@ transaction is made before systemd-confext merges `/etc`, so a unit enabled ther
 loaded but never started; the confext drop-in now starts the boot's targets again after
 the merge.
 
-A Gardener bump re-renders `INIT_SH` and moves `IMAGE` to the new tag's digest
-(`python/src/kaetzli/boot/gardener.py` says how); nothing checks for one yet.
+The release is pinned in `test/gardener.env` (version, node-agent's index digest) with
+`test/gardener-init.sh`, Gardener's `init.tpl.sh` rendered by Go's `text/template`.
+`tools/check-gardener.py verify` holds both to upstream in the gardener job, and the
+nightly update workflow proposes a new release (`check-gardener.py bump`), for a person
+to merge.
 
 ## Open questions
 

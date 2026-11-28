@@ -1,7 +1,7 @@
 """What tools/lib.sh's fetch, gh_api and the tarball check did with curl: a GET that
 follows redirects, retries a 5xx, 429 or network error four times (backing off 1, 2, 4,
 8 s) and fails on an HTTP error; the same against GitHub's API with a token when there is
-one; and a HEAD that says whether a URL is there.
+one; a HEAD that says whether a URL is there, and one that reads a header.
 """
 
 from __future__ import annotations
@@ -35,6 +35,11 @@ _opener = urllib.request.build_opener(_KeepHead)
 
 
 def _request(url: str, method: str = "GET", headers: dict | None = None) -> bytes:
+    return _response(url, method, headers)[0]
+
+
+def _response(url: str, method: str = "GET", headers: dict | None = None):
+    """(body, response headers)."""
     last: Exception | None = None
     for attempt in range(5):
         if attempt:
@@ -44,7 +49,7 @@ def _request(url: str, method: str = "GET", headers: dict | None = None) -> byte
         )
         try:
             with _opener.open(req, timeout=TIMEOUT) as r:
-                return r.read()
+                return r.read(), r.headers
         except urllib.error.HTTPError as e:
             last = e
             if e.code < 500 and e.code != 429:
@@ -79,6 +84,13 @@ class Http:
         if token := github_token():
             headers["Authorization"] = f"Bearer {token}"
         return _request(url, headers=headers).decode("utf-8")
+
+    def header(self, url: str, name: str, accept: list[str]) -> str:
+        """One header of a HEAD's response, as a registry answers a manifest's digest."""
+        value = _response(url, "HEAD", {"Accept": ", ".join(accept)})[1].get(name)
+        if not value:
+            raise FetchError(f"{url}: no {name} in the response")
+        return value
 
     def exists(self, url: str) -> bool:
         try:
