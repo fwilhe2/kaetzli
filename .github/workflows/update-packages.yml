@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        description: "Packages to check, space separated (empty = all; `debian-snapshot`, `go`, `rust` for the toolchains)"
+        description: "Packages to check, space separated (empty = all; `debian-snapshot`, `go`, `rust` for the toolchains, `gardener` for test/gardener.py's release)"
         required: false
         default: ""
 
@@ -65,7 +65,7 @@ jobs:
           wanted_packages= wanted_toolchains=
           for p in $PACKAGES; do
             if grep -qx "$p" <<< "$toolchains"; then wanted_toolchains+=" $p"
-            elif [ "$p" != debian-snapshot ]; then wanted_packages+=" $p"; fi
+            elif [ "$p" != debian-snapshot ] && [ "$p" != gardener ]; then wanted_packages+=" $p"; fi
           done
 
           # An upstream that can't be reached shouldn't stop the packages that can, so
@@ -112,13 +112,22 @@ jobs:
             cat snapshot.err >&2 || true
           fi
 
+          # The Gardener release test/gardener.py provisions a node with (test/gardener.env),
+          # nightly. Not a package and nothing of it ships: a bump moves the test's pins, so
+          # its pull request is for a person (auto-merge.py takes only a package's env.sh).
+          echo '[]' > gardener.json
+          if [ -z "$PACKAGES" ] || [[ " $PACKAGES " == *" gardener "* ]]; then
+            ./tools/check-gardener.py --json > gardener.json || failed=1
+            [ -s gardener.json ] || echo '[]' > gardener.json
+          fi
+
           # -c is load-bearing: a step output is `name=value` on one line, and jq's
           # default pretty-printing makes an array of objects many. The runner rejects
           # the continuation lines with "Invalid format '  {'" and the whole job fails —
           # but only in a week where something actually has an update, since `[]` is one
           # line either way. tools/check-updates.py emits compact JSON for exactly this
           # reason (`jq -sc .`); merging the snapshot list in is what dropped it.
-          jq -cs add updates.json toolchains.json snapshot.json > all.json
+          jq -cs add updates.json toolchains.json snapshot.json gardener.json > all.json
           echo "updates=$(cat all.json)" >> "$GITHUB_OUTPUT"
           jq -r '.[] | "\(.package)\(if .component then "/" + .component else "" end): \(.current) -> \(.latest)"' all.json
           if [ -n "${failed:-}" ]; then
@@ -142,13 +151,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # For tools/snapshot-changes.py, the toolchain versions a snapshot bump moves.
+      # For tools/snapshot-changes.py, the toolchain versions a snapshot bump moves, and
+      # tools/check-gardener.py, which renders Gardener's init.sh with Go.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        if: matrix.update.package == 'debian-snapshot'
+        if: matrix.update.package == 'debian-snapshot' || matrix.update.kind == 'gardener'
         with:
           python-version-file: python/.python-version
           cache: pip
           cache-dependency-path: python/requirements.txt
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        if: matrix.update.kind == 'gardener'
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
 
       - name: Open pull request
         env:
@@ -216,6 +232,18 @@ jobs:
           $CHANGES
 
           Tag: $URL
+          EOF
+            )
+          elif [ "$KIND" = gardener ]; then
+            # VERSION, node-agent's index digest and init.sh rendered from that release,
+            # together; a release whose template moved fails here.
+            ./tools/check-gardener.py bump "$LATEST"
+            TITLE="Update Gardener in test/gardener.py to $LATEST"
+            COMMIT_BODY=$(cat <<EOF
+          Gardener $CURRENT -> $LATEST for test/gardener.py: test/gardener.env and
+          test/gardener-init.sh, written by tools/check-gardener.py bump.
+
+          Release notes: $URL
           EOF
             )
           elif [ "$KIND" = toolchain ]; then
@@ -312,6 +340,24 @@ jobs:
           Opened automatically by \`.github/workflows/update-packages.yml\`. Closing this
           pull request stops $LATEST from being proposed again; the next dated image still
           gets its own.
+          EOF
+          )
+          elif [ "$KIND" = gardener ]; then
+            BODY=$(cat <<EOF
+          Gardener $CURRENT -> $LATEST for \`test/gardener.py\`, which provisions a VM with
+          Gardener's own node init and node-agent: \`test/gardener.env\` (the version and
+          node-agent's index digest) and \`test/gardener-init.sh\` (Gardener's
+          \`init.tpl.sh\` at $LATEST, rendered by Go's text/template), written by
+          \`tools/check-gardener.py bump\`.
+
+          Release notes: $URL
+
+          Nothing in the image changes. The \`gardener\` CI job boots the new node-agent and
+          gates nothing, so read its result before merging: a failure there is a change in
+          what Gardener asks of the OS. Not auto-merged.
+
+          Opened automatically by \`.github/workflows/update-packages.yml\`. Closing this
+          pull request stops $LATEST from being proposed again.
           EOF
           )
           elif [ "$KIND" = toolchain ]; then

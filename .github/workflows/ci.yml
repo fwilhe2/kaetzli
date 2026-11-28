@@ -1048,6 +1048,18 @@ jobs:
             sudo udevadm trigger --name-match=kvm
           fi
 
+      # The pinned release against upstream: the digest the tag resolves to, and init.sh
+      # rendered from that release's template with Go's text/template. Once, on amd64.
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        if: matrix.arch == 'amd64'
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
+
+      - name: Check the Gardener pin against upstream
+        if: matrix.arch == 'amd64'
+        run: ./tools/check-gardener.py verify
+
       # TIMEOUT: the pull is tens of MB from Gardener's registry, and a runner without
       # KVM boots slowly.
       - name: Check Gardener's node init and node-agent bootstrap

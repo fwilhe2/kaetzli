@@ -163,6 +163,7 @@ policy checks are done).
 ./tools/check-updates.py [pkg...]   # upstream releases since the pinned VERSION/VENDOR_VERSION/patch series
 ./tools/check-snapshot.py           # is the pinned Debian snapshot still current?
 ./tools/check-toolchains.py [go|rust]  # Go and Rust pins vs upstream's latest stable
+./tools/check-gardener.py [verify|bump V]  # test/gardener.py's Gardener pin vs latest; render + digest vs upstream (go)
 ./tools/bump-toolchain.sh <go|rust> <ver>  # VERSION + every SHA256, each tarball signature-checked
 ./tools/snapshot-changes.py OLD NEW # toolchain versions two snapshots differ in (the bump's commit body)
 ./tools/bump-snapshot.sh            # move builder + assembler to the newest dated sid snapshot
