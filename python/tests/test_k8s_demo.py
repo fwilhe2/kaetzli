@@ -128,3 +128,48 @@ def test_down_returns_for_a_guest_this_process_started(tmp_path, monkeypatch):
     )
     k8s_demo.down()
     assert not tmp_path.exists()
+
+
+CALICO_ENV = (
+    b"          env:\n"
+    b"            # - name: CALICO_IPV4POOL_CIDR\n"
+    b'            #   value: "192.168.0.0/16"\n'
+    b"            - name: FELIX_HEALTHENABLED\n"
+    b'              value: "true"\n'
+)
+
+
+def test_calico_gets_the_pod_cidr_and_felix_its_dataplane():
+    edited = k8s_demo.calico_edit(CALICO_ENV)
+    assert (
+        b"            - name: CALICO_IPV4POOL_CIDR\n"
+        + f'              value: "{k8s_demo.POD_CIDR}"\n'.encode()
+    ) in edited
+    assert b"192.168.0.0/16" not in edited
+    after_health = edited.split(b'name: FELIX_HEALTHENABLED\n              value: "true"\n')[1]
+    assert after_health.startswith(
+        b'            - name: FELIX_NFTABLESMODE\n              value: "Disabled"\n'
+        b'            - name: FELIX_IPTABLESBACKEND\n              value: "NFT"\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "manifest", [CALICO_ENV.replace(b"# - name: CALICO_IPV4POOL_CIDR", b"# moved"), CALICO_ENV * 2]
+)
+def test_a_calico_manifest_whose_anchors_moved_is_an_error(manifest):
+    with pytest.raises(k8s_demo.Failed):
+        k8s_demo.calico_edit(manifest)
+
+
+def test_the_datapath_defaults_to_flannel_and_refuses_others():
+    assert k8s_demo.datapath({}) == "flannel-nftables"
+    assert k8s_demo.datapath({"DATAPATH": "calico-iptables"}) == "calico-iptables"
+    with pytest.raises(k8s_demo.Refused, match="one of flannel-nftables, calico-iptables"):
+        k8s_demo.datapath({"DATAPATH": "cilium"})
+
+
+def test_every_datapath_is_checked_on_the_nodes():
+    assert set(k8s_demo.DATAPATH_CHECKS) == set(k8s_demo.DATAPATHS)
+    for checks in k8s_demo.DATAPATH_CHECKS.values():
+        for _, test in checks:
+            assert subprocess.run(["bash", "-n", "-c", test]).returncode == 0

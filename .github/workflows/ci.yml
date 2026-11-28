@@ -993,6 +993,15 @@ jobs:
       - name: Check a Kubernetes cluster
         run: ./test/k8s.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
+      # Gardener's default datapath: Calico with IPIP and its iptables dataplane, kube-proxy
+      # in iptables mode (tools/k8s-demo.py's DATAPATH). After the default one, whatever it
+      # did: a second cluster from nothing.
+      - name: Check a Kubernetes cluster on Calico and iptables kube-proxy
+        if: success() || failure()
+        env:
+          DATAPATH: calico-iptables
+        run: ./test/k8s.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
       - name: Upload console logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
