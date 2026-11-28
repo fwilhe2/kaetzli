@@ -201,6 +201,7 @@ policy checks are done).
 ./test/sysext.py $BOOT          # /var extensions merge; wrong level refused
 ./test/user-data.py $BOOT       # OpenStack metadata service: user data runs once, as root
 ./test/containerd.py $BOOT      # kubernetes extension: containerd upheld before user data, CRI loaded, a container on crun
+./test/kernel-probes.py $BOOT   # each datapath symbol used: iptables-nft, nft, ip, tc (test/kernel-probes.txt)
 ./test/debug.py $BOOT           # strace, tcpdump, gdbserver, socat, jq, bpftool, perf
 ./test/verity.py $BOOT          # tampered image refused
 ./test/secureboot.py [rootfs]   # signed UKI under OVMF Secure Boot, /var by credentials; unsigned refused (tools/sign-uki.sh first)
@@ -541,8 +542,10 @@ and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board li
   `test/kernel-parity-allowed.txt`; any new difference fails the job. Try arm64 on amd64 by sourcing `build.sh` with `make` and
   `uname -m` shimmed.
 - **Each `iptables -m`/`-j` an engine uses is its own kernel symbol**; a missing one fails at
-  runtime (*revision 0 not supported*). No legacy `IP_NF_*` (iptables-nft via `NFT_COMPAT`).
-  `kernel-caps.py` holds the list.
+  runtime (*revision 0 not supported*). No legacy `IP_NF_*` (iptables-nft via `NFT_COMPAT`),
+  but iptables-nft writes some as nft's own expressions (`-m limit` is `NFT_LIMIT`, `-j LOG`
+  `NFT_LOG`), so the xt symbol alone can be the wrong one. `kernel-caps.py` holds the list,
+  `kernel-probes.py` adds each rule in a guest.
 - **`SERIAL_8250` never in `vm.config`** (amd64's and Firecracker's console).
 - `DEBUG_INFO_BTF` needs the "Debug information" choice settled first; arm64 `BPF_LSM` needs
   `FTRACE` (`BPF_EVENTS`); `SECURITYFS` lets systemd see bpf-lsm.

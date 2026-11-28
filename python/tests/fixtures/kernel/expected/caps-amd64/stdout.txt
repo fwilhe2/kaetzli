@@ -1,1 +1,1 @@
-kernel capabilities OK (1288 symbols built in, 98 required present)
+kernel capabilities OK (1295 symbols built in, 105 required present)
