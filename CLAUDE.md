@@ -207,6 +207,7 @@ policy checks are done).
 ./test/vmm.py $BOOT             # Firecracker- and Virtualization.framework-shaped boots
 ./test/disk.py [qcow2]          # build-disk.sh's disk under OVMF, checked against its own command line (DISK_BUS=scsi)
 ./test/k8s.py $BOOT             # 3-node kubeadm via tools/k8s-demo.py (KVM; skips without)
+./test/gardener.py $BOOT        # Gardener's node init + node-agent bootstrap, pinned release (network)
 ./test/node-conformance.py $BOOT  # upstream [NodeConformance] node e2e (KVM; FOCUS=, KEEP=1)
 ./test/oci.sh output/kaetzli-oci.tar  # load and run the container image (no qemu)
 ./test/prebuilt.sh [build|oci|ssh]    # host-built C, C++, Rust, Go binaries run in the image
@@ -567,9 +568,9 @@ and on arm64 an explicit `=m` becomes `y` — hence `vm.config`'s arm64 board li
 ## CI
 
 `.github/workflows/ci.yml`: `changes` → `builder`/`sources` → `glibc` (and `kernel`) → `build`
-matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, `release`; `k8s` and
-`node-conformance` gate nothing. Every push runs it; `changes` skips the build only when all
-changed files are `docs/**` or root `*.md`; `docs` always runs. **`result` is the one required
+matrix → `rootfs` → `boot`, `reproducible` → `publish-oci`, `release`; `k8s`, `gardener`
+and `node-conformance` gate nothing. Every push runs it; `changes` skips the build only when
+all changed files are `docs/**` or root `*.md`; `docs` always runs. **`result` is the one required
 check** (fails on any failed/cancelled job or a wanted build that did not boot); a new gating
 job goes in its `needs:`.
 

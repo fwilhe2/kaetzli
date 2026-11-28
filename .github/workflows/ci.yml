@@ -995,6 +995,68 @@ jobs:
           path: output/*.log
           if-no-files-found: ignore
 
+  # Gardener's node provisioning on a kaetzli VM (test/gardener.py): its real init script
+  # and node-agent, from Gardener's release and registry, up to where a shoot's API server
+  # would take over. Its own job, like k8s: it needs europe-docker.pkg.dev, so nothing
+  # waits on it.
+  gardener:
+    runs-on: *runner
+    needs:
+      - rootfs
+    strategy: *per-arch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - *telemetry
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rootfs.erofs-${{ matrix.arch }}
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: extensions-${{ matrix.arch }}
+          path: artifacts
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package-kernel-${{ matrix.arch }}
+          path: artifacts
+
+      - run: tar xf artifacts/kernel.tar
+
+      - *setup-python
+      - name: Install qemu, and open /dev/kvm to the runner user
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          if [ "${{ matrix.arch }}" = arm64 ]; then
+            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-arm ipxe-qemu qemu-efi-aarch64
+          else
+            sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends qemu-system-x86
+          fi
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+              sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+          fi
+
+      # TIMEOUT: the pull is tens of MB from Gardener's registry, and a runner without
+      # KVM boots slowly.
+      - name: Check Gardener's node init and node-agent bootstrap
+        env:
+          TIMEOUT: "600"
+        run: ./test/gardener.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
+      - name: Upload console logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gardener-console-log-${{ matrix.arch }}
+          path: output/*.log
+          if-no-files-found: ignore
+
   # Kubernetes node conformance (test/node-conformance.py): upstream's node e2e suite,
   # [NodeConformance] specs, on one node with the kubernetes extension. Like k8s, it needs
   # KVM (it skips without) and registry.k8s.io, so nothing waits on it. Failed specs are

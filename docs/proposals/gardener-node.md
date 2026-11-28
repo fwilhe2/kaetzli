@@ -3,7 +3,8 @@
 **Status: proposal, partly implemented.** Done: in the base, the kernel symbols below, a
 writable `/etc` and `/opt/bin`, and `kaetzli-user-data.service` ([user data](../guides/user-data.md));
 the [bootable disk](../guides/disk.md) (`tools/build-disk.sh --cloud openstack`); containerd
-in the `kubernetes` extension, replacing CRI-O (`test/containerd.py`). Not done: getting
+in the `kubernetes` extension, replacing CRI-O (`test/containerd.py`); Gardener's node
+init and node-agent bootstrap, tested in CI (`test/gardener.py`, below). Not done: getting
 the extension onto a node, and gardener-extension-os-kaetzli (its own repository). Gardener facts are from
 `gardener/gardener` and `gardener-extension-networking-calico` on `master`, November 2026.
 
@@ -118,12 +119,27 @@ is upheld from `multi-user.target`; node-agent writes its own `kubelet.service` 
 node-agent's way is to be checked. Attached as a second verified disk it keeps dm-verity;
 on the `/var` partition it would not.
 
+## Tested in CI
+
+`test/gardener.py` (ci.yml's `gardener` job, both arches, gating nothing) provisions a VM
+as Gardener does, with Gardener's own code from a pinned release. The user data has the
+shape of an OS extension's (provider-local's actuator: files, units, `daemon-reload`,
+`enable` and `restart --no-block`, run once). It holds the OSC that `nodeinit.Config`
+makes, with Gardener's `init.sh`, rendered byte for byte. That script pulls node-agent
+from Gardener's registry with `ctr`, and node-agent's `bootstrap` writes, enables and starts
+`gardener-node-agent.service` and disables `gardener-node-init`. The test checks all of
+that, and that nothing hit a read-only filesystem. It ends where node-agent asks the API
+server for its kubeconfig (a CSR against a host that does not exist).
+
+A Gardener bump re-renders `INIT_SH` and moves `IMAGE` to the new tag's digest
+(`python/src/kaetzli/boot/gardener.py` says how); nothing checks for one yet.
+
 ## Open questions
 
-- Does node-agent write anywhere else at runtime? Answer this with a QEMU boot of the
-  user data and a journal audit for read-only file system errors.
-- `systemctl start` from user data waits for its unit. A unit ordered after
-  `multi-user.target` deadlocks the boot unless the script passes `--no-block`. Check
-  Gardener's generated script.
+- Does node-agent write anywhere else at runtime? Bootstrap does not (the test above);
+  what it writes once it has an OSC needs a control plane to hand it one.
+- `systemctl start` from user data waits for its unit, and a unit ordered after
+  `multi-user.target` deadlocks the boot without `--no-block`. Gardener's generic shape
+  (provider-local) uses `restart --no-block`; gardener-extension-os-kaetzli should too.
 - Should `ISO9660_FS` be enabled for config drives? OpenStack defaults to iso9660 when one
   is requested, and some clouds give no metadata service.
