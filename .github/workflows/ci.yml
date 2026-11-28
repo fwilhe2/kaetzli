@@ -1076,6 +1076,15 @@ jobs:
           TIMEOUT: "600"
         run: ./test/gardener.py artifacts/rootfs.erofs rootfs/boot/bzImage
 
+      # The same node against a real API server (a kubeadm control plane, k8s-demo's):
+      # node-agent's certificate, an OSC applied from a Secret, the Node registered by the
+      # kubelet it starts. Also needs registry.k8s.io; skips without KVM.
+      - name: Check a Gardener node joins a cluster
+        if: success() || failure()
+        env:
+          TIMEOUT: "600"
+        run: ./test/gardener-join.py artifacts/rootfs.erofs rootfs/boot/bzImage
+
       - name: Upload console logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

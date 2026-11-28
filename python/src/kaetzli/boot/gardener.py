@@ -149,7 +149,13 @@ def kubelet_version() -> str:
     return version
 
 
-def config() -> str:
+API_SERVER = "https://api.kaetzli-test.invalid"
+SECRET_NAME = "gardener-node-agent-kaetzli-test"
+MACHINE_NAME = "kaetzli-gardener-test"
+BOOTSTRAP_TOKEN = "abcdef.0123456789abcdef"
+
+
+def config(api_server: str = API_SERVER, secret_name: str = SECRET_NAME) -> str:
     """node-agent's configuration, as nodeagent.ComponentConfig makes it for a worker
     pool, with every sync period set rather than left to defaulting."""
     return f"""apiVersion: nodeagent.config.gardener.cloud/v1alpha1
@@ -158,11 +164,11 @@ clientConnection:
   qps: 100
   burst: 130
 apiServer:
-  server: https://api.kaetzli-test.invalid
+  server: {api_server}
   caFile: {BASE}/cluster-ca.crt
 controllers:
   operatingSystemConfig:
-    secretName: gardener-node-agent-kaetzli-test
+    secretName: {secret_name}
     kubernetesVersion: {kubelet_version()}
     syncPeriod: 1m
     preferIPv6: false
@@ -180,13 +186,20 @@ def _cat(path: str, data: str, unencoded: bool = False) -> str:
     return f'\ncat << EOF | base64 -d > "{path}"\n{base64.b64encode(data.encode()).decode()}\nEOF'
 
 
-def user_data() -> str:
+def user_data(
+    cluster_ca: str = CLUSTER_CA,
+    bootstrap_token: str = BOOTSTRAP_TOKEN,
+    api_server: str = API_SERVER,
+    secret_name: str = SECRET_NAME,
+) -> str:
+    """By default for a cluster that does not exist (this test); test/gardener-join.py
+    passes a real one's."""
     files = [  # (path, mode, data, transmitted unencoded)
-        (f"{BASE}/cluster-ca.crt", 0o640, CLUSTER_CA, False),
-        (f"{BASE}/credentials/bootstrap-token", 0o640, "abcdef.0123456789abcdef", True),
+        (f"{BASE}/cluster-ca.crt", 0o640, cluster_ca, False),
+        (f"{BASE}/credentials/bootstrap-token", 0o640, bootstrap_token, True),
         (f"{BASE}/init.sh", 0o755, INIT_SH, False),
-        (f"{BASE}/machine-name", 0o640, "kaetzli-gardener-test", True),
-        (f"{BASE}/config-{VERSION}.yaml", 0o600, config(), False),
+        (f"{BASE}/machine-name", 0o640, MACHINE_NAME, True),
+        (f"{BASE}/config-{VERSION}.yaml", 0o600, config(api_server, secret_name), False),
     ]
     out = ""
     for path, mode, data, unencoded in files:  # bash.go's FilesToDiskScript

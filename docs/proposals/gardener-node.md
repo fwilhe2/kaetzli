@@ -131,6 +131,17 @@ from Gardener's registry with `ctr`, and node-agent's `bootstrap` writes, enable
 that, and that nothing hit a read-only filesystem. It ends where node-agent asks the API
 server for its kubeconfig (a CSR against a host that does not exist).
 
+`test/gardener-join.py` (the same job) takes that node further, against a kubeadm control
+plane standing in for the shoot's API server. The test does by hand what Gardener's
+control plane would: it approves node-agent's certificate request, binds the node-agents
+group to cluster-admin (Gardener has its own authorizer), and creates the OSC Secret.
+That OSC has a file in `/etc` and a kubelet unit in Gardener's shape. node-agent gets its
+certificate and applies the OSC; its `kubelet.service` in `/etc/systemd/system` replaces
+the extension's (which has no drop-ins to carry over). The kubelet registers the Node
+through its bootstrap kubeconfig, and node-agent annotates the Node with the OSC's
+checksum. Gardener's real OSC is not used: its kubelet comes from an image, and its
+configuration is the extension's business.
+
 `/var` is a disk, and the VM is then rebooted from it: the user data is neither fetched
 nor run again, gardener-node-init does not start, and node-agent starts from its unit in
 `/etc`'s upper layer and its binary in `/var/opt/bin`. That took a fix: the boot's
@@ -146,8 +157,10 @@ to merge.
 
 ## Open questions
 
-- Does node-agent write anywhere else at runtime? Bootstrap does not (the test above);
-  what it writes once it has an OSC needs a control plane to hand it one.
+- Does node-agent write anywhere else at runtime? Bootstrap does not, and with a small
+  OSC it writes the OSC's paths, its own `/var/lib/gardener-node-agent` and kubelet's
+  `/var/lib/kubelet` (`test/gardener-join.py`), all writable. A shoot's full OSC (CA
+  bundles, sysctls, journald, containerd's `certs.d`) is still to be seen.
 - `systemctl start` from user data waits for its unit, and a unit ordered after
   `multi-user.target` deadlocks the boot without `--no-block`. Gardener's generic shape
   (provider-local) uses `restart --no-block`; gardener-extension-os-kaetzli should too.

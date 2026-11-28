@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import functools
 import io
+import os
 import subprocess
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -136,3 +137,33 @@ def test_the_responder_stays_inside_its_directory(tmp_path):
     out = io.BytesIO()
     user_data.serve(root, io.BytesIO(b"GET /../secret HTTP/1.1\r\n\r\n"), out)
     assert out.getvalue().startswith(b"HTTP/1.1 404")
+
+
+def test_the_relay_carries_one_connection_each_way():
+    """What a guestfwd -cmd: relay does for test/gardener-join.py: bytes in on stdin go
+    to the host port, what comes back goes out on stdout, until the guest closes."""
+    import socket
+    import threading
+
+    server = socket.create_server(("127.0.0.1", 0))
+    port = server.getsockname()[1]
+
+    def echo():
+        conn, _ = server.accept()
+        with conn:
+            while data := conn.recv(1024):
+                conn.sendall(data.upper())
+
+    threading.Thread(target=echo, daemon=True).start()
+    in_r, in_w = os.pipe()
+    out_r, out_w = os.pipe()
+    with open(in_r, "rb", buffering=0) as stdin, open(out_w, "wb", buffering=0) as stdout:
+        relay = threading.Thread(target=user_data.relay, args=("127.0.0.1", port, stdin, stdout))
+        relay.start()
+        os.write(in_w, b"hello")
+        assert os.read(out_r, 5) == b"HELLO"
+        os.close(in_w)
+        relay.join(5)
+    assert not relay.is_alive()
+    os.close(out_r)
+    server.close()
