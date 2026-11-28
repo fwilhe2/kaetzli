@@ -380,7 +380,10 @@ def test_the_notes_show_both_ways_to_boot():
     text = release.notes("20261103.141205-42", B, "o/r", "url", [], None, [], [], {})
     assert "releases/latest/download/kernel-amd64" in text
     assert "releases/latest/download/disk-amd64.qcow2" in text
-    assert "OVMF_CODE_4M.fd" in text and "docs/guides/disk.md" in text
+    assert "docs/guides/disk.md" in text
+    # Debian's and Fedora's firmware have different names; the snippet finds either
+    assert "/usr/share/OVMF/OVMF_CODE_4M.fd" in text
+    assert "/usr/share/edk2/ovmf/OVMF_CODE.fd" in text
 
 
 def test_notes_say_free_software_where_the_licenses_are_and_no_warranty():
