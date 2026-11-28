@@ -12,7 +12,8 @@ Secure Boot off.
 What the disk was built for is read back from the guest's /proc/cmdline, which is the
 UKI's own, so one test covers every option:
 
-  always                 the firmware started the UKI (EFI variables exist); / is the
+  always                 the system is running, no unit failed; the firmware started
+                         the UKI (EFI variables exist); / is the
                          verity device, on partition 2 of the bus's disk
                          (/dev/vda2 or /dev/sda2); the machine ID is the SMBIOS UUID
                          (systemd.machine_id=firmware); /etc is writable
@@ -43,7 +44,8 @@ BUSES = {"virtio": "/dev/vda", "scsi": "/dev/sda"}
 
 def check(dev: str) -> str:
     return (
-        "systemctl is-system-running --wait >/dev/null; c=$(</proc/cmdline); "
+        "c=$(</proc/cmdline); "
+        "[[ $(systemctl is-system-running --wait) == running ]] && "
         "[ -d /sys/firmware/efi/efivars ] && "
         f"[[ $c == *'verity 1 {dev}2 {dev}2'* ]] && "
         "[[ $(findmnt -no SOURCE /) == @(/dev/dm-0|/dev/mapper/root) ]] && "
@@ -65,6 +67,7 @@ def check(dev: str) -> str:
 
 DIAGNOSE = (
     "cat /proc/cmdline; findmnt / /var; cat /etc/machine-id /sys/class/dmi/id/product_uuid; "
+    "systemctl --no-pager --failed; "
     "systemctl --no-pager status kaetzli-user-data.service var.mount; "
     "journalctl --no-pager -b -u kaetzli-user-data -u 'systemd-makefs*' -n 40"
 )
@@ -140,8 +143,8 @@ def main(argv_: list[str]) -> int:
             guest.send(check(BUSES[bus]))
             if not guest.wait(r"DISK-OK ([a-z -]*) DISK-END", 180):
                 guest.fail(
-                    "the disk's command line, root, /var, machine ID or user data is not "
-                    "what tools/build-disk.sh made it for"
+                    "a unit failed, or the disk's command line, root, /var, machine ID or "
+                    "user data is not what tools/build-disk.sh made it for"
                 )
             print(
                 f">> disk OK ({bus}, {guest.group().strip()}): booted by UEFI from the ESP, "
